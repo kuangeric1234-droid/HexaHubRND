@@ -412,13 +412,17 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
           </button>
           <button
             onClick={() => handleSave(false)}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-40"
+            disabled={!!duplicateInvoice}
+            title={duplicateInvoice ? `${duplicateInvoice.number} already covers this period` : ''}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Add
           </button>
           <button
             onClick={() => handleSave(true)}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded hover:bg-blue-800 disabled:opacity-40"
+            disabled={!!duplicateInvoice}
+            title={duplicateInvoice ? `${duplicateInvoice.number} already covers this period` : ''}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Add &amp; Send
           </button>

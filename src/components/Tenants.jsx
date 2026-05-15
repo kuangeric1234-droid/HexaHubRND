@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import TenantProfile from './TenantProfile.jsx'
 
 const EMPTY_FORM = {
   businessName: '',
@@ -14,10 +15,11 @@ const EMPTY_FORM = {
 }
 
 export default function Tenants() {
-  const { tenants, addTenant, updateTenant, deleteTenant } = useOutletContext()
+  const { tenants, addTenant, updateTenant, deleteTenant, leases, invoices, spaces, settings } = useOutletContext()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [selectedTenant, setSelectedTenant] = useState(null)
   const [search, setSearch] = useState('')
 
   const filtered = tenants.filter((t) =>
@@ -36,13 +38,13 @@ export default function Tenants() {
   function openEdit(tenant) {
     setEditId(tenant.id)
     setForm({
-      businessName: tenant.businessName,
-      contactName: tenant.contactName,
-      email: tenant.email,
-      phone: tenant.phone,
-      abn: tenant.abn,
-      industry: tenant.industry,
-      country: tenant.country,
+      businessName: tenant.businessName ?? '',
+      contactName: tenant.contactName ?? '',
+      email: tenant.email ?? '',
+      phone: tenant.phone ?? '',
+      abn: tenant.abn ?? '',
+      industry: tenant.industry ?? '',
+      country: tenant.country ?? 'Australia',
     })
     setShowForm(true)
   }
@@ -61,6 +63,20 @@ export default function Tenants() {
     if (window.confirm('Delete this tenant? Any associated leases will remain.')) {
       deleteTenant(id)
     }
+  }
+
+  if (selectedTenant) {
+    return (
+      <TenantProfile
+        tenant={selectedTenant}
+        leases={leases ?? []}
+        invoices={invoices ?? []}
+        spaces={spaces ?? []}
+        settings={settings}
+        onBack={() => setSelectedTenant(null)}
+        onEdit={() => openEdit(selectedTenant)}
+      />
+    )
   }
 
   return (
@@ -110,8 +126,8 @@ export default function Tenants() {
               </tr>
             )}
             {filtered.map((tenant) => (
-              <tr key={tenant.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{tenant.businessName}</td>
+              <tr key={tenant.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedTenant(tenant)}>
+                <td className="px-4 py-3 font-medium text-gray-900 text-blue-700 hover:underline">{tenant.businessName}</td>
                 <td className="px-4 py-3 text-gray-600">{tenant.contactName}</td>
                 <td className="px-4 py-3 text-gray-600">{tenant.email}</td>
                 <td className="px-4 py-3 text-gray-600">{tenant.phone}</td>
@@ -120,7 +136,7 @@ export default function Tenants() {
                 <td className="px-4 py-3 text-gray-500">
                   {tenant.createdAt ? format(parseISO(tenant.createdAt), 'dd/MM/yyyy') : '—'}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-2 justify-end">
                     <button
                       onClick={() => openEdit(tenant)}
