@@ -530,6 +530,7 @@ export default function Billing() {
           tenants={tenants}
           leases={leases}
           spaces={spaces}
+          settings={settings}
           taxRatePct={settings?.billingRules?.taxRate ?? 10}
           onSave={(data) => { addInvoice(data); setShowForm(false) }}
           onClose={() => setShowForm(false)}
