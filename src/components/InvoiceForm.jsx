@@ -128,9 +128,34 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
     }
     const periodLabel = `${format(periodStart, 'd MMM')} – ${format(parseISO(form.periodEnd), 'd MMM yyyy')}`
     const desc = `${space?.unitNumber ?? ''}${space?.address ? ` – ${space.address}` : ''} · ${periodLabel}${isProrated ? ' (prorated)' : ''}${form.payForMonths > 1 ? ` (${form.payForMonths} months)` : ''}`
+
+    // Also add deposit lines for any signed leases with uninvoiced deposits
+    const depositLines = leases
+      .filter((l) => l.tenantId === form.tenantId && ['manually_signed', 'e_signed'].includes(l.signatureStatus))
+      .filter((l) => {
+        const bond = l.items?.[0]?.deposit ?? l.bondAmount ?? 0
+        if (!bond) return false
+        return !invoices.some((inv) => inv.leaseId === l.id && inv.invoiceType === 'deposit' && inv.status !== 'voided')
+      })
+      .map((l) => {
+        const bond = l.items?.[0]?.deposit ?? l.bondAmount ?? 0
+        const sp = spaces.find((s) => s.id === l.spaceId)
+        return {
+          id: `li${Date.now()}_dep_${l.id}`,
+          description: `Security Deposit — ${sp?.unitNumber ?? l.spaceId} (${l.contractNumber ?? `CON-${l.id.slice(-3).toUpperCase()}`})`,
+          revenueAccount: 'Security Deposit',
+          unitPrice: bond,
+          qty: 1,
+          discountPct: 0,
+        }
+      })
+
     setForm((f) => ({
       ...f,
-      lineItems: [{ id: `li${Date.now()}`, description: desc, revenueAccount: 'Membership Fees', unitPrice: amount, qty: 1, discountPct: 0 }],
+      lineItems: [
+        { id: `li${Date.now()}`, description: desc, revenueAccount: 'Membership Fees', unitPrice: amount, qty: 1, discountPct: 0 },
+        ...depositLines,
+      ],
     }))
   }, [form.tenantId, form.periodStart, form.payForMonths]) // eslint-disable-line
 
