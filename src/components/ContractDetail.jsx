@@ -210,7 +210,7 @@ export default function ContractDetail({
       doc.setTextColor(0)
       doc.text('LICENCE AGREEMENT', ml, y)
       doc.setFontSize(13)
-      doc.text('HEXA SPACE', mr, y, { align: 'right' })
+      doc.text('HEXA HUB', mr, y, { align: 'right' })
       doc.setFontSize(7)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(120)
