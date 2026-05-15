@@ -56,7 +56,6 @@ export default function ContractTemplate({ lease, tenant, space, settings }) {
         <h1 className="text-2xl font-bold tracking-widest text-gray-900">LICENCE AGREEMENT</h1>
         <div className="text-right">
           <div className="text-xl font-black tracking-widest text-gray-900">HEXA HUB</div>
-          <div className="text-xs text-gray-400 tracking-widest mt-0.5">六合空间</div>
         </div>
       </div>
 
