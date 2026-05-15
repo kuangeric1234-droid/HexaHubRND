@@ -12,6 +12,7 @@ export default function SignPage({ token }) {
   const [tenant, setTenant] = useState(null)
   const [space, setSpace] = useState(null)
   const [settings, setSettings] = useState(null)
+  const [attachedTemplates, setAttachedTemplates] = useState([])
   const [signerName, setSignerName] = useState('')
   const [signerTitle, setSignerTitle] = useState('')
   const [signerDate, setSignerDate] = useState(format(new Date(), 'dd/MM/yyyy'))
@@ -42,13 +43,21 @@ export default function SignPage({ token }) {
         setLease(leaseData)
         setSettings(settRows?.[0]?.data ?? null)
 
-        const [{ data: tenantRows }, { data: spaceRows }] = await Promise.all([
+        const [{ data: tenantRows }, { data: spaceRows }, { data: tmplRows }] = await Promise.all([
           supabase.from('tenants').select('data').eq('id', leaseData.tenantId),
           supabase.from('spaces').select('data').eq('id', leaseData.spaceId),
+          supabase.from('templates').select('id,data'),
         ])
         setTenant(tenantRows?.[0]?.data ?? null)
         setSpace(spaceRows?.[0]?.data ?? null)
         if (tenantRows?.[0]?.data?.contactName) setSignerName(tenantRows[0].data.contactName)
+
+        const allTemplates = (tmplRows ?? []).map((r) => ({ id: r.id, ...r.data }))
+        const contractTerms = leaseData.contractTerms ?? []
+        const attached = contractTerms
+          .map((ref) => allTemplates.find((t) => t.id === ref) ?? allTemplates.find((t) => `${t.name} - ${t.version}` === ref || t.name === ref))
+          .filter(Boolean)
+        setAttachedTemplates(attached)
 
         setState('ready')
       } catch (err) {
@@ -182,6 +191,17 @@ export default function SignPage({ token }) {
           <div className="bg-white shadow-sm rounded-md overflow-hidden">
             <ContractTemplate lease={lease} tenant={tenant} space={space} settings={settings} />
           </div>
+          {attachedTemplates.map((tmpl) => (
+            <div key={tmpl.id} className="bg-white shadow-sm rounded-md overflow-hidden mt-4 px-12 py-10">
+              <h2 className="text-base font-bold uppercase tracking-widest text-gray-900 mb-3">{tmpl.name}</h2>
+              <hr className="border-gray-300 mb-6" />
+              <div
+                className="template-html-body"
+                style={{ lineHeight: 1.6 }}
+                dangerouslySetInnerHTML={{ __html: tmpl.content ?? '' }}
+              />
+            </div>
+          ))}
           <div className="mt-6 flex justify-end">
             <button
               onClick={() => setView('sign')}
