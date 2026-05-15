@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Pencil, Building2, Mail, Phone, Hash } from 'lucide-react'
+import { ArrowLeft, Pencil, Building2, Mail, Phone, Hash, Plus } from 'lucide-react'
+import InvoiceForm from './InvoiceForm.jsx'
 
 const SIG_BADGE = {
   manually_signed:   { label: 'Signed',       cls: 'bg-green-100 text-green-700' },
@@ -27,18 +29,20 @@ function fmtAud(n) {
   return `$${Number(n ?? 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`
 }
 
-function Section({ title, children }) {
+function Section({ title, action, children }) {
   return (
     <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
         <h3 className="font-semibold text-gray-800 text-sm">{title}</h3>
+        {action}
       </div>
       {children}
     </div>
   )
 }
 
-export default function TenantProfile({ tenant, leases, invoices, spaces, settings, onBack, onEdit, onSelectInvoice, onSelectContract }) {
+export default function TenantProfile({ tenant, leases, invoices, spaces, settings, onBack, onEdit, onSelectInvoice, onSelectContract, onAddInvoice }) {
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false)
   const tenantLeases = leases.filter((l) => l.tenantId === tenant.id)
   const tenantInvoices = invoices.filter((inv) => inv.tenantId === tenant.id)
   const taxRate = (settings?.billingRules?.taxRate ?? 10) / 100
@@ -71,6 +75,7 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
   }).filter(Boolean)
 
   return (
+    <>
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-8 py-4 shrink-0">
@@ -224,7 +229,14 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
             </Section>
 
             {/* ── Invoices ── */}
-            <Section title="Invoices">
+            <Section title="Invoices" action={
+              <button
+                onClick={() => setShowInvoiceForm(true)}
+                className="flex items-center gap-1 text-xs bg-black text-white px-3 py-1.5 rounded hover:bg-gray-800 font-medium"
+              >
+                <Plus size={12} /> Add Invoice
+              </button>
+            }>
               {tenantInvoices.length === 0 ? (
                 <p className="px-5 py-5 text-sm text-gray-400">No invoices.</p>
               ) : (
@@ -265,6 +277,23 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
         </div>
       </div>
     </div>
+
+    {showInvoiceForm && (
+      <InvoiceForm
+        invoices={invoices}
+        tenants={[tenant]}
+        leases={leases}
+        spaces={spaces}
+        settings={settings}
+        taxRatePct={settings?.billingRules?.taxRate ?? 10}
+        onSave={(data) => {
+          onAddInvoice?.(data)
+          setShowInvoiceForm(false)
+        }}
+        onClose={() => setShowInvoiceForm(false)}
+      />
+    )}
+    </>
   )
 }
 

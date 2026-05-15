@@ -15,7 +15,7 @@ const EMPTY_FORM = {
 }
 
 export default function Tenants() {
-  const { tenants, addTenant, updateTenant, deleteTenant, leases, invoices, spaces, settings } = useOutletContext()
+  const { tenants, addTenant, updateTenant, deleteTenant, leases, invoices, spaces, settings, addInvoice } = useOutletContext()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -75,6 +75,7 @@ export default function Tenants() {
         settings={settings}
         onBack={() => setSelectedTenant(null)}
         onEdit={() => openEdit(selectedTenant)}
+        onAddInvoice={(data) => addInvoice({ ...data, tenantId: selectedTenant.id })}
       />
     )
   }
