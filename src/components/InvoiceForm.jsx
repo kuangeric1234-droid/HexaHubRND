@@ -93,6 +93,20 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
 
   const fromName = settings?.billing?.businessName ?? settings?.company?.name ?? 'HexaHub Pty Ltd'
 
+  // When tenant changes, jump to the first uninvoiced month
+  useEffect(() => {
+    if (!form.tenantId || isDepositForm) return
+    const takenMonths = new Set(
+      invoices
+        .filter((inv) => inv.tenantId === form.tenantId && inv.status !== 'voided' && inv.periodStart)
+        .map((inv) => inv.periodStart.slice(0, 7))
+    )
+    const firstAvail = MONTH_OPTIONS.find((o) => !takenMonths.has(o.value.slice(0, 7)))
+    if (firstAvail && firstAvail.value !== form.periodStart) {
+      setForm((f) => ({ ...f, periodStart: firstAvail.value, periodEnd: firstAvail.end }))
+    }
+  }, [form.tenantId]) // eslint-disable-line
+
   // Auto-fill line items when tenant/period changes (skip if deposit lines were pre-filled)
   useEffect(() => {
     if (!form.tenantId) return
@@ -153,17 +167,17 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
     }))
   }
 
-  // Check for existing invoice for same tenant + period month (skip for deposit invoices)
-  const periodMonth = form.periodStart?.slice(0, 7) // yyyy-MM
   const isDepositForm = defaultInvoiceType === 'deposit'
-  const duplicateInvoice = !isDepositForm && form.tenantId && periodMonth
-    ? invoices.find(
-        (inv) =>
-          inv.tenantId === form.tenantId &&
-          inv.status !== 'voided' &&
-          inv.periodStart?.slice(0, 7) === periodMonth
-      )
-    : null
+
+  // Months already invoiced for this tenant (exclude from dropdown)
+  const invoicedMonths = new Set(
+    !isDepositForm && form.tenantId
+      ? invoices
+          .filter((inv) => inv.tenantId === form.tenantId && inv.status !== 'voided' && inv.periodStart)
+          .map((inv) => inv.periodStart.slice(0, 7))
+      : []
+  )
+  const availableMonths = MONTH_OPTIONS.filter((o) => !invoicedMonths.has(o.value.slice(0, 7)))
 
   function validate() {
     const e = {}
@@ -295,9 +309,9 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
           </FormRow>
 
           {/* Period Start + Pay For */}
-          {duplicateInvoice && (
+          {!isDepositForm && availableMonths.length === 0 && (
             <div className="bg-orange-50 border border-orange-200 rounded px-4 py-2.5 text-sm text-orange-700">
-              ⚠ An invoice ({duplicateInvoice.number}) already exists for this company and period. Detach that invoice's line items first to re-invoice this period.
+              ⚠ All available months have been invoiced for this company. Detach an invoice's line items to re-invoice a period.
             </div>
           )}
           <div className="grid grid-cols-2 gap-6">
@@ -307,7 +321,7 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
                 onChange={(e) => setPeriod(e.target.value)}
                 className={inputCls}
               >
-                {MONTH_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {availableMonths.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </FormRow>
             <FormRow label="Pay For">
@@ -423,17 +437,13 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
           </button>
           <button
             onClick={() => handleSave(false)}
-            disabled={!!duplicateInvoice}
-            title={duplicateInvoice ? `${duplicateInvoice.number} already covers this period` : ''}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
           >
             Add
           </button>
           <button
             onClick={() => handleSave(true)}
-            disabled={!!duplicateInvoice}
-            title={duplicateInvoice ? `${duplicateInvoice.number} already covers this period` : ''}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded hover:bg-blue-800"
           >
             Add &amp; Send
           </button>
