@@ -392,7 +392,57 @@ export default function ContractDetail({
         }
       }
 
-      // Page numbers
+      // ── Attached Templates (T&C, House Rules, etc.) ───────────────────
+      if (attachedTemplates.length > 0) {
+        function renderHtml(html) {
+          const container = document.createElement('div')
+          container.innerHTML = html ?? ''
+          for (const node of container.childNodes) {
+            if (node.nodeType !== 1) continue
+            const tag = node.tagName.toLowerCase()
+            const text = node.textContent?.trim()
+            if (!text) continue
+            if (y + 12 > H - 15) { doc.addPage(); y = 20 }
+            if (tag === 'h1' || tag === 'h2') {
+              doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
+              const lines = doc.splitTextToSize(text, mr - ml)
+              doc.text(lines, ml, y); y += lines.length * 5.5 + 4
+            } else if (tag === 'h3') {
+              doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
+              const lines = doc.splitTextToSize(text, mr - ml)
+              doc.text(lines, ml, y); y += lines.length * 5 + 2
+            } else if (tag === 'p') {
+              doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50)
+              const lines = doc.splitTextToSize(text, mr - ml)
+              doc.text(lines, ml, y); y += lines.length * 4.3 + 3
+            } else if (tag === 'ul' || tag === 'ol') {
+              const items = Array.from(node.querySelectorAll('li'))
+              items.forEach((li, idx) => {
+                if (y + 8 > H - 15) { doc.addPage(); y = 20 }
+                const prefix = tag === 'ol' ? `${idx + 1}.  ` : '•  '
+                doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 50, 50)
+                const lines = doc.splitTextToSize(prefix + li.textContent.trim(), mr - ml - 6)
+                doc.text(lines, ml + 5, y); y += lines.length * 4.3 + 2
+              })
+              y += 2
+            }
+          }
+          doc.setTextColor(0)
+        }
+
+        for (const tmpl of attachedTemplates) {
+          doc.addPage(); y = 20
+          doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
+          doc.text(tmpl.name.toUpperCase(), ml, y); y += 7
+          doc.setDrawColor(0); doc.setLineWidth(0.4)
+          doc.line(ml, y, mr, y); y += 8
+          const html = tmpl.content
+            ?? (tmpl.clauses ?? []).map((c) => `<h3>${c.number}. ${c.title}</h3><p>${c.content}</p>`).join('')
+          renderHtml(html)
+        }
+      }
+
+      // Page numbers (runs after all pages including templates are created)
       const pages = doc.getNumberOfPages()
       for (let i = 1; i <= pages; i++) {
         doc.setPage(i)
