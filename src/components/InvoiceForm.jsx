@@ -93,9 +93,10 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
 
   const fromName = settings?.billing?.businessName ?? settings?.company?.name ?? 'HexaHub Pty Ltd'
 
-  // Auto-fill line items when tenant/period changes
+  // Auto-fill line items when tenant/period changes (skip if deposit lines were pre-filled)
   useEffect(() => {
     if (!form.tenantId) return
+    if (defaultLineItems) return  // don't overwrite pre-filled deposit lines
     const activeLease = leases.find((l) => l.tenantId === form.tenantId && l.status === 'active')
     if (!activeLease) return
     const space = spaces.find((s) => s.id === activeLease.spaceId)
@@ -152,9 +153,10 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
     }))
   }
 
-  // Check for existing invoice for same tenant + period month
+  // Check for existing invoice for same tenant + period month (skip for deposit invoices)
   const periodMonth = form.periodStart?.slice(0, 7) // yyyy-MM
-  const duplicateInvoice = form.tenantId && periodMonth
+  const isDepositForm = defaultInvoiceType === 'deposit'
+  const duplicateInvoice = !isDepositForm && form.tenantId && periodMonth
     ? invoices.find(
         (inv) =>
           inv.tenantId === form.tenantId &&
