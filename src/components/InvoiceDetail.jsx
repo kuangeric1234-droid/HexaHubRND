@@ -39,6 +39,8 @@ export default function InvoiceDetail({
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [payForm, setPayForm] = useState({ amount: '', date: format(new Date(), 'yyyy-MM-dd'), method: 'Bank Transfer', note: '' })
   const [commentText, setCommentText] = useState('')
+  const [showDetach, setShowDetach] = useState(false)
+  const [detachSelected, setDetachSelected] = useState([])
 
   const taxRatePct = settings?.billingRules?.taxRate ?? 10
   const taxRate = taxRatePct / 100
@@ -189,7 +191,8 @@ export default function InvoiceDetail({
     if (!window.confirm(`Send ${invoice.number} to ${email}?`)) return
     try {
       const doc = await buildPDFDoc()
-      const pdfBase64 = doc.output('base64')
+      const pdfDataUri = doc.output('datauristring')
+      const pdfBase64 = pdfDataUri.split(',')[1]
       const slug = (tenant?.businessName ?? 'invoice').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
       await sendEmail({
         to: email,
@@ -205,6 +208,18 @@ export default function InvoiceDetail({
         alert(`Note: email may not have been delivered (${err.message}). Invoice marked as sent.`)
       }
     }
+  }
+
+  function handleDetachConfirm() {
+    if (!detachSelected.length) return
+    const remaining = (invoice.lineItems ?? []).filter((l) => !detachSelected.includes(l.id))
+    if (remaining.length === 0) {
+      onVoid(invoice.id)
+    } else {
+      onUpdate(invoice.id, { lineItems: remaining })
+    }
+    setShowDetach(false)
+    setDetachSelected([])
   }
 
   function handleVoid() {
@@ -249,6 +264,14 @@ export default function InvoiceDetail({
             <span className="text-sm font-semibold text-gray-800">{invoice.number}</span>
           </div>
           <div className="flex items-center gap-2">
+            {invoice.status !== 'voided' && (invoice.lineItems ?? []).length > 0 && (
+              <button
+                onClick={() => { setDetachSelected([]); setShowDetach(true) }}
+                className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600 font-medium"
+              >
+                Detach
+              </button>
+            )}
             <button
               onClick={() => onUpdate(invoice.id, { xeroSync: !invoice.xeroSync })}
               className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600"
@@ -495,5 +518,76 @@ export default function InvoiceDetail({
         </div>
       </div>
     </div>
+
+    {/* Detach modal */}
+    {showDetach && (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-md w-full max-w-lg shadow-2xl">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Detach Invoice Lines</h2>
+            <button onClick={() => setShowDetach(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+          </div>
+          <div className="px-6 py-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left pb-2 w-6">
+                    <input
+                      type="checkbox"
+                      checked={detachSelected.length === (invoice.lineItems ?? []).length && detachSelected.length > 0}
+                      onChange={(e) => setDetachSelected(e.target.checked ? (invoice.lineItems ?? []).map((l) => l.id) : [])}
+                      className="h-4 w-4"
+                    />
+                  </th>
+                  <th className="text-left pb-2 text-gray-600 font-semibold">Description</th>
+                  <th className="text-right pb-2 text-gray-600 font-semibold">Unit Price</th>
+                  <th className="text-right pb-2 text-gray-600 font-semibold">Quantity</th>
+                  <th className="text-right pb-2 text-gray-600 font-semibold">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(invoice.lineItems ?? []).map((line) => {
+                  const price = Math.round(line.unitPrice * line.qty * (1 - (line.discountPct ?? 0) / 100) * 100) / 100
+                  return (
+                    <tr key={line.id} className="border-b border-gray-100">
+                      <td className="py-3">
+                        <input
+                          type="checkbox"
+                          checked={detachSelected.includes(line.id)}
+                          onChange={(e) => setDetachSelected((s) => e.target.checked ? [...s, line.id] : s.filter((id) => id !== line.id))}
+                          className="h-4 w-4"
+                        />
+                      </td>
+                      <td className="py-3 text-gray-700">{line.description}</td>
+                      <td className="py-3 text-right text-gray-700">${Number(line.unitPrice).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-3 text-right text-gray-700">{line.qty}</td>
+                      <td className="py-3 text-right text-gray-700">${price.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {detachSelected.length === 0 && (
+              <div className="mt-3 bg-orange-50 border border-orange-200 rounded px-4 py-2.5 text-sm text-orange-700 flex items-center gap-2">
+                ⚠ No line items selected.
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
+            <button onClick={() => setShowDetach(false)}
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
+              Close
+            </button>
+            <button
+              onClick={handleDetachConfirm}
+              disabled={detachSelected.length === 0}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-40"
+            >
+              Detach
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   )
 }

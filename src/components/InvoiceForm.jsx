@@ -151,6 +151,17 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
     }))
   }
 
+  // Check for existing invoice for same tenant + period month
+  const periodMonth = form.periodStart?.slice(0, 7) // yyyy-MM
+  const duplicateInvoice = form.tenantId && periodMonth
+    ? invoices.find(
+        (inv) =>
+          inv.tenantId === form.tenantId &&
+          inv.status !== 'voided' &&
+          inv.periodStart?.slice(0, 7) === periodMonth
+      )
+    : null
+
   function validate() {
     const e = {}
     if (!form.tenantId) e.tenantId = 'Company is required.'
@@ -273,6 +284,11 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
           </FormRow>
 
           {/* Period Start + Pay For */}
+          {duplicateInvoice && (
+            <div className="bg-orange-50 border border-orange-200 rounded px-4 py-2.5 text-sm text-orange-700">
+              ⚠ An invoice ({duplicateInvoice.number}) already exists for this company and period. Detach that invoice's line items first to re-invoice this period.
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-6">
             <FormRow label="Period Start">
               <select
