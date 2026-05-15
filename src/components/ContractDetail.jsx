@@ -4,6 +4,7 @@ import { format, parseISO, differenceInDays } from 'date-fns'
 import { ArrowLeft, MoreHorizontal, Pencil, Trash2, FileDown, ChevronDown, LayoutGrid, FileText, CheckCircle2 } from 'lucide-react'
 import ContractTemplate from './ContractTemplate.jsx'
 import { sendEmail, eSignEmailHtml } from '../lib/sendEmail.js'
+import { supabase } from '../lib/supabase.js'
 
 const SIG_STATUS = {
   manually_signed: { label: 'Manually Signed', cls: 'bg-green-500 text-white' },
@@ -56,15 +57,30 @@ export default function ContractDetail({
 
   async function handleSendForESign() {
     setShowSignMenu(false)
+
+    // Generate unique signing token
+    const token = crypto.randomUUID()
+    const baseUrl = window.location.origin
+    const memberLink = `${baseUrl}/sign/${token}`
+    const adminLink = `${baseUrl}/sign/${token}?admin=1`
+
+    // Save token to Supabase esign_requests table
+    await supabase.from('esign_requests').insert({
+      token,
+      lease_id: lease.id,
+      tenant_id: lease.tenantId,
+      status: 'pending',
+    })
+
     const updatedLease = {
       signatureStatus: 'out_for_signature',
-      eSignAdminLink: `https://esign.hexahub.com.au/admin/${lease.id}`,
-      eSignMemberLink: `https://esign.hexahub.com.au/member/${lease.id}`,
+      eSignAdminLink: adminLink,
+      eSignMemberLink: memberLink,
       eSignSentAt: new Date().toISOString(),
     }
     if (onUpdateLease) onUpdateLease(lease.id, updatedLease)
 
-    // Send eSign email to tenant if email is on file
+    // Send eSign email to tenant
     if (tenant?.email) {
       try {
         const mergedLease = { ...lease, ...updatedLease }

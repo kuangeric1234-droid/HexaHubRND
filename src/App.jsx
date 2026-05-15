@@ -11,10 +11,15 @@ import Templates from './components/Templates.jsx'
 import Billing from './components/Billing.jsx'
 import Settings from './components/Settings.jsx'
 import Login from './components/Login.jsx'
+import SignPage from './components/SignPage.jsx'
 import { useStore } from './store/useStore.js'
 import { supabase } from './lib/supabase.js'
 
 export default function App() {
+  // Public sign page — no auth needed
+  const signMatch = window.location.pathname.match(/^\/sign\/([^/]+)/)
+  if (signMatch) return <SignPage token={signMatch[1]} />
+
   const store = useStore()
   const [authed, setAuthed] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
