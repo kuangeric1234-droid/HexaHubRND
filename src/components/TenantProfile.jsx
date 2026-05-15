@@ -299,6 +299,7 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
             unitPrice: bond,
             qty: 1,
             discountPct: 0,
+            vatExempt: true,
           }
         })
       return (

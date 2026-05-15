@@ -16,13 +16,15 @@ function calcLineTotal(item) {
 }
 
 function calcTotals(invoice, taxRate = 0.1) {
-  const subtotal = (invoice.lineItems ?? []).reduce((s, l) => s + calcLineTotal(l), 0)
+  const lines = invoice.lineItems ?? []
+  const subtotal = lines.reduce((s, l) => s + calcLineTotal(l), 0)
   const discountAmount = Math.round(subtotal * ((invoice.discountPct ?? 0) / 100) * 100) / 100
-  const taxable = subtotal - discountAmount
-  const gst = invoice.vatEnabled !== false ? Math.round(taxable * taxRate * 100) / 100 : 0
-  const total = taxable + gst
+  const taxableSubtotal = lines.filter((l) => !l.vatExempt).reduce((s, l) => s + calcLineTotal(l), 0)
+  const taxableAfterDiscount = Math.max(0, taxableSubtotal - discountAmount)
+  const gst = invoice.vatEnabled !== false ? Math.round(taxableAfterDiscount * taxRate * 100) / 100 : 0
+  const total = Math.round((subtotal - discountAmount + gst) * 100) / 100
   const paid = (invoice.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-  return { subtotal, discountAmount, taxable, gst, total, paid, amountDue: Math.max(0, total - paid) }
+  return { subtotal, discountAmount, taxable: taxableAfterDiscount, gst, total, paid, amountDue: Math.max(0, total - paid) }
 }
 
 export default function InvoiceDetail({
@@ -131,12 +133,13 @@ export default function InvoiceDetail({
     doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 40, 40)
     for (const line of (invoice.lineItems ?? [])) {
       const lineTotal = calcLineTotal(line)
-      const lineGst = invoice.vatEnabled !== false ? Math.round(lineTotal * taxRate * 100) / 100 : 0
-      const descLines = doc.splitTextToSize(line.description, 95)
+      const exempt = line.vatExempt || invoice.vatEnabled === false
+      const lineGst = exempt ? 0 : Math.round(lineTotal * taxRate * 100) / 100
+      const descLines = doc.splitTextToSize(line.description + (exempt ? ' (GST Exempt)' : ''), 95)
       doc.text(descLines, ml, y)
       doc.text(String(line.qty), 118, y, { align: 'right' })
       doc.text(`${lineTotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`, 141, y, { align: 'right' })
-      doc.text(String(lineGst > 0 ? taxRatePct : 0), 158, y, { align: 'right' })
+      doc.text(exempt ? '—' : String(taxRatePct), 158, y, { align: 'right' })
       doc.text(`${lineTotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`, mr, y, { align: 'right' })
       y += descLines.length * 5 + 2
     }
@@ -378,7 +381,10 @@ export default function InvoiceDetail({
                 <tbody>
                   {(invoice.lineItems ?? []).map((line) => (
                     <tr key={line.id} className="border-b border-gray-100 last:border-0">
-                      <td className="px-4 py-3 text-gray-800 text-sm">{line.description}</td>
+                      <td className="px-4 py-3 text-gray-800 text-sm">
+                        {line.description}
+                        {line.vatExempt && <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">GST Exempt</span>}
+                      </td>
                       <td className="px-4 py-2.5">
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">
                           {line.revenueAccount}

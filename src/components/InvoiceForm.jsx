@@ -19,9 +19,13 @@ function calcLineTotal(item) {
 function calcTotals(lineItems, discountPct, taxRate = 0.1) {
   const lineSubtotal = lineItems.reduce((s, l) => s + calcLineTotal(l), 0)
   const invoiceDiscount = Math.round(lineSubtotal * (discountPct / 100) * 100) / 100
-  const taxable = lineSubtotal - invoiceDiscount
-  const gst = Math.round(taxable * taxRate * 100) / 100
-  return { lineSubtotal, invoiceDiscount, taxable, gst, total: Math.round((taxable + gst) * 100) / 100 }
+  const taxableSubtotal = lineItems
+    .filter((l) => !l.vatExempt)
+    .reduce((s, l) => s + calcLineTotal(l), 0)
+  const taxableAfterDiscount = Math.max(0, taxableSubtotal - invoiceDiscount)
+  const gst = Math.round(taxableAfterDiscount * taxRate * 100) / 100
+  const total = Math.round((lineSubtotal - invoiceDiscount + gst) * 100) / 100
+  return { lineSubtotal, invoiceDiscount, taxable: taxableAfterDiscount, gst, total }
 }
 
 function newLine() {
@@ -147,6 +151,7 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
           unitPrice: bond,
           qty: 1,
           discountPct: 0,
+          vatExempt: true,
         }
       })
 
