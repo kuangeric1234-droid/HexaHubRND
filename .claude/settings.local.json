@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"c:\\\\Hexa-HubRND\"; npm run build 2>&1 | Where-Object { $_ -match \"built in|ERROR\" } | Select-Object -Last 3)",
+      "PowerShell(cd \"c:\\\\Hexa-HubRND\"; npm run build 2>&1 | Where-Object { $_ -match \"built in|ERROR\" })",
+      "PowerShell(cd \"c:\\\\Hexa-HubRND\"; npm run build 2>&1 | Where-Object { $_ -match \"built in|error\" } | Select-Object -Last 3)",
+      "PowerShell(cd \"c:\\\\Hexa-HubRND\"; npm run build 2>&1 | Where-Object { $_ -match \"built in|ERROR\" } | Select-Object -Last 2)",
+      "Bash(npx vite *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)"
+    ]
+  }
+}
