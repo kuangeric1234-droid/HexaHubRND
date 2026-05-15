@@ -6,6 +6,7 @@ import ContractTemplate from './ContractTemplate.jsx'
 import SignatureCanvas from './SignatureCanvas.jsx'
 import { sendEmail, eSignEmailHtml } from '../lib/sendEmail.js'
 import { supabase } from '../lib/supabase.js'
+import { jsPDF } from 'jspdf'
 
 const SIG_STATUS = {
   manually_signed: { label: 'Manually Signed', cls: 'bg-green-500 text-white' },
@@ -193,7 +194,6 @@ export default function ContractDetail({
 
   // sigData = { licensee_signature_data, licensee_signer_name, licensee_signed_at, licensor_signature_data, licensor_signer_name, licensor_signed_at }
   async function buildContractPDF(sigData = null) {
-    const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const W = doc.internal.pageSize.getWidth()
     const H = doc.internal.pageSize.getHeight()

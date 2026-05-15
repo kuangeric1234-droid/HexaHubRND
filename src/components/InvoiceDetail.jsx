@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ArrowLeft, Send, RefreshCw, Ban, FileMinus, FileDown, Plus, MessageSquare, ToggleLeft, ToggleRight } from 'lucide-react'
 import { sendEmail, invoiceEmailHtml } from '../lib/sendEmail.js'
+import { jsPDF } from 'jspdf'
 
 const STATUS_STYLE = {
   pending: 'bg-orange-100 text-orange-800 border border-orange-300',
@@ -47,7 +48,6 @@ export default function InvoiceDetail({
 
   // ── PDF Generation ─────────────────────────────────────────────────────
   async function buildPDFDoc() {
-    const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const W = doc.internal.pageSize.getWidth()
     const H = doc.internal.pageSize.getHeight()

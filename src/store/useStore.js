@@ -637,6 +637,48 @@ export function useStore() {
             })
           }
 
+          // ── Deposit invoices for signed contracts ─────────────────────
+          const signedStatuses = ['manually_signed', 'e_signed']
+          const allLeasesList = loadedLeases ?? []
+          for (const lease of allLeasesList) {
+            if (!signedStatuses.includes(lease.signatureStatus)) continue
+            const depositAmount = lease.items?.[0]?.deposit ?? lease.bondAmount ?? 0
+            if (!depositAmount || depositAmount <= 0) continue
+            const alreadyHasDeposit = [...loadedInvoices, ...newInvoices].some(
+              (inv) => inv.leaseId === lease.id && inv.invoiceType === 'deposit' && inv.status !== 'voided'
+            )
+            if (alreadyHasDeposit) continue
+            const fmt = (d) => d.toISOString().split('T')[0]
+            const space = loadedSpaces.find((sp) => sp.id === lease.spaceId)
+            const allNums = [...loadedInvoices, ...newInvoices]
+              .map((i) => parseInt(i.number?.replace(/\D/g, '') || '0', 10))
+              .filter((n) => !isNaN(n))
+            const nextNum = allNums.length > 0 ? Math.max(...allNums) + 1 : 1
+            const dueDate = new Date(today.getTime())
+            dueDate.setDate(dueDate.getDate() + dueDateDays)
+            newInvoices.push({
+              id: `inv${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              number: invTemplate.replace('{{number}}', String(nextNum).padStart(4, '0')),
+              tenantId: lease.tenantId, leaseId: lease.id,
+              status: 'pending', sentStatus: 'not_sent', source: 'bill-run',
+              invoiceType: 'deposit',
+              issueDate: fmt(today), dueDate: fmt(dueDate),
+              periodStart: null, periodEnd: null,
+              reference: '', paymentMethod: '', discountPct: 0,
+              vatEnabled: true, xeroSync: false, isProrated: false,
+              lineItems: [{
+                id: `li${Date.now()}`,
+                description: `Security Deposit — ${space?.unitNumber ?? lease.spaceId}`,
+                revenueAccount: 'Security Deposit',
+                unitPrice: depositAmount,
+                qty: 1,
+                discountPct: 0,
+              }],
+              payments: [], comments: [], creditNoteForId: null,
+              createdAt: fmt(today),
+            })
+          }
+
           if (newInvoices.length > 0) {
             setInvoices([...loadedInvoices, ...newInvoices])
             await seedTable('invoices', [...loadedInvoices, ...newInvoices])

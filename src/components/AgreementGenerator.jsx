@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { FileDown, FileText } from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const TYPE_LABEL = {
   warehouse: 'Warehouse Unit',
@@ -37,9 +39,6 @@ export default function AgreementGenerator() {
     if (!selectedLease || !selectedTenant || !selectedSpace) return
     setGenerating(true)
     setGenerated(false)
-
-    const { jsPDF } = await import('jspdf')
-    const autoTable = (await import('jspdf-autotable')).default
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const pageW = doc.internal.pageSize.getWidth()
