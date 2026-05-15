@@ -507,12 +507,12 @@ function extractRows(data) {
 
 export function useStore() {
   const [loading, setLoading] = useState(true)
-  const [tenants, setTenants] = useState(SAMPLE_TENANTS)
-  const [spaces, setSpaces] = useState(SAMPLE_SPACES)
-  const [leases, setLeases] = useState(SAMPLE_LEASES)
-  const [templates, setTemplates] = useState(SAMPLE_TEMPLATES)
-  const [invoices, setInvoices] = useState(SAMPLE_INVOICES)
-  const [discounts, setDiscounts] = useState(SAMPLE_DISCOUNTS)
+  const [tenants, setTenants] = useState([])
+  const [spaces, setSpaces] = useState([])
+  const [leases, setLeases] = useState([])
+  const [templates, setTemplates] = useState([])
+  const [invoices, setInvoices] = useState([])
+  const [discounts, setDiscounts] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   // Always-current settings ref for callbacks
@@ -538,24 +538,28 @@ export function useStore() {
           supabase.from('meta').select('*'),
         ])
 
-        const loadedTenants   = tData?.length    ? extractRows(tData)    : SAMPLE_TENANTS
-        const loadedSpaces    = sData?.length    ? extractRows(sData)    : SAMPLE_SPACES
-        const loadedLeases    = lData?.length    ? extractRows(lData)    : SAMPLE_LEASES
-        const loadedTemplates = tmData?.length   ? extractRows(tmData)   : SAMPLE_TEMPLATES
-        const loadedInvoices  = invData?.length  ? extractRows(invData)  : SAMPLE_INVOICES
-        const loadedDiscounts = discData?.length ? extractRows(discData) : SAMPLE_DISCOUNTS
+        // 'seeded' flag — once set, we NEVER fall back to sample data again
+        const isSeeded = metaData?.find((m) => m.key === 'seeded')?.value === 'true'
+
+        const loadedTenants   = tData?.length    ? extractRows(tData)    : (isSeeded ? [] : SAMPLE_TENANTS)
+        const loadedSpaces    = sData?.length    ? extractRows(sData)    : (isSeeded ? [] : SAMPLE_SPACES)
+        const loadedLeases    = lData?.length    ? extractRows(lData)    : (isSeeded ? [] : SAMPLE_LEASES)
+        const loadedTemplates = tmData?.length   ? extractRows(tmData)   : (isSeeded ? [] : SAMPLE_TEMPLATES)
+        const loadedInvoices  = invData?.length  ? extractRows(invData)  : (isSeeded ? [] : SAMPLE_INVOICES)
+        const loadedDiscounts = discData?.length ? extractRows(discData) : (isSeeded ? [] : SAMPLE_DISCOUNTS)
         const loadedSettings  = settData?.[0]?.data ?? DEFAULT_SETTINGS
         const lastBillRun     = metaData?.find((m) => m.key === 'last_bill_run')?.value ?? null
 
-        // Seed Supabase if tables were empty
-        if (!tData?.length)    await seedTable('tenants',   loadedTenants)
-        if (!sData?.length)    await seedTable('spaces',    loadedSpaces)
-        if (!lData?.length)    await seedTable('leases',    loadedLeases)
-        if (!tmData?.length)   await seedTable('templates', loadedTemplates)
-        if (!invData?.length)  await seedTable('invoices',  loadedInvoices)
-        if (!discData?.length) await seedTable('discounts', loadedDiscounts)
-        if (!settData?.length) {
-          await supabase.from('settings').upsert({ id: 'global', data: loadedSettings })
+        // Seed sample data only on the very first ever load
+        if (!isSeeded) {
+          if (!tData?.length)    await seedTable('tenants',   SAMPLE_TENANTS)
+          if (!sData?.length)    await seedTable('spaces',    SAMPLE_SPACES)
+          if (!lData?.length)    await seedTable('leases',    SAMPLE_LEASES)
+          if (!tmData?.length)   await seedTable('templates', SAMPLE_TEMPLATES)
+          if (!invData?.length)  await seedTable('invoices',  SAMPLE_INVOICES)
+          if (!discData?.length) await seedTable('discounts', SAMPLE_DISCOUNTS)
+          if (!settData?.length) await supabase.from('settings').upsert({ id: 'global', data: loadedSettings })
+          await supabase.from('meta').upsert({ key: 'seeded', value: 'true' })
         }
 
         setTenants(loadedTenants)
@@ -867,6 +871,7 @@ export function useStore() {
       seedTable('templates', SAMPLE_TEMPLATES),
       seedTable('invoices', SAMPLE_INVOICES),
       seedTable('discounts', SAMPLE_DISCOUNTS),
+      supabase.from('meta').upsert({ key: 'seeded', value: 'true' }),
     ])
   }, [])
 
