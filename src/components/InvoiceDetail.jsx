@@ -252,6 +252,7 @@ export default function InvoiceDetail({
   }
 
   return (
+    <>
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-8 py-4 shrink-0">
@@ -589,5 +590,6 @@ export default function InvoiceDetail({
         </div>
       </div>
     )}
+    </>
   )
 }
