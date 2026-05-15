@@ -1,12 +1,20 @@
 -- Run this in Supabase SQL Editor
-create table if not exists esign_requests (
+-- Drop and recreate for clean slate
+drop table if exists esign_requests;
+
+create table esign_requests (
   token text primary key,
   lease_id text not null,
   tenant_id text,
-  status text default 'pending',
-  signature_data text,
-  signer_name text,
-  signed_at timestamptz,
+  status text default 'pending', -- pending | tenant_signed | fully_signed
+  -- Licensee (tenant) signature
+  licensee_signature_data text,
+  licensee_signer_name text,
+  licensee_signed_at timestamptz,
+  -- Licensor (admin/HexaHub) signature
+  licensor_signature_data text,
+  licensor_signer_name text,
+  licensor_signed_at timestamptz,
   created_at timestamptz default now()
 );
 

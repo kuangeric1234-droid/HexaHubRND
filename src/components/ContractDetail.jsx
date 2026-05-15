@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ArrowLeft, MoreHorizontal, Pencil, Trash2, FileDown, ChevronDown, LayoutGrid, FileText, CheckCircle2 } from 'lucide-react'
 import ContractTemplate from './ContractTemplate.jsx'
+import SignatureCanvas from './SignatureCanvas.jsx'
 import { sendEmail, eSignEmailHtml } from '../lib/sendEmail.js'
 import { supabase } from '../lib/supabase.js'
 
@@ -43,10 +44,15 @@ export default function ContractDetail({
   const [generating, setGenerating] = useState(false)
   const [copyMsg, setCopyMsg] = useState('')
   const [eSignData, setESignData] = useState(null)
+  const [showCountersignModal, setShowCountersignModal] = useState(false)
+  const [licensorName, setLicensorName] = useState(settings?.company?.name ?? 'HexaHub Pty Ltd')
+  const [counterskigning, setCountersigning] = useState(false)
+  const licensorSigRef = useRef(null)
 
-  // Fetch signature data when contract is e_signed
+  // Fetch esign data when contract is out_for_signature or e_signed
   useEffect(() => {
-    if (lease.signatureStatus !== 'e_signed') return
+    const relevant = ['out_for_signature', 'e_signed']
+    if (!relevant.includes(lease.signatureStatus)) return
     const memberLink = lease.eSignMemberLink ?? ''
     const tokenMatch = memberLink.match(/\/sign\/([^/?]+)/)
     if (!tokenMatch) return
@@ -141,7 +147,51 @@ export default function ContractDetail({
     .map((ref) => templates.find((t) => t.id === ref) ?? templates.find((t) => `${t.name} - ${t.version}` === ref || t.name === ref))
     .filter(Boolean)
 
-  // sigData = { signer_name, signed_at, signature_data } — optional, fills in Licensee block
+  async function handleCountersign() {
+    if (!licensorName.trim()) { alert('Please enter the licensor name.'); return }
+    if (licensorSigRef.current?.isEmpty()) { alert('Please draw the licensor signature.'); return }
+    setCountersigning(true)
+    try {
+      const signatureData = licensorSigRef.current.toDataURL()
+      const now = new Date().toISOString()
+      const memberLink = lease.eSignMemberLink ?? ''
+      const tokenMatch = memberLink.match(/\/sign\/([^/?]+)/)
+      if (tokenMatch) {
+        await supabase.from('esign_requests').update({
+          status: 'fully_signed',
+          licensor_signature_data: signatureData,
+          licensor_signer_name: licensorName,
+          licensor_signed_at: now,
+        }).eq('token', tokenMatch[1])
+      }
+      if (onUpdateLease) onUpdateLease(lease.id, { signatureStatus: 'e_signed', signedAt: now, signerName: lease.tenantSignerName ?? tenant?.contactName })
+      setESignData((prev) => ({ ...prev, status: 'fully_signed', licensor_signature_data: signatureData, licensor_signer_name: licensorName, licensor_signed_at: now }))
+      setShowCountersignModal(false)
+
+      // Email tenant that agreement is fully executed
+      if (tenant?.email) {
+        const contractNum = lease.contractNumber ?? `CON-${lease.id?.slice(-3).toUpperCase()}`
+        const companyName = settings?.company?.name ?? 'HexaHub'
+        sendEmail({
+          to: tenant.email,
+          subject: `Fully executed: ${contractNum} — ${companyName}`,
+          html: `<div style="font-family:Arial,sans-serif;padding:32px;max-width:560px;color:#1a1a1a">
+            <div style="font-size:18px;font-weight:bold;letter-spacing:2px;margin-bottom:16px">${companyName.toUpperCase()}</div>
+            <p>Hi ${tenant.contactName ?? ''},</p>
+            <p>Your Licence Agreement <strong>${contractNum}</strong> has been fully executed and signed by all parties.</p>
+            <p style="color:#888;font-size:12px">If you require a copy, please contact us directly.</p>
+          </div>`,
+          settings,
+        }).catch(() => {})
+      }
+    } catch (err) {
+      alert(`Error: ${err.message}`)
+    } finally {
+      setCountersigning(false)
+    }
+  }
+
+  // sigData = { licensee_signature_data, licensee_signer_name, licensee_signed_at, licensor_signature_data, licensor_signer_name, licensor_signed_at }
   async function buildContractPDF(sigData = null) {
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -325,19 +375,22 @@ export default function ContractDetail({
         y += 9
       }
 
-      // Fill in Licensee block if signature data provided
-      if (sigData) {
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(8)
-        doc.setTextColor(0)
-        if (sigData.signer_name) doc.text(sigData.signer_name, ml + 18, sigStartY + 1)
-        if (sigData.signed_at) {
-          doc.text(format(parseISO(sigData.signed_at), 'dd/MM/yyyy'), ml + 18, sigStartY + 19)
+      // Fill in Licensee (left) block
+      if (sigData?.licensee_signer_name) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(0)
+        doc.text(sigData.licensee_signer_name, ml + 18, sigStartY + 1)
+        if (sigData.licensee_signed_at) doc.text(format(parseISO(sigData.licensee_signed_at), 'dd/MM/yyyy'), ml + 18, sigStartY + 19)
+        if (sigData.licensee_signature_data) {
+          try { doc.addImage(sigData.licensee_signature_data, 'PNG', ml + 18, sigStartY + 21, 48, 12) } catch {}
         }
-        if (sigData.signature_data) {
-          try {
-            doc.addImage(sigData.signature_data, 'PNG', ml + 18, sigStartY + 21, 48, 12)
-          } catch { /* skip if image fails */ }
+      }
+      // Fill in Licensor (right) block
+      if (sigData?.licensor_signer_name) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(0)
+        doc.text(sigData.licensor_signer_name, colMid + 18, sigStartY + 1)
+        if (sigData.licensor_signed_at) doc.text(format(parseISO(sigData.licensor_signed_at), 'dd/MM/yyyy'), colMid + 18, sigStartY + 19)
+        if (sigData.licensor_signature_data) {
+          try { doc.addImage(sigData.licensor_signature_data, 'PNG', colMid + 18, sigStartY + 21, 48, 12) } catch {}
         }
       }
 
@@ -567,23 +620,51 @@ export default function ContractDetail({
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded ${sigMeta.cls}`}>
                     {sigMeta.label}
                   </span>
-                  {isSigned && (
-                    <div className="mt-2 space-y-1">
-                      <p className="text-xs text-gray-500">
-                        Signed by: {eSignData?.signer_name ?? lease.signerName ?? tenant?.contactName ?? '—'}
+                  {/* Tenant signed, waiting for countersign */}
+                  {lease.signatureStatus === 'out_for_signature' && eSignData?.status === 'tenant_signed' && (
+                    <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                      <p className="text-xs font-semibold text-orange-700 mb-1">⚠ Tenant has signed</p>
+                      <p className="text-xs text-orange-600 mb-2">
+                        {eSignData.licensee_signer_name} signed on {eSignData.licensee_signed_at ? format(parseISO(eSignData.licensee_signed_at), 'dd/MM/yyyy HH:mm') : '—'}
                       </p>
-                      {(eSignData?.signed_at ?? lease.signedAt) && (
-                        <p className="text-xs text-gray-400">
-                          {format(new Date(eSignData?.signed_at ?? lease.signedAt), 'dd/MM/yyyy HH:mm')}
-                        </p>
+                      {eSignData.licensee_signature_data && (
+                        <div className="border border-orange-200 rounded bg-white p-1 mb-2 inline-block">
+                          <img src={eSignData.licensee_signature_data} alt="Tenant signature" className="h-8 max-w-[140px] object-contain" />
+                        </div>
                       )}
-                      {eSignData?.signature_data && (
-                        <div className="mt-2 border border-gray-200 rounded bg-white p-1.5 inline-block">
-                          <img
-                            src={eSignData.signature_data}
-                            alt="Signature"
-                            className="h-10 max-w-[160px] object-contain"
-                          />
+                      <button
+                        onClick={() => setShowCountersignModal(true)}
+                        className="w-full bg-black text-white text-xs py-1.5 rounded font-semibold hover:bg-gray-800"
+                      >
+                        Countersign Now →
+                      </button>
+                    </div>
+                  )}
+                  {/* Fully signed */}
+                  {isSigned && (
+                    <div className="mt-2 space-y-2">
+                      {eSignData?.licensee_signer_name && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Licensee</p>
+                          <p className="text-xs text-gray-700">{eSignData.licensee_signer_name}</p>
+                          {eSignData.licensee_signed_at && <p className="text-xs text-gray-400">{format(parseISO(eSignData.licensee_signed_at), 'dd/MM/yyyy HH:mm')}</p>}
+                          {eSignData.licensee_signature_data && (
+                            <div className="mt-1 border border-gray-200 rounded bg-white p-1 inline-block">
+                              <img src={eSignData.licensee_signature_data} alt="Licensee sig" className="h-8 max-w-[140px] object-contain" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {eSignData?.licensor_signer_name && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Licensor</p>
+                          <p className="text-xs text-gray-700">{eSignData.licensor_signer_name}</p>
+                          {eSignData.licensor_signed_at && <p className="text-xs text-gray-400">{format(parseISO(eSignData.licensor_signed_at), 'dd/MM/yyyy HH:mm')}</p>}
+                          {eSignData.licensor_signature_data && (
+                            <div className="mt-1 border border-gray-200 rounded bg-white p-1 inline-block">
+                              <img src={eSignData.licensor_signature_data} alt="Licensor sig" className="h-8 max-w-[140px] object-contain" />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -868,6 +949,49 @@ export default function ContractDetail({
       )}
       {showSignMenu && (
         <div className="fixed inset-0 z-40" onClick={() => setShowSignMenu(false)} />
+      )}
+
+      {/* Countersign modal */}
+      {showCountersignModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-md w-full max-w-md shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="font-bold text-gray-900">Countersign as Licensor</h2>
+              <button onClick={() => setShowCountersignModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <p className="text-xs text-gray-500 mb-3">
+                  Tenant <strong>{eSignData?.licensee_signer_name}</strong> has signed. Sign below to fully execute the agreement.
+                </p>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Licensor name</label>
+                <input
+                  type="text"
+                  value={licensorName}
+                  onChange={(e) => setLicensorName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-gray-600">Signature</label>
+                  <button onClick={() => licensorSigRef.current?.clear()} className="text-xs text-gray-400 hover:text-gray-700 underline">Clear</button>
+                </div>
+                <SignatureCanvas ref={licensorSigRef} height={120} />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
+              <button onClick={() => setShowCountersignModal(false)} className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button
+                onClick={handleCountersign}
+                disabled={counterskigning}
+                className="px-4 py-2 text-sm bg-black text-white rounded font-semibold hover:bg-gray-800 disabled:opacity-50"
+              >
+                {counterskigning ? 'Signing…' : 'Sign & Execute'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
