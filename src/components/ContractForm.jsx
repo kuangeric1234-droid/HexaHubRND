@@ -54,7 +54,7 @@ function initForm(editLease, leases) {
       noticePeriodMonths: editLease.noticePeriodMonths ?? 2,
       status: editLease.status ?? 'active',
       notes: editLease.notes ?? '',
-      contractTerms: editLease.contractTerms ?? ['Terms and Conditions - v1.0', 'House Rules - v1.0'],
+      contractTerms: editLease.contractTerms ?? ['tmpl1', 'tmpl2'],
       items: editLease.items ?? [
         {
           spaceId: editLease.spaceId ?? '',
@@ -83,7 +83,7 @@ function initForm(editLease, leases) {
     noticePeriodMonths: 2,
     status: 'active',
     notes: '',
-    contractTerms: ['Terms and Conditions - v1.0', 'House Rules - v1.0'],
+    contractTerms: ['tmpl1', 'tmpl2'],
     items: [
       {
         spaceId: '',

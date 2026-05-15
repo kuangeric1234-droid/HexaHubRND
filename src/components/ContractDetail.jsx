@@ -861,6 +861,17 @@ export default function ContractDetail({
           {view === 'template' && (
             <div className="overflow-auto bg-gray-100 flex-1">
               <ContractTemplate lease={lease} tenant={tenant} space={space} templates={templates} settings={settings} />
+              {attachedTemplates.map((tmpl) => (
+                <div key={tmpl.id} className="bg-white max-w-4xl mx-auto mb-6 px-12 py-10 text-sm text-gray-800 font-sans shadow-sm">
+                  <h2 className="text-base font-bold uppercase tracking-widest text-gray-900 mb-3">{tmpl.name}</h2>
+                  <hr className="border-gray-300 mb-6" />
+                  <div
+                    style={{ lineHeight: 1.6 }}
+                    className="template-html-body"
+                    dangerouslySetInnerHTML={{ __html: tmpl.content ?? '' }}
+                  />
+                </div>
+              ))}
             </div>
           )}
 
