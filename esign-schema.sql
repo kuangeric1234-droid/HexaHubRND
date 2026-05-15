@@ -18,3 +18,4 @@ create table esign_requests (
 
 alter table esign_requests enable row level security;
 create policy "public all" on esign_requests for all to anon using (true) with check (true);
+create policy "auth all esign" on esign_requests for all to authenticated using (true) with check (true);
