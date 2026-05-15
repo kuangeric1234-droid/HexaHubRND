@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ArrowLeft, MoreHorizontal, Pencil, Trash2, FileDown, ChevronDown, LayoutGrid, FileText, CheckCircle2 } from 'lucide-react'
@@ -42,6 +42,17 @@ export default function ContractDetail({
   const [view, setView] = useState('grid') // 'grid' | 'template'
   const [generating, setGenerating] = useState(false)
   const [copyMsg, setCopyMsg] = useState('')
+  const [eSignData, setESignData] = useState(null)
+
+  // Fetch signature data when contract is e_signed
+  useEffect(() => {
+    if (lease.signatureStatus !== 'e_signed') return
+    const memberLink = lease.eSignMemberLink ?? ''
+    const tokenMatch = memberLink.match(/\/sign\/([^/?]+)/)
+    if (!tokenMatch) return
+    supabase.from('esign_requests').select('*').eq('token', tokenMatch[1]).single()
+      .then(({ data }) => { if (data) setESignData(data) })
+  }, [lease.signatureStatus, lease.eSignMemberLink])
 
   const isSigned = lease.signatureStatus === 'manually_signed' || lease.signatureStatus === 'e_signed'
   const isOutForSign = lease.signatureStatus === 'out_for_signature'
@@ -130,19 +141,18 @@ export default function ContractDetail({
     .map((ref) => templates.find((t) => t.id === ref) ?? templates.find((t) => `${t.name} - ${t.version}` === ref || t.name === ref))
     .filter(Boolean)
 
-  async function handleGeneratePDF() {
-    setGenerating(true)
-    try {
-      const { jsPDF } = await import('jspdf')
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      const W = doc.internal.pageSize.getWidth()
-      const H = doc.internal.pageSize.getHeight()
-      const ml = 18, mr = W - 18
-      let y = 20
+  // sigData = { signer_name, signed_at, signature_data } — optional, fills in Licensee block
+  async function buildContractPDF(sigData = null) {
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W = doc.internal.pageSize.getWidth()
+    const H = doc.internal.pageSize.getHeight()
+    const ml = 18, mr = W - 18
+    let y = 20
 
-      function checkPage(needed = 14) {
-        if (y + needed > H - 15) { doc.addPage(); y = 20 }
-      }
+    function checkPage(needed = 14) {
+      if (y + needed > H - 15) { doc.addPage(); y = 20 }
+    }
 
       // Header
       doc.setFontSize(18)
@@ -304,6 +314,7 @@ export default function ContractDetail({
       doc.text('For and on behalf of You The Licensee:', ml, y)
       doc.text('For and on behalf of Us The Licensor:', colMid, y)
       y += 8
+      const sigStartY = y
       for (const field of ['Name:', 'Title:', 'Date:', 'Signature:']) {
         doc.setFont('helvetica', 'bold')
         doc.text(field, ml, y)
@@ -312,6 +323,22 @@ export default function ContractDetail({
         doc.line(ml + 18, y + 1, colMid - 6, y + 1)
         doc.line(colMid + 18, y + 1, mr, y + 1)
         y += 9
+      }
+
+      // Fill in Licensee block if signature data provided
+      if (sigData) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(0)
+        if (sigData.signer_name) doc.text(sigData.signer_name, ml + 18, sigStartY + 1)
+        if (sigData.signed_at) {
+          doc.text(format(parseISO(sigData.signed_at), 'dd/MM/yyyy'), ml + 18, sigStartY + 19)
+        }
+        if (sigData.signature_data) {
+          try {
+            doc.addImage(sigData.signature_data, 'PNG', ml + 18, sigStartY + 21, 48, 12)
+          } catch { /* skip if image fails */ }
+        }
       }
 
       // Page numbers
@@ -323,17 +350,57 @@ export default function ContractDetail({
         doc.text(`${contractNum} · HexaHub Pty Ltd · Page ${i} of ${pages}`, W / 2, H - 8, { align: 'center' })
       }
 
+      return doc
+  }
+
+  async function handleGeneratePDF() {
+    setGenerating(true)
+    try {
+      const doc = await buildContractPDF()
       const slug = (tenant?.businessName ?? 'contract').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
       doc.save(`${contractNum}_${slug}.pdf`)
-
-      // Save the generation record
       const now = new Date().toISOString()
-      if (onUpdateLease) {
-        onUpdateLease(lease.id, {
-          lastGeneratedAt: now,
-          lastGeneratedFile: `${contractNum}_${slug}.pdf`,
-        })
-      }
+      if (onUpdateLease) onUpdateLease(lease.id, { lastGeneratedAt: now, lastGeneratedFile: `${contractNum}_${slug}.pdf` })
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleDownloadSignedPDF() {
+    setGenerating(true)
+    try {
+      const doc = await buildContractPDF(eSignData)
+      const slug = (tenant?.businessName ?? 'contract').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
+      doc.save(`${contractNum}_${slug}_SIGNED.pdf`)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleSendSignedCopy() {
+    if (!tenant?.email) { alert('No email address on file for this tenant.'); return }
+    if (!window.confirm(`Send signed copy of ${contractNum} to ${tenant.email}?`)) return
+    setGenerating(true)
+    try {
+      const doc = await buildContractPDF(eSignData)
+      const slug = (tenant?.businessName ?? 'contract').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
+      const pdfBase64 = doc.output('base64')
+      const companyName = settings?.company?.name ?? 'HexaHub'
+      await sendEmail({
+        to: tenant.email,
+        subject: `Signed copy: ${contractNum} — ${companyName}`,
+        html: `<div style="font-family:Arial,sans-serif;color:#1a1a1a;padding:32px;max-width:560px">
+          <div style="font-size:18px;font-weight:bold;letter-spacing:2px;margin-bottom:16px">${companyName.toUpperCase()}</div>
+          <p>Hi ${tenant.contactName ?? ''},</p>
+          <p>Please find your signed copy of <strong>${contractNum}</strong> attached.</p>
+          <p style="color:#888;font-size:12px">Signed by ${eSignData?.signer_name ?? tenant.contactName} on ${eSignData?.signed_at ? format(parseISO(eSignData.signed_at), 'dd MMM yyyy') : 'date unknown'}.</p>
+        </div>`,
+        settings,
+        attachments: [{ filename: `${contractNum}_${slug}_SIGNED.pdf`, content: pdfBase64 }],
+      })
+      alert(`Signed copy sent to ${tenant.email}`)
+    } catch (err) {
+      alert(`Failed to send: ${err.message}`)
     } finally {
       setGenerating(false)
     }
@@ -417,6 +484,26 @@ export default function ContractDetail({
             </div>
           )}
 
+          {/* Signed PDF buttons */}
+          {isSigned && lease.signatureStatus === 'e_signed' && eSignData && (
+            <>
+              <button
+                onClick={handleDownloadSignedPDF}
+                disabled={generating}
+                className="flex items-center gap-1.5 border border-green-300 text-green-700 rounded px-3 py-1.5 text-sm hover:bg-green-50 font-medium"
+              >
+                <FileDown size={13} /> Signed PDF
+              </button>
+              <button
+                onClick={handleSendSignedCopy}
+                disabled={generating}
+                className="flex items-center gap-1.5 border border-blue-300 text-blue-700 rounded px-3 py-1.5 text-sm hover:bg-blue-50 font-medium"
+              >
+                Send Signed Copy
+              </button>
+            </>
+          )}
+
           {/* Edit */}
           <button
             onClick={onEdit}
@@ -480,13 +567,26 @@ export default function ContractDetail({
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded ${sigMeta.cls}`}>
                     {sigMeta.label}
                   </span>
-                  {isSigned && tenant?.contactName && (
-                    <p className="text-xs text-gray-500 mt-1">Signed By: {tenant.contactName}</p>
-                  )}
-                  {isSigned && lease.signedAt && (
-                    <p className="text-xs text-gray-400">
-                      {format(new Date(lease.signedAt), 'dd/MM/yyyy')}
-                    </p>
+                  {isSigned && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-gray-500">
+                        Signed by: {eSignData?.signer_name ?? lease.signerName ?? tenant?.contactName ?? '—'}
+                      </p>
+                      {(eSignData?.signed_at ?? lease.signedAt) && (
+                        <p className="text-xs text-gray-400">
+                          {format(new Date(eSignData?.signed_at ?? lease.signedAt), 'dd/MM/yyyy HH:mm')}
+                        </p>
+                      )}
+                      {eSignData?.signature_data && (
+                        <div className="mt-2 border border-gray-200 rounded bg-white p-1.5 inline-block">
+                          <img
+                            src={eSignData.signature_data}
+                            alt="Signature"
+                            className="h-10 max-w-[160px] object-contain"
+                          />
+                        </div>
+                      )}
+                    </div>
                   )}
                   {isOutForSign && (
                     <div className="mt-2">
