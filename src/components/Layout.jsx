@@ -9,7 +9,9 @@ import {
   BookOpen,
   Receipt,
   Settings,
+  LogOut,
 } from 'lucide-react'
+import { clearSession } from '../lib/auth.js'
 
 const nav = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -23,7 +25,7 @@ const nav = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
-export default function Layout({ store }) {
+export default function Layout({ store, onLogout }) {
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 font-sans">
       {/* Sidebar */}
@@ -52,9 +54,17 @@ export default function Layout({ store }) {
           ))}
         </nav>
         <div className="px-5 py-4 border-t border-gray-800 text-xs text-gray-500">
-          7 Distribution Circuit
-          <br />
-          Huntingdale VIC 3166
+          <div className="mb-3">
+            7 Distribution Circuit
+            <br />
+            Huntingdale VIC 3166
+          </div>
+          <button
+            onClick={() => { clearSession(); onLogout?.() }}
+            className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors"
+          >
+            <LogOut size={13} /> Sign out
+          </button>
         </div>
       </aside>
 

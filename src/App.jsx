@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Layout from './components/Layout.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import Tenants from './components/Tenants.jsx'
@@ -10,20 +10,26 @@ import Renewals from './components/Renewals.jsx'
 import Templates from './components/Templates.jsx'
 import Billing from './components/Billing.jsx'
 import Settings from './components/Settings.jsx'
+import Login from './components/Login.jsx'
 import { useStore } from './store/useStore.js'
+import { isLoggedIn } from './lib/auth.js'
 
 export default function App() {
   const store = useStore()
+  const [authed, setAuthed] = useState(() => isLoggedIn())
 
-  // Auto bill run: silently generates monthly invoices on first load each month
   useEffect(() => {
-    store.runAutoBillRun()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (authed) store.runAutoBillRun()
+  }, [authed]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!authed) {
+    return <Login onSuccess={() => setAuthed(true)} />
+  }
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout store={store} />}>
+        <Route path="/" element={<Layout store={store} onLogout={() => setAuthed(false)} />}>
           <Route index element={<Dashboard />} />
           <Route path="tenants" element={<Tenants />} />
           <Route path="spaces" element={<Spaces />} />
