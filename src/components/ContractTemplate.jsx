@@ -103,7 +103,7 @@ export default function ContractTemplate({ lease, tenant, space, settings }) {
       <table className="w-full text-xs border border-gray-300 mb-8">
         <thead>
           <tr className="border-b border-gray-300 bg-gray-50">
-            {['OFFICE', 'START DATE', 'END DATE', 'PRICE PER W/S', 'W/S', 'MONTHLY TOTAL'].map((h) => (
+            {['OFFICE', 'START DATE', 'END DATE', 'MONTHLY TOTAL'].map((h) => (
               <th
                 key={h}
                 className="text-left px-3 py-2.5 font-semibold text-gray-600 border-r border-gray-200 last:border-r-0"
@@ -128,10 +128,6 @@ export default function ContractTemplate({ lease, tenant, space, settings }) {
                   <td className="px-3 py-2 border-r border-gray-200">
                     {step.endDate ? format(parseISO(step.endDate), 'dd/MM/yyyy') : '—'}
                   </td>
-                  <td className="px-3 py-2 text-right border-r border-gray-200">
-                    {price.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
-                  </td>
-                  <td className="px-3 py-2 text-center border-r border-gray-200">{qty}</td>
                   <td className="px-3 py-2 text-right">
                     {monthly.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
                   </td>

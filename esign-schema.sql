@@ -1,17 +1,15 @@
 -- Run this in Supabase SQL Editor
--- Drop and recreate for clean slate
+drop policy if exists "public all" on esign_requests;
 drop table if exists esign_requests;
 
 create table esign_requests (
   token text primary key,
   lease_id text not null,
   tenant_id text,
-  status text default 'pending', -- pending | tenant_signed | fully_signed
-  -- Licensee (tenant) signature
+  status text default 'pending',
   licensee_signature_data text,
   licensee_signer_name text,
   licensee_signed_at timestamptz,
-  -- Licensor (admin/HexaHub) signature
   licensor_signature_data text,
   licensor_signer_name text,
   licensor_signed_at timestamptz,

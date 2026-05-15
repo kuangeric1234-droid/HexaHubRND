@@ -271,7 +271,7 @@ export default function ContractDetail({
       doc.text('LICENCE FEE DETAILS', ml, y)
       y += 5
 
-      const cols = { office: ml, start: ml + 26, end: ml + 54, price: ml + 82, ws: ml + 124, total: ml + 142 }
+      const cols = { office: ml, start: ml + 45, end: ml + 92, total: ml + 138 }
       doc.setFillColor(245, 245, 245)
       doc.rect(ml, y - 3, mr - ml, 7, 'F')
       doc.setFontSize(7.5)
@@ -279,8 +279,6 @@ export default function ContractDetail({
       doc.text('OFFICE', cols.office, y + 1)
       doc.text('START DATE', cols.start, y + 1)
       doc.text('END DATE', cols.end, y + 1)
-      doc.text('PRICE PER W/S', cols.price, y + 1)
-      doc.text('W/S', cols.ws, y + 1)
       doc.text('MONTHLY TOTAL', cols.total, y + 1)
       y += 7
 
@@ -301,8 +299,6 @@ export default function ContractDetail({
           doc.text(space?.unitNumber ?? '—', cols.office, y + 3)
           doc.text(step.startDate ? format(parseISO(step.startDate), 'dd/MM/yyyy') : '—', cols.start, y + 3)
           doc.text(step.endDate ? format(parseISO(step.endDate), 'dd/MM/yyyy') : '—', cols.end, y + 3)
-          doc.text(`${price.toFixed(2)} AUD`, cols.price + 38, y + 3, { align: 'right' })
-          doc.text(String(qty), cols.ws + 4, y + 3, { align: 'center' })
           doc.text(`${(price * qty).toFixed(2)} AUD`, mr, y + 3, { align: 'right' })
           y += 8
         }
@@ -379,7 +375,9 @@ export default function ContractDetail({
       if (sigData?.licensee_signer_name) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(0)
         doc.text(sigData.licensee_signer_name, ml + 18, sigStartY + 1)
-        if (sigData.licensee_signed_at) doc.text(format(parseISO(sigData.licensee_signed_at), 'dd/MM/yyyy'), ml + 18, sigStartY + 19)
+        if (sigData.licensee_title) doc.text(sigData.licensee_title, ml + 18, sigStartY + 10)
+        const licenseeDate = sigData.licensee_date ?? (sigData.licensee_signed_at ? format(parseISO(sigData.licensee_signed_at), 'dd/MM/yyyy') : '')
+        if (licenseeDate) doc.text(licenseeDate, ml + 18, sigStartY + 19)
         if (sigData.licensee_signature_data) {
           try { doc.addImage(sigData.licensee_signature_data, 'PNG', ml + 18, sigStartY + 21, 48, 12) } catch {}
         }

@@ -13,6 +13,8 @@ export default function SignPage({ token }) {
   const [space, setSpace] = useState(null)
   const [settings, setSettings] = useState(null)
   const [signerName, setSignerName] = useState('')
+  const [signerTitle, setSignerTitle] = useState('')
+  const [signerDate, setSignerDate] = useState(format(new Date(), 'dd/MM/yyyy'))
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [view, setView] = useState('contract')
@@ -72,6 +74,8 @@ export default function SignPage({ token }) {
         licensee_signature_data: signatureData,
         licensee_signer_name: signerName,
         licensee_signed_at: now,
+        licensee_title: signerTitle,
+        licensee_date: signerDate,
       }).eq('token', token)
 
       // Update lease to show it's waiting for countersignature
@@ -198,13 +202,34 @@ export default function SignPage({ token }) {
               By signing below you confirm you have read and agree to the terms of <strong>{contractNum}</strong>.
             </p>
 
-            <div className="mb-5">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Full legal name</label>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
               <input
                 type="text"
                 value={signerName}
                 onChange={(e) => setSignerName(e.target.value)}
                 placeholder="Your full legal name"
+                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+              <input
+                type="text"
+                value={signerTitle}
+                onChange={(e) => setSignerTitle(e.target.value)}
+                placeholder="e.g. Director, CEO, Manager"
+                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+              <input
+                type="text"
+                value={signerDate}
+                onChange={(e) => setSignerDate(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
               />
             </div>
