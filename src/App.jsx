@@ -18,12 +18,20 @@ export default function App() {
   const store = useStore()
   const [authed, setAuthed] = useState(() => isLoggedIn())
 
-  useEffect(() => {
-    if (authed) store.runAutoBillRun()
-  }, [authed]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!authed) {
     return <Login onSuccess={() => setAuthed(true)} />
+  }
+
+  if (store.loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-black tracking-widest text-gray-900 mb-3">HEXAHUB</div>
+          <div className="text-sm text-gray-400">Loading...</div>
+        </div>
+      </div>
+    )
   }
 
   return (

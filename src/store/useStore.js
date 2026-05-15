@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { supabase } from '../lib/supabase.js'
 
 const STORAGE_KEYS = {
   tenants: 'hexahub_tenants',
@@ -480,481 +481,400 @@ const SAMPLE_LEASES = [
   },
 ]
 
-function loadFromStorage(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    // ignore parse errors
-  }
-  localStorage.setItem(key, JSON.stringify(fallback))
-  return fallback
+// ── Supabase helpers ──────────────────────────────────────────────────────────
+
+function syncRow(table, id, data) {
+  supabase.from(table)
+    .upsert({ id, data, updated_at: new Date().toISOString() })
+    .then(({ error }) => { if (error) console.error(`Supabase sync (${table}):`, error) })
 }
 
-function saveToStorage(key, value) {
-  localStorage.setItem(key, JSON.stringify(value))
+function deleteRow(table, id) {
+  supabase.from(table)
+    .delete().eq('id', id)
+    .then(({ error }) => { if (error) console.error(`Supabase delete (${table}):`, error) })
+}
+
+async function seedTable(table, items) {
+  const rows = items.map((item) => ({ id: item.id, data: item, updated_at: new Date().toISOString() }))
+  const { error } = await supabase.from(table).upsert(rows)
+  if (error) console.error(`Supabase seed (${table}):`, error)
+}
+
+function extractRows(data) {
+  return (data ?? []).map((r) => r.data)
 }
 
 export function useStore() {
-  const [tenants, setTenantsState] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.tenants, SAMPLE_TENANTS)
-  )
-  const [spaces, setSpacesState] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.spaces, SAMPLE_SPACES)
-  )
-  const [leases, setLeasesState] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.leases, SAMPLE_LEASES)
-  )
-  const [templates, setTemplatesState] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.templates, SAMPLE_TEMPLATES)
-  )
+  const [loading, setLoading] = useState(true)
+  const [tenants, setTenants] = useState(SAMPLE_TENANTS)
+  const [spaces, setSpaces] = useState(SAMPLE_SPACES)
+  const [leases, setLeases] = useState(SAMPLE_LEASES)
+  const [templates, setTemplates] = useState(SAMPLE_TEMPLATES)
+  const [invoices, setInvoices] = useState(SAMPLE_INVOICES)
+  const [discounts, setDiscounts] = useState(SAMPLE_DISCOUNTS)
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
-  const setTenants = useCallback((updater) => {
-    setTenantsState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveToStorage(STORAGE_KEYS.tenants, next)
-      return next
-    })
-  }, [])
+  // Always-current settings ref for callbacks
+  const settingsRef = useRef(settings)
+  useEffect(() => { settingsRef.current = settings }, [settings])
 
-  const setSpaces = useCallback((updater) => {
-    setSpacesState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveToStorage(STORAGE_KEYS.spaces, next)
-      return next
-    })
-  }, [])
+  // ── Load all data from Supabase on mount ──────────────────────────────
+  useEffect(() => {
+    async function load() {
+      try {
+        const [
+          { data: tData }, { data: sData }, { data: lData },
+          { data: tmData }, { data: invData }, { data: discData },
+          { data: settData }, { data: metaData },
+        ] = await Promise.all([
+          supabase.from('tenants').select('data'),
+          supabase.from('spaces').select('data'),
+          supabase.from('leases').select('data'),
+          supabase.from('templates').select('data'),
+          supabase.from('invoices').select('data'),
+          supabase.from('discounts').select('data'),
+          supabase.from('settings').select('data').eq('id', 'global'),
+          supabase.from('meta').select('*'),
+        ])
 
-  const setLeases = useCallback((updater) => {
-    setLeasesState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveToStorage(STORAGE_KEYS.leases, next)
-      return next
-    })
-  }, [])
+        const loadedTenants   = tData?.length    ? extractRows(tData)    : SAMPLE_TENANTS
+        const loadedSpaces    = sData?.length    ? extractRows(sData)    : SAMPLE_SPACES
+        const loadedLeases    = lData?.length    ? extractRows(lData)    : SAMPLE_LEASES
+        const loadedTemplates = tmData?.length   ? extractRows(tmData)   : SAMPLE_TEMPLATES
+        const loadedInvoices  = invData?.length  ? extractRows(invData)  : SAMPLE_INVOICES
+        const loadedDiscounts = discData?.length ? extractRows(discData) : SAMPLE_DISCOUNTS
+        const loadedSettings  = settData?.[0]?.data ?? DEFAULT_SETTINGS
+        const lastBillRun     = metaData?.find((m) => m.key === 'last_bill_run')?.value ?? null
 
-  const addTenant = useCallback(
-    (tenant) => {
-      const newTenant = {
-        ...tenant,
-        id: `t${Date.now()}`,
-        createdAt: new Date().toISOString().split('T')[0],
-      }
-      setTenants((prev) => [...prev, newTenant])
-      return newTenant
-    },
-    [setTenants]
-  )
-
-  const updateTenant = useCallback(
-    (id, updates) => {
-      setTenants((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)))
-    },
-    [setTenants]
-  )
-
-  const deleteTenant = useCallback(
-    (id) => {
-      setTenants((prev) => prev.filter((t) => t.id !== id))
-    },
-    [setTenants]
-  )
-
-  const addSpace = useCallback(
-    (space) => {
-      const newSpace = { ...space, id: `s${Date.now()}` }
-      setSpaces((prev) => [...prev, newSpace])
-      return newSpace
-    },
-    [setSpaces]
-  )
-
-  const updateSpace = useCallback(
-    (id, updates) => {
-      setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)))
-    },
-    [setSpaces]
-  )
-
-  const deleteSpace = useCallback(
-    (id) => {
-      setSpaces((prev) => prev.filter((s) => s.id !== id))
-    },
-    [setSpaces]
-  )
-
-  const addLease = useCallback(
-    (lease) => {
-      const newLease = {
-        ...lease,
-        id: `l${Date.now()}`,
-        createdAt: new Date().toISOString().split('T')[0],
-      }
-      setLeases((prev) => [...prev, newLease])
-      setSpaces((prev) =>
-        prev.map((s) => (s.id === lease.spaceId ? { ...s, status: 'occupied' } : s))
-      )
-      return newLease
-    },
-    [setLeases, setSpaces]
-  )
-
-  const updateLease = useCallback(
-    (id, updates) => {
-      setLeases((prev) => prev.map((l) => (l.id === id ? { ...l, ...updates } : l)))
-    },
-    [setLeases]
-  )
-
-  const deleteLease = useCallback(
-    (id) => {
-      setLeases((prev) => {
-        const lease = prev.find((l) => l.id === id)
-        if (lease) {
-          setSpaces((spaces) =>
-            spaces.map((s) => (s.id === lease.spaceId ? { ...s, status: 'vacant' } : s))
-          )
+        // Seed Supabase if tables were empty
+        if (!tData?.length)    await seedTable('tenants',   loadedTenants)
+        if (!sData?.length)    await seedTable('spaces',    loadedSpaces)
+        if (!lData?.length)    await seedTable('leases',    loadedLeases)
+        if (!tmData?.length)   await seedTable('templates', loadedTemplates)
+        if (!invData?.length)  await seedTable('invoices',  loadedInvoices)
+        if (!discData?.length) await seedTable('discounts', loadedDiscounts)
+        if (!settData?.length) {
+          await supabase.from('settings').upsert({ id: 'global', data: loadedSettings })
         }
-        return prev.filter((l) => l.id !== id)
-      })
-    },
-    [setLeases, setSpaces]
-  )
 
-  const setTemplates = useCallback((updater) => {
-    setTemplatesState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveToStorage(STORAGE_KEYS.templates, next)
-      return next
-    })
-  }, [])
+        setTenants(loadedTenants)
+        setSpaces(loadedSpaces)
+        setLeases(loadedLeases)
+        setTemplates(loadedTemplates)
+        setDiscounts(loadedDiscounts)
+        setSettings(loadedSettings)
+        settingsRef.current = loadedSettings
 
-  const addTemplate = useCallback(
-    (template) => {
-      const newTemplate = {
-        ...template,
-        id: `tmpl${Date.now()}`,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0],
+        // ── Auto bill run ──────────────────────────────────────────────
+        const today = new Date()
+        const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+
+        if (lastBillRun !== currentMonthKey && loadedSettings.invoicing?.autoGenerate !== false) {
+          const s = loadedSettings
+          const invTemplate = s.invoicing?.invoiceNumberTemplate ?? 'INV-{{number}}'
+          const dueDateDays = s.invoicing?.dueDateDays ?? 14
+          const prorateEnabled = s.invoicing?.proration !== false
+          const startDay = Math.min(28, Math.max(1, s.billingRules?.billingPeriodStartDay ?? 1))
+          const monthStart = new Date(today.getFullYear(), today.getMonth(), startDay)
+          const periodMonthEnd = startDay === 1
+            ? new Date(today.getFullYear(), today.getMonth() + 1, 0)
+            : new Date(today.getFullYear(), today.getMonth() + 1, startDay - 1 || 1)
+          const daysInPeriod = Math.floor((periodMonthEnd - monthStart) / 86400000) + 1
+
+          const activeLeases = loadedLeases.filter((l) => {
+            if (l.status !== 'active') return false
+            const start = new Date(l.startDate)
+            const end = new Date(l.endDate)
+            return start <= periodMonthEnd && end >= monthStart
+          })
+
+          const newInvoices = []
+          for (const lease of activeLeases) {
+            const alreadyBilled = loadedInvoices.some(
+              (inv) => inv.leaseId === lease.id && inv.status !== 'voided' && inv.periodStart?.startsWith(currentMonthKey)
+            )
+            if (alreadyBilled) continue
+
+            const leaseStart = new Date(lease.startDate)
+            const leaseEnd = new Date(lease.endDate)
+            const space = loadedSpaces.find((sp) => sp.id === lease.spaceId)
+            const periodStart = leaseStart > monthStart ? leaseStart : monthStart
+            const periodEnd = leaseEnd < periodMonthEnd ? leaseEnd : periodMonthEnd
+            const daysOccupied = Math.floor((periodEnd - periodStart) / 86400000) + 1
+            const isProrated = prorateEnabled && daysOccupied < daysInPeriod
+            const amount = isProrated
+              ? Math.round((lease.monthlyRent * daysOccupied / daysInPeriod) * 100) / 100
+              : lease.monthlyRent
+
+            const fmt = (d) => d.toISOString().split('T')[0]
+            const periodLabel = `${periodStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} – ${periodEnd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}${isProrated ? ' (prorated)' : ''}`
+            const desc = `${space?.unitNumber ?? ''}${space?.address ? ` – ${space.address}` : ''} · ${periodLabel}`
+
+            const allNums = [...loadedInvoices, ...newInvoices]
+              .map((i) => parseInt(i.number?.replace(/\D/g, '') || '0', 10))
+              .filter((n) => !isNaN(n))
+            const nextNum = allNums.length > 0 ? Math.max(...allNums) + 1 : 1
+            const dueDate = new Date(monthStart.getTime())
+            dueDate.setDate(dueDate.getDate() + dueDateDays)
+
+            newInvoices.push({
+              id: `inv${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              number: invTemplate.replace('{{number}}', String(nextNum).padStart(4, '0')),
+              tenantId: lease.tenantId, leaseId: lease.id,
+              status: 'pending', sentStatus: 'not_sent', source: 'bill-run',
+              issueDate: fmt(monthStart), dueDate: fmt(dueDate),
+              periodStart: fmt(periodStart), periodEnd: fmt(periodEnd),
+              reference: '', paymentMethod: '', discountPct: 0,
+              vatEnabled: true, xeroSync: false, isProrated,
+              lineItems: [{ id: `li${Date.now()}`, description: desc, revenueAccount: 'Membership Fees', unitPrice: amount, qty: 1, discountPct: 0 }],
+              payments: [], comments: [], creditNoteForId: null,
+              createdAt: fmt(today),
+            })
+          }
+
+          if (newInvoices.length > 0) {
+            setInvoices([...loadedInvoices, ...newInvoices])
+            await seedTable('invoices', [...loadedInvoices, ...newInvoices])
+          } else {
+            setInvoices(loadedInvoices)
+          }
+
+          await supabase.from('meta').upsert({ key: 'last_bill_run', value: currentMonthKey })
+        } else {
+          setInvoices(loadedInvoices)
+        }
+      } catch (err) {
+        console.error('Supabase load failed:', err)
+      } finally {
+        setLoading(false)
       }
-      setTemplates((prev) => [...prev, newTemplate])
-      return newTemplate
-    },
-    [setTemplates]
-  )
+    }
+    load()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const updateTemplate = useCallback(
-    (id, updates) => {
-      setTemplates((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? { ...t, ...updates, updatedAt: new Date().toISOString().split('T')[0] }
-            : t
-        )
-      )
-    },
-    [setTemplates]
-  )
+  // ── Tenants ───────────────────────────────────────────────────────────────
+  const addTenant = useCallback((tenant) => {
+    const item = { ...tenant, id: `t${Date.now()}`, createdAt: new Date().toISOString().split('T')[0] }
+    setTenants((prev) => [...prev, item])
+    syncRow('tenants', item.id, item)
+    return item
+  }, [])
 
-  const deleteTemplate = useCallback(
-    (id) => {
-      setTemplates((prev) => prev.filter((t) => t.id !== id))
-    },
-    [setTemplates]
-  )
-
-  // ── Invoices ─────────────────────────────────────────────────────────────
-  const [invoices, setInvoicesState] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.invoices, SAMPLE_INVOICES)
-  )
-  const [discounts, setDiscountsState] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.discounts, SAMPLE_DISCOUNTS)
-  )
-  const [settings, setSettingsState] = useState(() =>
-    loadFromStorage(STORAGE_KEYS.settings, DEFAULT_SETTINGS)
-  )
-
-  const setInvoices = useCallback((updater) => {
-    setInvoicesState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveToStorage(STORAGE_KEYS.invoices, next)
+  const updateTenant = useCallback((id, updates) => {
+    setTenants((prev) => {
+      const next = prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      const updated = next.find((t) => t.id === id)
+      if (updated) syncRow('tenants', id, updated)
       return next
     })
   }, [])
 
-  const setDiscounts = useCallback((updater) => {
-    setDiscountsState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveToStorage(STORAGE_KEYS.discounts, next)
+  const deleteTenant = useCallback((id) => {
+    setTenants((prev) => prev.filter((t) => t.id !== id))
+    deleteRow('tenants', id)
+  }, [])
+
+  // ── Spaces ────────────────────────────────────────────────────────────────
+  const addSpace = useCallback((space) => {
+    const item = { ...space, id: `s${Date.now()}` }
+    setSpaces((prev) => [...prev, item])
+    syncRow('spaces', item.id, item)
+    return item
+  }, [])
+
+  const updateSpace = useCallback((id, updates) => {
+    setSpaces((prev) => {
+      const next = prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
+      const updated = next.find((s) => s.id === id)
+      if (updated) syncRow('spaces', id, updated)
       return next
     })
   }, [])
 
-  const setSettings = useCallback((updater) => {
-    setSettingsState((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveToStorage(STORAGE_KEYS.settings, next)
+  const deleteSpace = useCallback((id) => {
+    setSpaces((prev) => prev.filter((s) => s.id !== id))
+    deleteRow('spaces', id)
+  }, [])
+
+  // ── Leases ────────────────────────────────────────────────────────────────
+  const addLease = useCallback((lease) => {
+    const item = { ...lease, id: `l${Date.now()}`, createdAt: new Date().toISOString().split('T')[0] }
+    setLeases((prev) => [...prev, item])
+    syncRow('leases', item.id, item)
+    setSpaces((prev) => {
+      const next = prev.map((s) => (s.id === lease.spaceId ? { ...s, status: 'occupied' } : s))
+      const updated = next.find((s) => s.id === lease.spaceId)
+      if (updated) syncRow('spaces', updated.id, updated)
+      return next
+    })
+    return item
+  }, [])
+
+  const updateLease = useCallback((id, updates) => {
+    setLeases((prev) => {
+      const next = prev.map((l) => (l.id === id ? { ...l, ...updates } : l))
+      const updated = next.find((l) => l.id === id)
+      if (updated) syncRow('leases', id, updated)
       return next
     })
   }, [])
 
+  const deleteLease = useCallback((id) => {
+    setLeases((prev) => {
+      const lease = prev.find((l) => l.id === id)
+      if (lease) {
+        setSpaces((spaces) => {
+          const next = spaces.map((s) => (s.id === lease.spaceId ? { ...s, status: 'vacant' } : s))
+          const updated = next.find((s) => s.id === lease.spaceId)
+          if (updated) syncRow('spaces', updated.id, updated)
+          return next
+        })
+      }
+      return prev.filter((l) => l.id !== id)
+    })
+    deleteRow('leases', id)
+  }, [])
+
+  // ── Templates ─────────────────────────────────────────────────────────────
+  const addTemplate = useCallback((template) => {
+    const today = new Date().toISOString().split('T')[0]
+    const item = { ...template, id: `tmpl${Date.now()}`, createdAt: today, updatedAt: today }
+    setTemplates((prev) => [...prev, item])
+    syncRow('templates', item.id, item)
+    return item
+  }, [])
+
+  const updateTemplate = useCallback((id, updates) => {
+    setTemplates((prev) => {
+      const next = prev.map((t) => t.id === id
+        ? { ...t, ...updates, updatedAt: new Date().toISOString().split('T')[0] } : t)
+      const updated = next.find((t) => t.id === id)
+      if (updated) syncRow('templates', id, updated)
+      return next
+    })
+  }, [])
+
+  const deleteTemplate = useCallback((id) => {
+    setTemplates((prev) => prev.filter((t) => t.id !== id))
+    deleteRow('templates', id)
+  }, [])
+
+  // ── Invoices ──────────────────────────────────────────────────────────────
+  const addInvoice = useCallback((invoice) => {
+    setInvoices((prev) => {
+      const invTemplate = settingsRef.current?.invoicing?.invoiceNumberTemplate ?? 'INV-{{number}}'
+      const nums = prev.map((i) => parseInt(i.number?.replace(/\D/g, '') || '0', 10)).filter((n) => !isNaN(n))
+      const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1
+      const newInv = {
+        ...invoice,
+        id: `inv${Date.now()}`,
+        number: invoice.number || invTemplate.replace('{{number}}', String(nextNum).padStart(4, '0')),
+        createdAt: new Date().toISOString().split('T')[0],
+        payments: invoice.payments ?? [],
+        comments: invoice.comments ?? [],
+      }
+      syncRow('invoices', newInv.id, newInv)
+      return [...prev, newInv]
+    })
+  }, [])
+
+  const updateInvoice = useCallback((id, updates) => {
+    setInvoices((prev) => {
+      const next = prev.map((i) => (i.id === id ? { ...i, ...updates } : i))
+      const updated = next.find((i) => i.id === id)
+      if (updated) syncRow('invoices', id, updated)
+      return next
+    })
+  }, [])
+
+  const voidInvoice = useCallback((id) => {
+    setInvoices((prev) => {
+      const next = prev.map((i) => (i.id === id ? { ...i, status: 'voided' } : i))
+      const updated = next.find((i) => i.id === id)
+      if (updated) syncRow('invoices', id, updated)
+      return next
+    })
+  }, [])
+
+  const addPaymentToInvoice = useCallback((invoiceId, payment) => {
+    setInvoices((prev) => {
+      const next = prev.map((i) => i.id === invoiceId
+        ? { ...i, payments: [...(i.payments ?? []), { ...payment, id: `pay${Date.now()}` }], status: 'paid' }
+        : i)
+      const updated = next.find((i) => i.id === invoiceId)
+      if (updated) syncRow('invoices', invoiceId, updated)
+      return next
+    })
+  }, [])
+
+  const addCommentToInvoice = useCallback((invoiceId, text) => {
+    setInvoices((prev) => {
+      const next = prev.map((i) => i.id === invoiceId
+        ? { ...i, comments: [...(i.comments ?? []), { id: `cmt${Date.now()}`, text, createdAt: new Date().toISOString().split('T')[0] }] }
+        : i)
+      const updated = next.find((i) => i.id === invoiceId)
+      if (updated) syncRow('invoices', invoiceId, updated)
+      return next
+    })
+  }, [])
+
+  // ── Discounts ─────────────────────────────────────────────────────────────
+  const addDiscount = useCallback((discount) => {
+    const item = { ...discount, id: `disc${Date.now()}` }
+    setDiscounts((prev) => [...prev, item])
+    syncRow('discounts', item.id, item)
+  }, [])
+
+  const updateDiscount = useCallback((id, updates) => {
+    setDiscounts((prev) => {
+      const next = prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
+      const updated = next.find((d) => d.id === id)
+      if (updated) syncRow('discounts', id, updated)
+      return next
+    })
+  }, [])
+
+  const deleteDiscount = useCallback((id) => {
+    setDiscounts((prev) => prev.filter((d) => d.id !== id))
+    deleteRow('discounts', id)
+  }, [])
+
+  // ── Settings ──────────────────────────────────────────────────────────────
   const updateSettings = useCallback((patch) => {
-    setSettings((prev) => ({ ...prev, ...patch }))
-  }, [setSettings])
-
-  const addInvoice = useCallback(
-    (invoice) => {
-      setInvoices((prev) => {
-        let invTemplate = 'INV-{{number}}'
-        try {
-          const s = JSON.parse(localStorage.getItem(STORAGE_KEYS.settings) || '{}')
-          invTemplate = s.invoicing?.invoiceNumberTemplate ?? invTemplate
-        } catch { /* use default */ }
-        const nums = prev
-          .map((i) => parseInt(i.number?.replace(/\D/g, '') || '0', 10))
-          .filter((n) => !isNaN(n))
-        const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1
-        const generatedNumber = invTemplate.replace('{{number}}', String(nextNum).padStart(4, '0'))
-        const newInv = {
-          ...invoice,
-          id: `inv${Date.now()}`,
-          number: invoice.number || generatedNumber,
-          createdAt: new Date().toISOString().split('T')[0],
-          payments: invoice.payments ?? [],
-          comments: invoice.comments ?? [],
-        }
-        return [...prev, newInv]
-      })
-    },
-    [setInvoices]
-  )
-
-  const updateInvoice = useCallback(
-    (id, updates) => {
-      setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)))
-    },
-    [setInvoices]
-  )
-
-  const voidInvoice = useCallback(
-    (id) => {
-      setInvoices((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, status: 'voided' } : i))
-      )
-    },
-    [setInvoices]
-  )
-
-  const addPaymentToInvoice = useCallback(
-    (invoiceId, payment) => {
-      setInvoices((prev) =>
-        prev.map((i) =>
-          i.id === invoiceId
-            ? {
-                ...i,
-                payments: [
-                  ...(i.payments ?? []),
-                  { ...payment, id: `pay${Date.now()}` },
-                ],
-                status: 'paid',
-              }
-            : i
-        )
-      )
-    },
-    [setInvoices]
-  )
-
-  const addCommentToInvoice = useCallback(
-    (invoiceId, text) => {
-      setInvoices((prev) =>
-        prev.map((i) =>
-          i.id === invoiceId
-            ? {
-                ...i,
-                comments: [
-                  ...(i.comments ?? []),
-                  { id: `cmt${Date.now()}`, text, createdAt: new Date().toISOString().split('T')[0] },
-                ],
-              }
-            : i
-        )
-      )
-    },
-    [setInvoices]
-  )
-
-  // ── Auto Bill Run ─────────────────────────────────────────────────────
-  // Called on app load. Runs silently if it hasn't run this calendar month yet.
-  const runAutoBillRun = useCallback(() => {
-    const today = new Date()
-    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-    const lastRun = localStorage.getItem(STORAGE_KEYS.lastBillRun)
-
-    // Already ran this month — do nothing
-    if (lastRun === currentMonthKey) return
-
-    // Read current state directly from localStorage so this is safe to call
-    // before React state has fully propagated
-    let currentLeases = []
-    let currentInvoices = []
-    let currentSpaces = []
-    let currentTenants = []
-    let billRunSettings = DEFAULT_SETTINGS
-    try {
-      currentLeases = JSON.parse(localStorage.getItem(STORAGE_KEYS.leases) || '[]')
-      currentInvoices = JSON.parse(localStorage.getItem(STORAGE_KEYS.invoices) || '[]')
-      currentSpaces = JSON.parse(localStorage.getItem(STORAGE_KEYS.spaces) || '[]')
-      currentTenants = JSON.parse(localStorage.getItem(STORAGE_KEYS.tenants) || '[]')
-      const s = JSON.parse(localStorage.getItem(STORAGE_KEYS.settings) || '{}')
-      if (s && typeof s === 'object') billRunSettings = { ...DEFAULT_SETTINGS, ...s }
-    } catch { return }
-
-    // Respect auto-generate toggle
-    if (billRunSettings.invoicing?.autoGenerate === false) {
-      localStorage.setItem(STORAGE_KEYS.lastBillRun, currentMonthKey)
-      return
-    }
-
-    const invTemplate = billRunSettings.invoicing?.invoiceNumberTemplate ?? 'INV-{{number}}'
-    const dueDateDays = billRunSettings.invoicing?.dueDateDays ?? 14
-    const prorateEnabled = billRunSettings.invoicing?.proration !== false
-    const startDay = Math.min(28, Math.max(1, billRunSettings.billingRules?.billingPeriodStartDay ?? 1))
-
-    // Billing period: startDay of this month → (startDay - 1) of next month
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), startDay)
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, startDay - 1 || 1)
-    // Fallback: if startDay is 1, monthEnd = last day of month
-    const periodMonthEnd = startDay === 1
-      ? new Date(today.getFullYear(), today.getMonth() + 1, 0)
-      : monthEnd
-    const daysInPeriod = Math.floor((periodMonthEnd.getTime() - monthStart.getTime()) / 86400000) + 1
-
-    const activeLeases = currentLeases.filter((l) => {
-      if (l.status !== 'active') return false
-      const start = new Date(l.startDate)
-      const end = new Date(l.endDate)
-      return start <= monthEnd && end >= monthStart
+    setSettings((prev) => {
+      const next = { ...prev, ...patch }
+      settingsRef.current = next
+      supabase.from('settings').upsert({ id: 'global', data: next })
+        .then(({ error }) => { if (error) console.error('Supabase settings sync:', error) })
+      return next
     })
+  }, [])
 
-    const newInvoices = []
+  // ── Reset sample data ─────────────────────────────────────────────────────
+  const resetSampleData = useCallback(async () => {
+    if (!window.confirm('Load Found Huntingdale sample data?\n\nThis will replace all current data.')) return
+    setTenants(SAMPLE_TENANTS)
+    setSpaces(SAMPLE_SPACES)
+    setLeases(SAMPLE_LEASES)
+    setTemplates(SAMPLE_TEMPLATES)
+    setInvoices(SAMPLE_INVOICES)
+    setDiscounts(SAMPLE_DISCOUNTS)
+    await Promise.all([
+      seedTable('tenants', SAMPLE_TENANTS),
+      seedTable('spaces', SAMPLE_SPACES),
+      seedTable('leases', SAMPLE_LEASES),
+      seedTable('templates', SAMPLE_TEMPLATES),
+      seedTable('invoices', SAMPLE_INVOICES),
+      seedTable('discounts', SAMPLE_DISCOUNTS),
+    ])
+  }, [])
 
-    for (const lease of activeLeases) {
-      // Already has an invoice for this month
-      const alreadyBilled = currentInvoices.some(
-        (inv) =>
-          inv.leaseId === lease.id &&
-          inv.status !== 'voided' &&
-          inv.periodStart?.startsWith(currentMonthKey)
-      )
-      if (alreadyBilled) continue
-
-      const leaseStart = new Date(lease.startDate)
-      const leaseEnd = new Date(lease.endDate)
-      const space = currentSpaces.find((s) => s.id === lease.spaceId)
-
-      const periodStart = leaseStart > monthStart ? leaseStart : monthStart
-      const periodEnd = leaseEnd < periodMonthEnd ? leaseEnd : periodMonthEnd
-      const daysOccupied = Math.floor((periodEnd - periodStart) / 86400000) + 1
-      const isProrated = prorateEnabled && daysOccupied < daysInPeriod
-      const amount = isProrated
-        ? Math.round((lease.monthlyRent * daysOccupied / daysInPeriod) * 100) / 100
-        : lease.monthlyRent
-
-      const fmt = (d) => d.toISOString().split('T')[0]
-      const periodLabel = `${periodStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} – ${periodEnd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}${isProrated && prorateEnabled ? ' (prorated)' : ''}`
-      const desc = `${space?.unitNumber ?? ''}${space?.address ? ` – ${space.address}` : ''} · ${periodLabel}`
-
-      // Auto-generate invoice number using settings template
-      const allNums = currentInvoices.concat(newInvoices)
-        .map((i) => parseInt(i.number?.replace(/\D/g, '') || '0', 10))
-        .filter((n) => !isNaN(n))
-      const nextNum = allNums.length > 0 ? Math.max(...allNums) + 1 : 1
-
-      const dueDate = new Date(monthStart.getTime())
-      dueDate.setDate(dueDate.getDate() + dueDateDays)
-
-      newInvoices.push({
-        id: `inv${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        number: invTemplate.replace('{{number}}', String(nextNum).padStart(4, '0')),
-        tenantId: lease.tenantId,
-        leaseId: lease.id,
-        status: 'pending',
-        sentStatus: 'not_sent',
-        source: 'bill-run',
-        issueDate: fmt(monthStart),
-        dueDate: fmt(dueDate),
-        periodStart: fmt(periodStart),
-        periodEnd: fmt(periodEnd),
-        reference: '',
-        paymentMethod: '',
-        discountPct: 0,
-        vatEnabled: true,
-        xeroSync: false,
-        isProrated,
-        lineItems: [{
-          id: `li${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          description: desc,
-          revenueAccount: 'Membership Fees',
-          unitPrice: amount,
-          qty: 1,
-          discountPct: 0,
-        }],
-        payments: [],
-        comments: [],
-        creditNoteForId: null,
-        createdAt: fmt(today),
-      })
-    }
-
-    if (newInvoices.length > 0) {
-      setInvoices((prev) => [...prev, ...newInvoices])
-    }
-
-    // Mark this month as done regardless (even if all were already billed)
-    localStorage.setItem(STORAGE_KEYS.lastBillRun, currentMonthKey)
-  }, [setInvoices])
-
-  const addDiscount = useCallback(
-    (discount) => {
-      setDiscounts((prev) => [
-        ...prev,
-        { ...discount, id: `disc${Date.now()}` },
-      ])
-    },
-    [setDiscounts]
-  )
-
-  const updateDiscount = useCallback(
-    (id, updates) => {
-      setDiscounts((prev) => prev.map((d) => (d.id === id ? { ...d, ...updates } : d)))
-    },
-    [setDiscounts]
-  )
-
-  const deleteDiscount = useCallback(
-    (id) => {
-      setDiscounts((prev) => prev.filter((d) => d.id !== id))
-    },
-    [setDiscounts]
-  )
-
-  const resetSampleData = useCallback(() => {
-    if (
-      window.confirm(
-        'Load Found Huntingdale sample data?\n\nThis will replace your current spaces, tenants, leases, and templates with the real inventory.'
-      )
-    ) {
-      setTenants(SAMPLE_TENANTS)
-      setSpaces(SAMPLE_SPACES)
-      setLeases(SAMPLE_LEASES)
-      setTemplates(SAMPLE_TEMPLATES)
-      setInvoices(SAMPLE_INVOICES)
-      setDiscounts(SAMPLE_DISCOUNTS)
-    }
-  }, [setTenants, setSpaces, setLeases, setTemplates, setInvoices, setDiscounts])
+  // runAutoBillRun is now handled inside the load useEffect — kept as no-op for compatibility
+  const runAutoBillRun = useCallback(() => {}, [])
 
   return {
+    loading,
     tenants, addTenant, updateTenant, deleteTenant,
     spaces, addSpace, updateSpace, deleteSpace,
     leases, addLease, updateLease, deleteLease,
