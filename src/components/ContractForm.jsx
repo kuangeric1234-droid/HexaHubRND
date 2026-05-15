@@ -616,6 +616,8 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
                             <input
                               type="date"
                               value={step.startDate}
+                              min={form.startDate || undefined}
+                              max={form.endDate || undefined}
                               onChange={(e) =>
                                 updateStep(itemIdx, stepIdx, { startDate: e.target.value })
                               }
@@ -625,6 +627,7 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
                               type="date"
                               value={step.endDate}
                               min={step.startDate || form.startDate || undefined}
+                              max={form.endDate || undefined}
                               onChange={(e) =>
                                 updateStep(itemIdx, stepIdx, { endDate: e.target.value })
                               }
