@@ -46,7 +46,7 @@ export default function InvoiceDetail({
   const daysLeft = invoice.dueDate ? differenceInDays(parseISO(invoice.dueDate), today) : null
 
   // ── PDF Generation ─────────────────────────────────────────────────────
-  async function generatePDF() {
+  async function buildPDFDoc() {
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const W = doc.internal.pageSize.getWidth()
@@ -54,22 +54,17 @@ export default function InvoiceDetail({
     const ml = 15
     const mr = W - 15
 
-    // Pull values from settings with fallbacks
     const companyName = settings?.company?.name ?? 'HexaHub Pty Ltd'
     const companyWebsite = settings?.company?.website ?? 'hexahub.com.au'
     const billingName = settings?.billing?.businessName ?? companyName
     const billingBsb = settings?.billing?.bsb ?? '063-000'
     const billingAcc = settings?.billing?.acc ?? '00000000'
     const billingAddress = settings?.billing?.address ?? '7 Distribution Circuit, Huntingdale VIC 3166'
-    // Split address into two lines at the first comma
     const addrComma = billingAddress.indexOf(',')
     const addrLine1 = addrComma > -1 ? billingAddress.slice(0, addrComma).trim() : billingAddress
     const addrLine2 = addrComma > -1 ? billingAddress.slice(addrComma + 1).trim() : ''
 
     doc.setTextColor(0, 0, 0)
-
-    // ── Header ──
-    // Left: TAX INVOICE + company
     doc.setFontSize(22)
     doc.setFont('helvetica', 'bold')
     doc.text('TAX INVOICE', ml, 24)
@@ -78,7 +73,6 @@ export default function InvoiceDetail({
     doc.setTextColor(60, 60, 60)
     doc.text(tenant?.businessName ?? '—', ml, 31)
 
-    // Right: Logo or company name + address block
     const logo = settings?.company?.logo
     if (logo && logo.startsWith('data:image')) {
       try {
@@ -101,16 +95,12 @@ export default function InvoiceDetail({
     doc.text(addrLine1, mr, 27.5, { align: 'right' })
     if (addrLine2) doc.text(addrLine2, mr, 32, { align: 'right' })
 
-    // Invoice info (right, below address)
     const infoX = mr - 60
     let iy = 40
     function infoRow(label, value) {
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0)
       doc.text(label, infoX, iy)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(60, 60, 60)
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60)
       doc.text(String(value), infoX + 28, iy)
       iy += 5
     }
@@ -121,30 +111,22 @@ export default function InvoiceDetail({
       infoRow('Period', `${format(parseISO(invoice.periodStart), 'dd/MM/yyyy')} – ${format(parseISO(invoice.periodEnd), 'dd/MM/yyyy')}`)
     }
 
-    // Divider
-    doc.setDrawColor(180, 180, 180)
-    doc.setLineWidth(0.3)
+    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3)
     doc.line(ml, 56, mr, 56)
 
-    // ── Line items table ──
     let y = 63
-    // Headers
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0)
     doc.text('Description', ml, y)
     doc.text('Qty', 118, y, { align: 'right' })
     doc.text('Unit Price', 141, y, { align: 'right' })
     doc.text('GST', 158, y, { align: 'right' })
     doc.text('Amount AUD', mr, y, { align: 'right' })
     y += 3
-    doc.setDrawColor(0)
-    doc.setLineWidth(0.4)
+    doc.setDrawColor(0); doc.setLineWidth(0.4)
     doc.line(ml, y, mr, y)
     y += 5
 
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(40, 40, 40)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 40, 40)
     for (const line of (invoice.lineItems ?? [])) {
       const lineTotal = calcLineTotal(line)
       const lineGst = invoice.vatEnabled !== false ? Math.round(lineTotal * taxRate * 100) / 100 : 0
@@ -157,54 +139,42 @@ export default function InvoiceDetail({
       y += descLines.length * 5 + 2
     }
 
-    // Divider
-    y += 2
-    doc.setLineWidth(0.3)
-    doc.setDrawColor(180)
-    doc.line(ml, y, mr, y)
-    y += 6
+    y += 2; doc.setLineWidth(0.3); doc.setDrawColor(180)
+    doc.line(ml, y, mr, y); y += 6
 
-    // ── Totals ──
     const totX = 130
     function totRow(label, value, bold = false) {
       doc.setFontSize(8.5)
       doc.setFont('helvetica', bold ? 'bold' : 'normal')
       doc.setTextColor(bold ? 0 : 60, bold ? 0 : 60, bold ? 0 : 60)
-      doc.text(label, totX, y)
-      doc.text(value, mr, y, { align: 'right' })
-      y += 5.5
+      doc.text(label, totX, y); doc.text(value, mr, y, { align: 'right' }); y += 5.5
     }
     totRow('Subtotal', `${totals.subtotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`)
     if (totals.discountAmount > 0)
       totRow('Discount', `${totals.discountAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`)
     totRow('Taxable Amount', `${totals.taxable.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`)
     totRow(`Total GST ${taxRatePct.toFixed(2)} %`, `${totals.gst.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`)
-    y += 1
-    doc.setLineWidth(0.4)
-    doc.setDrawColor(0)
-    doc.line(totX, y, mr, y)
-    y += 4
+    y += 1; doc.setLineWidth(0.4); doc.setDrawColor(0)
+    doc.line(totX, y, mr, y); y += 4
     totRow('TOTAL AUD', `${totals.total.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`, true)
     totRow('Amount Due AUD', `${totals.amountDue.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`, true)
 
-    // ── Payment instructions ──
     y += 8
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(0)
-    doc.text(`Please make payments to ${billingName}`, ml, y)
-    y += 5
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(60, 60, 60)
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
+    doc.text(`Please make payments to ${billingName}`, ml, y); y += 5
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60)
     doc.text(`Account Name: ${companyName}`, ml, y); y += 5
     doc.text(`BSB: ${billingBsb}`, ml, y); y += 5
-    doc.text(`ACC: ${billingAcc}`, ml, y); y += 8
+    doc.text(`ACC: ${billingAcc}`, ml, y)
 
-    // Footer
-    doc.setFontSize(6.5)
-    doc.setTextColor(150)
+    doc.setFontSize(6.5); doc.setTextColor(150)
     doc.text(`${billingName} · ${billingAddress} · ${companyWebsite}`, W / 2, H - 8, { align: 'center' })
 
+    return doc
+  }
+
+  async function generatePDF() {
+    const doc = await buildPDFDoc()
     const slug = (tenant?.businessName ?? 'invoice').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
     doc.save(`${invoice.number}_${slug}.pdf`)
   }
@@ -218,15 +188,18 @@ export default function InvoiceDetail({
     }
     if (!window.confirm(`Send ${invoice.number} to ${email}?`)) return
     try {
+      const doc = await buildPDFDoc()
+      const pdfBase64 = doc.output('base64')
+      const slug = (tenant?.businessName ?? 'invoice').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
       await sendEmail({
         to: email,
         subject: `Invoice ${invoice.number} from ${settings?.company?.name ?? 'HexaHub'}`,
         html: invoiceEmailHtml({ invoice, tenant, settings }),
         settings,
+        attachments: [{ filename: `${invoice.number}_${slug}.pdf`, content: pdfBase64 }],
       })
       onUpdate(invoice.id, { sentStatus: 'sent' })
     } catch (err) {
-      // Fall back to marking sent even if email service isn't configured yet
       onUpdate(invoice.id, { sentStatus: 'sent' })
       if (err.message !== 'Failed to fetch') {
         alert(`Note: email may not have been delivered (${err.message}). Invoice marked as sent.`)

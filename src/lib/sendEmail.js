@@ -1,7 +1,7 @@
 // Client-side helper — calls the /api/send-email serverless function.
 // Pass settings from useStore to provide from/replyTo/cc/bcc values.
 
-export async function sendEmail({ to, subject, html, settings }) {
+export async function sendEmail({ to, subject, html, settings, attachments }) {
   const emails = settings?.emails ?? {}
   const billing = settings?.billing ?? {}
   const company = settings?.company ?? {}
@@ -17,6 +17,7 @@ export async function sendEmail({ to, subject, html, settings }) {
     ...(emails.replyTo ? { replyTo: emails.replyTo } : {}),
     ...(emails.cc ? { cc: emails.cc } : {}),
     ...(emails.bcc ? { bcc: emails.bcc } : {}),
+    ...(attachments?.length ? { attachments } : {}),
   }
 
   const res = await fetch('/api/send-email', {

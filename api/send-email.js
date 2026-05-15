@@ -20,6 +20,7 @@ export default async function handler(req, res) {
     cc,
     bcc,
     from = 'HexaHub <noreply@hexahub.com.au>',
+    attachments,
   } = req.body
 
   if (!to || !subject || !html) {
@@ -30,6 +31,7 @@ export default async function handler(req, res) {
   if (replyTo) payload.reply_to = replyTo
   if (cc) payload.cc = Array.isArray(cc) ? cc : [cc]
   if (bcc) payload.bcc = Array.isArray(bcc) ? bcc : [bcc]
+  if (attachments?.length) payload.attachments = attachments
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
