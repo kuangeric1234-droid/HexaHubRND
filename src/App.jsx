@@ -12,12 +12,36 @@ import Billing from './components/Billing.jsx'
 import Settings from './components/Settings.jsx'
 import Login from './components/Login.jsx'
 import { useStore } from './store/useStore.js'
-import { isLoggedIn } from './lib/auth.js'
+import { supabase } from './lib/supabase.js'
 
 export default function App() {
   const store = useStore()
-  const [authed, setAuthed] = useState(() => isLoggedIn())
+  const [authed, setAuthed] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
 
+  useEffect(() => {
+    // Check existing session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthed(!!session)
+      setAuthLoading(false)
+    })
+    // Listen for sign in / sign out
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(!!session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-black tracking-widest text-gray-900 mb-3">HEXAHUB</div>
+          <div className="text-sm text-gray-400">Loading...</div>
+        </div>
+      </div>
+    )
+  }
 
   if (!authed) {
     return <Login onSuccess={() => setAuthed(true)} />

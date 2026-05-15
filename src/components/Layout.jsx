@@ -11,7 +11,7 @@ import {
   Settings,
   LogOut,
 } from 'lucide-react'
-import { clearSession } from '../lib/auth.js'
+import { logout } from '../lib/auth.js'
 
 const nav = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -60,7 +60,7 @@ export default function Layout({ store, onLogout }) {
             Huntingdale VIC 3166
           </div>
           <button
-            onClick={() => { clearSession(); onLogout?.() }}
+            onClick={() => { logout(); onLogout?.() }}
             className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors"
           >
             <LogOut size={13} /> Sign out

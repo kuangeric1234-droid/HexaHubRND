@@ -24,14 +24,12 @@ export default function Login({ onSuccess }) {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="text-3xl font-black tracking-widest text-gray-900">HEXAHUB</div>
           <div className="text-xs text-gray-400 tracking-widest mt-1">六合空间</div>
           <p className="text-sm text-gray-500 mt-3">Management Portal</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white border border-gray-200 rounded-md shadow-sm p-8">
           <h1 className="text-lg font-bold text-gray-900 mb-6">Sign in</h1>
 

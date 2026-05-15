@@ -216,117 +216,90 @@ function CompanyBillingSection({ settings, updateSettings }) {
 }
 
 // ── Admin Users ───────────────────────────────────────────────────────────────
-function AdminUsersSection({ settings, updateSettings }) {
-  const [users, setUsers] = useState(() => [...(settings.adminUsers ?? [])])
-  const [showAdd, setShowAdd] = useState(false)
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Admin', access: 'Full Access' })
-  const [saved, setSaved] = useState(false)
+function AdminUsersSection() {
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [status, setStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
+  const [errorMsg, setErrorMsg] = useState('')
 
-  function save() {
-    updateSettings({ adminUsers: users })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
-  }
-
-  function addUser() {
-    if (!newUser.name.trim() || !newUser.email.trim()) return
-    setUsers((prev) => [...prev, { ...newUser, id: `u${Date.now()}` }])
-    setNewUser({ name: '', email: '', role: 'Admin', access: 'Full Access' })
-    setShowAdd(false)
+  async function handleInvite(e) {
+    e.preventDefault()
+    if (!inviteEmail.trim()) return
+    setStatus('sending')
+    setErrorMsg('')
+    try {
+      const res = await fetch('/api/auth/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Invite failed')
+      setStatus('sent')
+      setInviteEmail('')
+      setTimeout(() => setStatus(null), 4000)
+    } catch (err) {
+      setErrorMsg(err.message)
+      setStatus('error')
+    }
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-xl font-bold text-gray-900">Admin Users</h1>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-blue-700"
-        >
-          <Plus size={14} /> Add Admin User
-        </button>
-      </div>
-      <p className="text-sm text-gray-500 mb-6">Manage users who have access to the HexaHub portal.</p>
+      <h1 className="text-xl font-bold text-gray-900 mb-1">Admin Users</h1>
+      <p className="text-sm text-gray-500 mb-6">
+        Invite team members to the portal. They'll receive an email to set their password and gain access.
+      </p>
 
-      {showAdd && (
-        <div className="bg-gray-50 border border-gray-200 rounded-md p-4 mb-4">
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            {[
-              ['Name', 'name', 'text', 'Full name'],
-              ['Email', 'email', 'email', 'admin@company.com'],
-            ].map(([label, field, type, ph]) => (
-              <div key={field}>
-                <label className="block text-xs text-gray-500 mb-1">{label}</label>
-                <input
-                  type={type}
-                  value={newUser[field]}
-                  onChange={(e) => setNewUser((p) => ({ ...p, [field]: e.target.value }))}
-                  placeholder={ph}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            ))}
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Role</label>
-              <select
-                value={newUser.role}
-                onChange={(e) => setNewUser((p) => ({ ...p, role: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {['Admin', 'Manager', 'Billing', 'View Only'].map((r) => <option key={r}>{r}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Access Level</label>
-              <select
-                value={newUser.access}
-                onChange={(e) => setNewUser((p) => ({ ...p, access: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {['Full Access', 'Billing Only', 'Read Only'].map((a) => <option key={a}>{a}</option>)}
-              </select>
-            </div>
+      <div className="bg-white border border-gray-200 rounded-md p-6 mb-6">
+        <h2 className="text-sm font-semibold text-gray-800 mb-4">Invite a team member</h2>
+        <form onSubmit={handleInvite} className="flex gap-3 items-end">
+          <div className="flex-1">
+            <label className="block text-xs text-gray-500 mb-1">Email address</label>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="teammate@hexahub.com.au"
+              required
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
-          <div className="flex gap-2">
-            <button onClick={addUser} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded font-medium hover:bg-blue-700">Add</button>
-            <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancel</button>
-          </div>
-        </div>
-      )}
+          <button
+            type="submit"
+            disabled={status === 'sending'}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+          >
+            <Plus size={14} />
+            {status === 'sending' ? 'Sending…' : 'Send Invite'}
+          </button>
+        </form>
 
-      <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              {['Name', 'Email', 'Role', 'Access', ''].map((h) => (
-                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-b border-gray-100 last:border-0">
-                <td className="px-4 py-3 text-sm font-medium text-gray-800">{u.name}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
-                <td className="px-4 py-3">
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">{u.role}</span>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">{u.access}</td>
-                <td className="px-4 py-3 text-right">
-                  <button onClick={() => setUsers((prev) => prev.filter((x) => x.id !== u.id))} className="text-gray-400 hover:text-red-500">
-                    <Trash2 size={14} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {users.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-sm text-gray-400 text-center">No admin users. Add one above.</td></tr>
-            )}
-          </tbody>
-        </table>
+        {status === 'sent' && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+            <Check size={14} /> Invite sent — they'll receive an email to set their password.
+          </div>
+        )}
+        {status === 'error' && (
+          <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {errorMsg}
+          </div>
+        )}
       </div>
 
-      <SaveButton onClick={save} saved={saved} />
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm text-blue-700">
+        <p className="font-medium mb-1">Managing existing users</p>
+        <p className="text-xs text-blue-600">
+          To reset a password or remove a user, go to{' '}
+          <a
+            href="https://supabase.com/dashboard/project/yitkqjlytlyyflrsnfwc/auth/users"
+            target="_blank"
+            rel="noreferrer"
+            className="underline font-medium"
+          >
+            Supabase → Authentication → Users
+          </a>.
+        </p>
+      </div>
     </div>
   )
 }
@@ -648,7 +621,7 @@ export default function Settings() {
 
   const SECTIONS = {
     'company-billing': <CompanyBillingSection settings={settings} updateSettings={updateSettings} />,
-    'admin-users': <AdminUsersSection settings={settings} updateSettings={updateSettings} />,
+    'admin-users': <AdminUsersSection />,
     'emails': <EmailsSection settings={settings} updateSettings={updateSettings} />,
     'contracts': <ContractsSection settings={settings} updateSettings={updateSettings} />,
     'billing-rules': <BillingRulesSection settings={settings} updateSettings={updateSettings} />,
