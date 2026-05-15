@@ -44,6 +44,7 @@ function Section({ title, action, children }) {
 export default function TenantProfile({ tenant, leases, invoices, spaces, settings, onBack, onEdit, onSelectInvoice, onSelectContract, onAddInvoice }) {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false)
   const tenantLeases = leases.filter((l) => l.tenantId === tenant.id)
+
   const tenantInvoices = invoices.filter((inv) => inv.tenantId === tenant.id)
   const taxRate = (settings?.billingRules?.taxRate ?? 10) / 100
 
@@ -278,21 +279,47 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
       </div>
     </div>
 
-    {showInvoiceForm && (
-      <InvoiceForm
-        invoices={invoices}
-        tenants={[tenant]}
-        leases={leases}
-        spaces={spaces}
-        settings={settings}
-        taxRatePct={settings?.billingRules?.taxRate ?? 10}
-        onSave={(data) => {
-          onAddInvoice?.(data)
-          setShowInvoiceForm(false)
-        }}
-        onClose={() => setShowInvoiceForm(false)}
-      />
-    )}
+    {showInvoiceForm && (() => {
+      // Pre-fill uninvoiced deposits as line items
+      const tenantInvoicesNow = invoices.filter((inv) => inv.tenantId === tenant.id)
+      const depositLines = tenantLeases
+        .filter((l) => ['manually_signed', 'e_signed'].includes(l.signatureStatus))
+        .filter((l) => {
+          const bond = l.items?.[0]?.deposit ?? l.bondAmount ?? 0
+          if (!bond) return false
+          return !tenantInvoicesNow.some((inv) => inv.leaseId === l.id && inv.invoiceType === 'deposit' && inv.status !== 'voided')
+        })
+        .map((l) => {
+          const bond = l.items?.[0]?.deposit ?? l.bondAmount ?? 0
+          const space = spaces.find((s) => s.id === l.spaceId)
+          return {
+            id: `li${Date.now()}_${l.id}`,
+            description: `Security Deposit — ${space?.unitNumber ?? l.spaceId} (${l.contractNumber ?? `CON-${l.id.slice(-3).toUpperCase()}`})`,
+            revenueAccount: 'Security Deposit',
+            unitPrice: bond,
+            qty: 1,
+            discountPct: 0,
+          }
+        })
+      return (
+        <InvoiceForm
+          invoices={invoices}
+          tenants={[tenant]}
+          leases={leases}
+          spaces={spaces}
+          settings={settings}
+          taxRatePct={settings?.billingRules?.taxRate ?? 10}
+          defaultTenantId={tenant.id}
+          defaultLineItems={depositLines.length > 0 ? depositLines : null}
+          defaultInvoiceType={depositLines.length > 0 ? 'deposit' : null}
+          onSave={(data) => {
+            onAddInvoice?.(data)
+            setShowInvoiceForm(false)
+          }}
+          onClose={() => setShowInvoiceForm(false)}
+        />
+      )
+    })()}
     </>
   )
 }

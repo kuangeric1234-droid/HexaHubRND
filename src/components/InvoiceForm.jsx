@@ -70,12 +70,12 @@ function FormRow({ label, required, error, children, half }) {
   )
 }
 
-export default function InvoiceForm({ invoices, tenants, leases, spaces, settings, taxRatePct = 10, onSave, onClose }) {
+export default function InvoiceForm({ invoices, tenants, leases, spaces, settings, taxRatePct = 10, defaultTenantId = '', defaultLineItems = null, defaultInvoiceType = null, onSave, onClose }) {
   const today = format(new Date(), 'yyyy-MM-dd')
   const defaultPeriod = MONTH_OPTIONS[0]
 
   const [form, setForm] = useState({
-    tenantId: '',
+    tenantId: defaultTenantId,
     issueDate: today,
     dueDate: '',
     reference: '',
@@ -85,7 +85,8 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
     periodStart: defaultPeriod.value,
     periodEnd: defaultPeriod.end,
     payForMonths: 1,
-    lineItems: [newLine()],
+    lineItems: defaultLineItems ?? [newLine()],
+    invoiceType: defaultInvoiceType ?? null,
     vatEnabled: true,
   })
   const [errors, setErrors] = useState({})
@@ -202,14 +203,22 @@ export default function InvoiceForm({ invoices, tenants, leases, spaces, setting
 
           {/* To */}
           <FormRow label="To" required error={errors.tenantId}>
-            <select
-              value={form.tenantId}
-              onChange={(e) => { setForm({ ...form, tenantId: e.target.value }); setErrors((er) => ({ ...er, tenantId: '' })) }}
-              className={errors.tenantId ? errorInputCls : inputCls}
-            >
-              <option value="">Select company</option>
-              {tenants.map((t) => <option key={t.id} value={t.id}>{t.businessName}</option>)}
-            </select>
+            {defaultTenantId ? (
+              <input
+                value={tenants.find((t) => t.id === defaultTenantId)?.businessName ?? defaultTenantId}
+                readOnly
+                className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-gray-50 text-gray-700 cursor-default"
+              />
+            ) : (
+              <select
+                value={form.tenantId}
+                onChange={(e) => { setForm({ ...form, tenantId: e.target.value }); setErrors((er) => ({ ...er, tenantId: '' })) }}
+                className={errors.tenantId ? errorInputCls : inputCls}
+              >
+                <option value="">Select company</option>
+                {tenants.map((t) => <option key={t.id} value={t.id}>{t.businessName}</option>)}
+              </select>
+            )}
           </FormRow>
 
           {/* From */}
