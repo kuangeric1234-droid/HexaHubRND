@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { logAudit } from '../lib/audit.js'
 
 const STORAGE_KEYS = {
   tenants: 'hexahub_tenants',
@@ -70,6 +71,28 @@ const DEFAULT_SETTINGS = {
     overdueReminderDays: 7,
     invoiceNumberTemplate: 'INV-{{number}}',
     autoSend: false,
+  },
+  emailTemplates: {
+    invoice: {
+      subject: 'Invoice {{number}} from {{company}}',
+      intro: 'Please find your invoice attached. Payment is due by {{dueDate}}.',
+    },
+    reminder: {
+      subject: 'Payment reminder — {{number}} is overdue',
+      intro: 'This is a friendly reminder that invoice {{number}} for {{amount}} was due on {{dueDate}} and remains unpaid. Please arrange payment at your earliest convenience.',
+    },
+    receipt: {
+      subject: 'Payment receipt — {{number}}',
+      intro: 'Thank you — your payment of {{amount}} for invoice {{number}} has been received. A receipt is attached for your records.',
+    },
+    renewal: {
+      subject: 'Lease renewal notice — {{contract}} expires {{expiryDate}}',
+      intro: 'Your licence agreement is due to expire on {{expiryDate}}. We would love to continue our arrangement with you. Please contact us to discuss renewal terms.',
+    },
+    esign: {
+      subject: 'Please sign: {{contract}} — {{company}}',
+      intro: 'Please review and sign the attached licence agreement at your earliest convenience.',
+    },
   },
 }
 
@@ -720,6 +743,7 @@ export function useStore() {
     const item = { ...tenant, id: `t${Date.now()}`, createdAt: new Date().toISOString().split('T')[0] }
     setTenants((prev) => [...prev, item])
     syncRow('tenants', item.id, item)
+    logAudit('create', 'tenant', item.id, item.businessName)
     return item
   }, [])
 
@@ -733,7 +757,7 @@ export function useStore() {
   }, [])
 
   const deleteTenant = useCallback((id) => {
-    setTenants((prev) => prev.filter((t) => t.id !== id))
+    setTenants((prev) => { const t = prev.find((x) => x.id === id); logAudit('delete', 'tenant', id, t?.businessName ?? id); return prev.filter((x) => x.id !== id) })
     deleteRow('tenants', id)
   }, [])
 
@@ -764,6 +788,7 @@ export function useStore() {
     const item = { ...lease, id: `l${Date.now()}`, createdAt: new Date().toISOString().split('T')[0] }
     setLeases((prev) => [...prev, item])
     syncRow('leases', item.id, item)
+    logAudit('create', 'lease', item.id, item.contractNumber ?? item.id)
     setSpaces((prev) => {
       const next = prev.map((s) => (s.id === lease.spaceId ? { ...s, status: 'occupied' } : s))
       const updated = next.find((s) => s.id === lease.spaceId)
@@ -852,6 +877,8 @@ export function useStore() {
 
   const voidInvoice = useCallback((id) => {
     setInvoices((prev) => {
+      const inv = prev.find((i) => i.id === id)
+      logAudit('void', 'invoice', id, inv?.number ?? id)
       const next = prev.map((i) => (i.id === id ? { ...i, status: 'voided' } : i))
       const updated = next.find((i) => i.id === id)
       if (updated) syncRow('invoices', id, updated)

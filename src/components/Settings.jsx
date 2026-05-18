@@ -15,6 +15,7 @@ const MENU = [
     section: 'Operations',
     items: [
       { key: 'contracts', label: 'Contracts' },
+      { key: 'email-templates', label: 'Email Templates' },
     ],
   },
   {
@@ -614,6 +615,80 @@ function InvoicingSection({ settings, updateSettings }) {
   )
 }
 
+// ── Email Templates ───────────────────────────────────────────────────────────
+const EMAIL_TEMPLATE_DEFS = [
+  { key: 'invoice',  label: 'Invoice Email',          vars: '{{number}}, {{company}}, {{dueDate}}' },
+  { key: 'reminder', label: 'Overdue Reminder',        vars: '{{number}}, {{amount}}, {{dueDate}}' },
+  { key: 'receipt',  label: 'Payment Receipt',         vars: '{{number}}, {{amount}}' },
+  { key: 'renewal',  label: 'Renewal Notice',          vars: '{{contract}}, {{expiryDate}}' },
+  { key: 'esign',    label: 'eSign Invitation',        vars: '{{contract}}, {{company}}' },
+]
+
+function EmailTemplatesSection({ settings, updateSettings }) {
+  const defaults = settings.emailTemplates ?? {}
+  const [form, setForm] = useState(() => {
+    const f = {}
+    EMAIL_TEMPLATE_DEFS.forEach(({ key }) => {
+      f[key] = { subject: defaults[key]?.subject ?? '', intro: defaults[key]?.intro ?? '' }
+    })
+    return f
+  })
+  const [saved, setSaved] = useState(false)
+
+  function save() {
+    updateSettings({ emailTemplates: form })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  const input = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'
+
+  return (
+    <div>
+      <div className="px-6 py-5 border-b border-gray-100">
+        <h2 className="text-base font-semibold text-gray-900">Email Templates</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Customise the subject and opening paragraph for each email type. Use placeholders shown below each field.
+        </p>
+      </div>
+      <div className="px-6 py-4 space-y-8">
+        {EMAIL_TEMPLATE_DEFS.map(({ key, label, vars }) => (
+          <div key={key} className="border border-gray-200 rounded-md p-5">
+            <h3 className="text-sm font-semibold text-gray-800 mb-4">{label}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Subject line</label>
+                <input
+                  value={form[key]?.subject ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: { ...f[key], subject: e.target.value } }))}
+                  className={input}
+                />
+                <p className="text-xs text-gray-400 mt-1">Available: {vars}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Opening paragraph</label>
+                <textarea
+                  rows={3}
+                  value={form[key]?.intro ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: { ...f[key], intro: e.target.value } }))}
+                  className={`${input} resize-none`}
+                />
+                <p className="text-xs text-gray-400 mt-1">Available: {vars}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+        <div className="flex justify-end pt-2">
+          <button onClick={save}
+            className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800">
+            {saved ? <><Check size={14} /> Saved</> : 'Save Email Templates'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Settings ─────────────────────────────────────────────────────────────
 export default function Settings() {
   const { settings, updateSettings } = useOutletContext()
@@ -626,6 +701,7 @@ export default function Settings() {
     'contracts': <ContractsSection settings={settings} updateSettings={updateSettings} />,
     'billing-rules': <BillingRulesSection settings={settings} updateSettings={updateSettings} />,
     'invoicing': <InvoicingSection settings={settings} updateSettings={updateSettings} />,
+    'email-templates': <EmailTemplatesSection settings={settings} updateSettings={updateSettings} />,
   }
 
   return (

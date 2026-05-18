@@ -207,32 +207,30 @@ export default function ContractDetail({
       if (y + needed > H - 15) { doc.addPage(); y = 20 }
     }
 
-      // Header
-      doc.setFontSize(18)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0)
-      doc.text('LICENCE AGREEMENT', ml, y)
-      doc.setFontSize(13)
-      doc.text('HEXA HUB', mr, y, { align: 'right' })
-      y += 10
+      // ── Black header bar ──────────────────────────────────────
+      doc.setFillColor(0, 0, 0)
+      doc.rect(0, 0, W, 18, 'F')
+      doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
+      doc.text('HEXA HUB', ml, 11.5)
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(180, 180, 180)
+      doc.text('LICENCE AGREEMENT', mr, 11.5, { align: 'right' })
+      y = 26
 
-      // Agreement info
-      doc.setFontSize(8.5)
-      doc.setTextColor(0)
+      // ── Contract details row ──────────────────────────────────
+      const companyName = settings?.billing?.businessName ?? settings?.company?.name ?? 'HexaHub Pty Ltd'
+      const billingAddress = settings?.billing?.address ?? '7 Distribution Circuit, Huntingdale VIC 3166'
+      doc.setTextColor(0); doc.setFontSize(8.5); doc.setFont('helvetica', 'normal')
+      doc.text(`Agreement:`, ml, y); doc.setFont('helvetica', 'bold'); doc.text(contractNum, ml + 22, y)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Agreement ID: ${contractNum}`, ml, y)
       doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, ml, y + 5)
       doc.setFont('helvetica', 'bold')
-      doc.text('Business Centre Address', mr, y, { align: 'right' })
-      doc.setFont('helvetica', 'normal')
-      doc.text('7 Distribution Circuit', mr, y + 5, { align: 'right' })
-      doc.text('Huntingdale VIC 3166', mr, y + 10, { align: 'right' })
-      doc.text('Australia, Victoria', mr, y + 15, { align: 'right' })
-      y += 22
-      doc.setDrawColor(200)
-      doc.setLineWidth(0.3)
-      doc.line(ml, y, mr, y)
-      y += 8
+      doc.text(companyName, mr, y, { align: 'right' })
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(80)
+      doc.text(billingAddress, mr, y + 5, { align: 'right' })
+      doc.text('Found Huntingdale, VIC 3166', mr, y + 10, { align: 'right' })
+      y += 18
+      doc.setDrawColor(0); doc.setLineWidth(0.5); doc.setTextColor(0)
+      doc.line(ml, y, mr, y); y += 8
 
       // Company + Contact (two columns)
       const colMid = ml + (mr - ml) / 2 + 4
@@ -264,21 +262,21 @@ export default function ContractDetail({
       }
       y += 6
 
-      // Licence Fee Details table
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(9)
-      doc.text('LICENCE FEE DETAILS', ml, y)
-      y += 5
+      // ── Licence Fee Details ───────────────────────────────────
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(80)
+      doc.text('LICENCE FEE DETAILS', ml, y); doc.setTextColor(0)
+      doc.setDrawColor(180); doc.setLineWidth(0.3); doc.line(ml, y + 2, mr, y + 2)
+      y += 7
 
-      const cols = { office: ml, start: ml + 45, end: ml + 92, total: ml + 138 }
-      doc.setFillColor(245, 245, 245)
-      doc.rect(ml, y - 3, mr - ml, 7, 'F')
-      doc.setFontSize(7.5)
-      doc.setFont('helvetica', 'bold')
-      doc.text('OFFICE', cols.office, y + 1)
-      doc.text('START DATE', cols.start, y + 1)
-      doc.text('END DATE', cols.end, y + 1)
-      doc.text('MONTHLY TOTAL', cols.total, y + 1)
+      const cols = { office: ml, start: ml + 45, end: ml + 95, total: mr }
+      doc.setFillColor(20, 20, 20)
+      doc.rect(ml, y - 3.5, mr - ml, 7, 'F')
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
+      doc.text('UNIT', cols.office, y + 0.5)
+      doc.text('START DATE', cols.start, y + 0.5)
+      doc.text('END DATE', cols.end, y + 0.5)
+      doc.text('MONTHLY TOTAL', cols.total, y + 0.5, { align: 'right' })
+      doc.setTextColor(0)
       y += 7
 
       const items = lease.items ?? [{
@@ -287,22 +285,26 @@ export default function ContractDetail({
         steps: [{ startDate: lease.startDate, endDate: lease.endDate, listPrice: lease.monthlyRent ?? 0, qty: 1 }],
       }]
 
-      doc.setFont('helvetica', 'normal')
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8)
+      let rowIdx = 0
       for (const item of items) {
         for (const step of (item.steps ?? [])) {
           checkPage()
           const price = Number(step.listPrice ?? 0)
           const qty = Number(step.qty ?? 1)
-          doc.setDrawColor(220)
-          doc.line(ml, y - 1, mr, y - 1)
+          if (rowIdx % 2 === 0) { doc.setFillColor(248, 248, 248); doc.rect(ml, y - 2, mr - ml, 7, 'F') }
+          doc.setTextColor(0)
           doc.text(space?.unitNumber ?? '—', cols.office, y + 3)
           doc.text(step.startDate ? format(parseISO(step.startDate), 'dd/MM/yyyy') : '—', cols.start, y + 3)
           doc.text(step.endDate ? format(parseISO(step.endDate), 'dd/MM/yyyy') : '—', cols.end, y + 3)
-          doc.text(`${(price * qty).toFixed(2)} AUD`, mr, y + 3, { align: 'right' })
-          y += 8
+          doc.setFont('helvetica', 'bold')
+          doc.text(`$${(price * qty).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`, cols.total, y + 3, { align: 'right' })
+          doc.setFont('helvetica', 'normal')
+          y += 8; rowIdx++
         }
       }
-      y += 4
+      doc.setDrawColor(0); doc.setLineWidth(0.4); doc.line(ml, y, mr, y)
+      y += 6
 
       // Summary
       const deposit = Number(items[0]?.deposit ?? 0)
@@ -310,49 +312,59 @@ export default function ContractDetail({
       const gst = Math.round(deposit * (taxRatePct / 100) * 100) / 100
       const totalInit = Math.round((deposit + gst) * 100) / 100
 
+      // ── Key Details section header ────────────────────────────
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(80)
+      doc.text('KEY DETAILS', ml, y); doc.text('INITIAL PAYMENTS', colMid + 2, y); doc.setTextColor(0)
+      doc.setDrawColor(180); doc.setLineWidth(0.3)
+      doc.line(ml, y + 2, colMid - 4, y + 2)
+      doc.line(colMid + 2, y + 2, mr, y + 2)
+      y += 7
+
       const sumRows = [
-        [`Minimum Notice Period:`, `${lease.noticePeriodMonths ?? 1} (M), 0 (W), 0 (D)`],
+        [`Notice Period:`, `${lease.noticePeriodMonths ?? 1} month(s)`],
         [`Start Date:`, lease.startDate ? format(parseISO(lease.startDate), 'dd/MM/yyyy') : '—'],
         [`End Date:`, lease.endDate ? format(parseISO(lease.endDate), 'dd/MM/yyyy') : '—'],
       ]
       const payRows = [
-        [`Initial payment:`, `${deposit.toFixed(2)} AUD`],
-        [`GST ${taxRatePct} %:`, `${gst.toFixed(2)} AUD`],
-        [`Total initial payment:`, `${totalInit.toFixed(2)} AUD`],
-        [`Deposit`, `${deposit.toFixed(2)} AUD`],
+        [`Security Deposit:`, `$${deposit.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`],
+        [`GST (${taxRatePct}%):`, `$${gst.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`],
+        [`Total Due:`, `$${totalInit.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`],
       ]
       const maxSumRows = Math.max(sumRows.length, payRows.length)
       doc.setFontSize(8)
       for (let i = 0; i < maxSumRows; i++) {
         checkPage()
-        doc.setDrawColor(220)
-        doc.line(ml, y - 1, colMid - 4, y - 1)
-        doc.line(colMid, y - 1, mr, y - 1)
+        if (i % 2 === 0) {
+          doc.setFillColor(248, 248, 248)
+          doc.rect(ml, y - 2, colMid - ml - 4, 7, 'F')
+          doc.rect(colMid + 2, y - 2, mr - colMid - 2, 7, 'F')
+        }
         if (sumRows[i]) {
-          doc.setFont('helvetica', 'bold')
-          doc.text(sumRows[i][0], ml, y + 3)
-          doc.setFont('helvetica', 'normal')
-          doc.text(sumRows[i][1], colMid - 6, y + 3, { align: 'right' })
+          doc.setFont('helvetica', 'bold'); doc.text(sumRows[i][0], ml, y + 3)
+          doc.setFont('helvetica', 'normal'); doc.text(sumRows[i][1], colMid - 6, y + 3, { align: 'right' })
         }
         if (payRows[i]) {
-          doc.setFont('helvetica', 'bold')
-          doc.text(payRows[i][0], colMid, y + 3)
-          doc.setFont('helvetica', 'normal')
-          doc.text(payRows[i][1], mr, y + 3, { align: 'right' })
+          doc.setFont('helvetica', 'bold'); doc.text(payRows[i][0], colMid + 2, y + 3)
+          doc.setFont('helvetica', 'normal'); doc.text(payRows[i][1], mr, y + 3, { align: 'right' })
         }
         y += 7
       }
-      y += 4
-      doc.setFontSize(7)
-      doc.setTextColor(130)
-      doc.text('*Minimum Term is subject to written notice from either party. Minimum notice period as specified above.', ml, y)
-      y += 10
-      doc.setTextColor(0)
+      y += 6
+      doc.setFontSize(6.5); doc.setTextColor(130)
+      doc.text('* All amounts exclude GST unless otherwise stated. Minimum term subject to notice period above.', ml, y)
+      y += 10; doc.setTextColor(0)
 
-      // Signature blocks
-      checkPage(50)
-      doc.setDrawColor(180)
-      doc.line(ml, y, mr, y)
+      // ── Signature blocks ──────────────────────────────────────
+      checkPage(55)
+      doc.setFillColor(0); doc.rect(ml, y, mr - ml, 0.5, 'F')
+      y += 7
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(60)
+      doc.text('LICENSEE', ml, y); doc.text('LICENSOR', colMid, y)
+      doc.setTextColor(0); y += 2
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5)
+      doc.text(`For and on behalf of ${tenant?.businessName ?? 'the Licensee'}:`, ml, y + 4)
+      doc.text(`For and on behalf of ${companyName}:`, colMid, y + 4)
+      y += 10
       y += 6
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8.5)
@@ -441,13 +453,18 @@ export default function ContractDetail({
         }
       }
 
-      // Page numbers (runs after all pages including templates are created)
+      // ── Footer on every page ──────────────────────────────────
       const pages = doc.getNumberOfPages()
+      const footerCompany = settings?.billing?.businessName ?? settings?.company?.name ?? 'HexaHub Pty Ltd'
+      const footerAddr = settings?.billing?.address ?? '7 Distribution Circuit, Huntingdale VIC 3166'
       for (let i = 1; i <= pages; i++) {
         doc.setPage(i)
-        doc.setFontSize(7)
-        doc.setTextColor(150)
-        doc.text(`${contractNum} · HexaHub Pty Ltd · Page ${i} of ${pages}`, W / 2, H - 8, { align: 'center' })
+        doc.setFillColor(20, 20, 20)
+        doc.rect(0, H - 10, W, 10, 'F')
+        doc.setFontSize(6); doc.setFont('helvetica', 'normal'); doc.setTextColor(160, 160, 160)
+        doc.text(`${contractNum} · ${footerCompany} · ${footerAddr}`, W / 2, H - 5, { align: 'center' })
+        doc.setTextColor(220, 220, 220); doc.setFont('helvetica', 'bold')
+        doc.text(`${i} / ${pages}`, mr, H - 5, { align: 'right' })
       }
 
       return doc

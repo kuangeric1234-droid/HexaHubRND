@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ArrowLeft, Send, RefreshCw, Ban, FileMinus, FileDown, Plus, MessageSquare, ToggleLeft, ToggleRight } from 'lucide-react'
-import { sendEmail, invoiceEmailHtml } from '../lib/sendEmail.js'
+import { sendEmail, invoiceEmailHtml, resolveEmailTemplate } from '../lib/sendEmail.js'
 import { jsPDF } from 'jspdf'
 
 const STATUS_STYLE = {
@@ -199,7 +199,7 @@ export default function InvoiceDetail({
       const slug = (tenant?.businessName ?? 'invoice').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
       await sendEmail({
         to: email,
-        subject: `Invoice ${invoice.number} from ${settings?.company?.name ?? 'HexaHub'}`,
+        subject: resolveEmailTemplate('invoice', { number: invoice.number, company: settings?.company?.name ?? 'HexaHub', dueDate: invoice.dueDate ?? '' }, settings).subject || `Invoice ${invoice.number} from ${settings?.company?.name ?? 'HexaHub'}`,
         html: invoiceEmailHtml({ invoice, tenant, settings }),
         settings,
         attachments: [{ filename: `${invoice.number}_${slug}.pdf`, content: pdfBase64 }],

@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* ── Mobile table scroll ──────────────────────────────────────────────────── */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Mobile padding override ──────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .p-8 { padding: 1rem !important; }
+  .px-8 { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .px-12 { padding-left: 1rem !important; padding-right: 1rem !important; }
+}
+
 /* ── Template HTML body (contract template view) ─────────────────────────── */
 .template-html-body h2 {
   font-size: 1rem;

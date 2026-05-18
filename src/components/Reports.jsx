@@ -22,6 +22,8 @@ export default function Reports() {
   const [tab, setTab] = useState('financial')
   const [emailLog, setEmailLog] = useState([])
   const [emailLoading, setEmailLoading] = useState(false)
+  const [auditLog, setAuditLog] = useState([])
+  const [auditLoading, setAuditLoading] = useState(false)
   const [months] = useState(12)
 
   const taxRate = (settings?.billingRules?.taxRate ?? 10) / 100
@@ -33,6 +35,16 @@ export default function Reports() {
       .then(({ data }) => {
         setEmailLog((data ?? []).map((r) => r.data).filter(Boolean))
         setEmailLoading(false)
+      })
+  }, [tab])
+
+  useEffect(() => {
+    if (tab !== 'audit') return
+    setAuditLoading(true)
+    supabase.from('audit_log').select('data').order('updated_at', { ascending: false }).limit(300)
+      .then(({ data }) => {
+        setAuditLog((data ?? []).map((r) => r.data).filter(Boolean))
+        setAuditLoading(false)
       })
   }, [tab])
 
@@ -120,7 +132,7 @@ export default function Reports() {
 
       {/* Tab bar */}
       <div className="flex border-b border-gray-200 mb-6">
-        {[['financial', 'Financial Report'], ['email', 'Email Activity Log']].map(([id, label]) => (
+        {[['financial', 'Financial Report'], ['email', 'Email Activity Log'], ['audit', 'Audit Log']].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {label}
@@ -265,6 +277,58 @@ export default function Reports() {
                 })}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {/* ── Audit Log ── */}
+      {tab === 'audit' && (
+        <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800 text-sm">Audit Log</h3>
+            <span className="text-xs text-gray-400">{auditLog.length} recent events</span>
+          </div>
+          {auditLoading ? (
+            <p className="px-5 py-6 text-sm text-gray-400">Loading…</p>
+          ) : auditLog.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-gray-400">No audit events yet. Actions will be logged here automatically.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    {['Time', 'Action', 'Type', 'Name', 'User'].map((h) => (
+                      <th key={h} className="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLog.map((log) => {
+                    const actionStyle = {
+                      create: 'bg-green-100 text-green-700',
+                      update: 'bg-blue-100 text-blue-700',
+                      delete: 'bg-red-100 text-red-700',
+                      void:   'bg-orange-100 text-orange-700',
+                      send:   'bg-purple-100 text-purple-700',
+                      sign:   'bg-teal-100 text-teal-700',
+                    }[log.action] ?? 'bg-gray-100 text-gray-600'
+                    return (
+                      <tr key={log.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">
+                          {log.timestamp ? format(parseISO(log.timestamp), 'dd/MM/yyyy HH:mm') : '—'}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded capitalize ${actionStyle}`}>{log.action}</span>
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 text-xs capitalize">{log.entityType}</td>
+                        <td className="px-5 py-3 text-gray-700 text-xs font-medium">{log.entityName || log.entityId}</td>
+                        <td className="px-5 py-3 text-gray-400 text-xs">{log.userEmail}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

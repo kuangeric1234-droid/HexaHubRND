@@ -53,6 +53,22 @@ export async function sendEmail({ to, subject, html, settings, attachments, tena
   return result
 }
 
+// ── Template helper ────────────────────────────────────────────────────────────
+export function resolveEmailTemplate(type, vars, settings) {
+  const tpl = settings?.emailTemplates?.[type]
+  const sub = tpl?.subject ?? ''
+  const intro = tpl?.intro ?? ''
+  const replace = (str) => str
+    .replace(/\{\{number\}\}/g, vars.number ?? '')
+    .replace(/\{\{company\}\}/g, vars.company ?? '')
+    .replace(/\{\{dueDate\}\}/g, vars.dueDate ?? '')
+    .replace(/\{\{amount\}\}/g, vars.amount ?? '')
+    .replace(/\{\{contract\}\}/g, vars.contract ?? '')
+    .replace(/\{\{expiryDate\}\}/g, vars.expiryDate ?? '')
+    .replace(/\{\{tenantName\}\}/g, vars.tenantName ?? '')
+  return { subject: replace(sub), intro: replace(intro) }
+}
+
 // ── Email templates ────────────────────────────────────────────────────────────
 
 export function invoiceEmailHtml({ invoice, tenant, settings }) {
@@ -82,7 +98,7 @@ export function invoiceEmailHtml({ invoice, tenant, settings }) {
     </div>
     <div style="padding:32px">
       <p style="margin:0 0 8px;color:#555;font-size:14px">Hi ${tenant?.contactName ?? tenant?.businessName ?? 'there'},</p>
-      <p style="margin:0 0 24px;font-size:14px">Please find your invoice details below.</p>
+      <p style="margin:0 0 24px;font-size:14px">${settings?.emailTemplates?.invoice?.intro?.replace(/\{\{number\}\}/g, invoice.number ?? '').replace(/\{\{dueDate\}\}/g, invoice.dueDate ?? '') ?? 'Please find your invoice details below.'}</p>
 
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
         <tr style="background:#f5f5f5">
