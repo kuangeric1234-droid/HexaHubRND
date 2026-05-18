@@ -82,7 +82,6 @@ export default function App() {
           <Route path="tenants" element={<Tenants />} />
           <Route path="spaces" element={<Spaces />} />
           <Route path="leases" element={<Leases />} />
-          <Route path="agreements" element={<AgreementGenerator />} />
           <Route path="billing" element={<Billing />} />
           <Route path="renewals" element={<Renewals />} />
           <Route path="templates" element={<Templates />} />
