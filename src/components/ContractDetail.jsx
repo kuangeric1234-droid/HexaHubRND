@@ -41,6 +41,8 @@ export default function ContractDetail({
   const navigate = useNavigate()
   const [showMenu, setShowMenu] = useState(false)
   const [showSignMenu, setShowSignMenu] = useState(false)
+  const [showNoticeModal, setShowNoticeModal] = useState(false)
+  const [noticeForm, setNoticeForm] = useState({ noticeDate: new Date().toISOString().split('T')[0], vacateDate: '', bondRefunded: false, notes: '' })
   const [view, setView] = useState('grid') // 'grid' | 'template'
   const [generating, setGenerating] = useState(false)
   const [copyMsg, setCopyMsg] = useState('')
@@ -529,12 +531,12 @@ export default function ContractDetail({
               ...
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-md shadow-lg z-50 w-36 py-1">
+              <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-md shadow-lg z-50 w-44 py-1">
                 <button
-                  onClick={() => { setShowMenu(false); onBack() }}
+                  onClick={() => { setShowMenu(false); setShowNoticeModal(true) }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  Serve Notice to Vacate
                 </button>
                 <button
                   onClick={() => { setShowMenu(false); onDelete(lease.id) }}
@@ -874,6 +876,30 @@ export default function ContractDetail({
           {/* ── Grid View ── */}
           {view === 'grid' && (
           <div className="p-5 space-y-5">
+
+            {/* ── Notice to Vacate banner ── */}
+            {lease.noticeGiven && (
+              <div className="bg-orange-50 border border-orange-200 rounded-md p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-orange-800">Notice to Vacate Served</p>
+                    <div className="mt-1 text-xs text-orange-700 space-y-0.5">
+                      <p>Notice date: <span className="font-medium">{lease.noticeDate}</span></p>
+                      <p>Expected vacate date: <span className="font-medium">{lease.vacateDate || '—'}</span></p>
+                      <p>Bond refunded: <span className="font-medium">{lease.bondRefunded ? 'Yes' : 'Pending'}</span></p>
+                      {lease.noticeNotes && <p className="text-orange-600 mt-1">{lease.noticeNotes}</p>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setNoticeForm({ noticeDate: lease.noticeDate ?? '', vacateDate: lease.vacateDate ?? '', bondRefunded: lease.bondRefunded ?? false, notes: lease.noticeNotes ?? '' }); setShowNoticeModal(true) }}
+                    className="text-xs border border-orange-300 rounded px-2 py-1 text-orange-700 hover:bg-orange-100"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ── Resources ── */}
             <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100">
@@ -1043,6 +1069,66 @@ export default function ContractDetail({
                 className="px-4 py-2 text-sm bg-black text-white rounded font-semibold hover:bg-gray-800 disabled:opacity-50"
               >
                 {counterskigning ? 'Signing…' : 'Sign & Execute'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Notice to Vacate Modal ── */}
+      {showNoticeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-md w-full max-w-md shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="font-bold text-gray-900">Notice to Vacate</h2>
+              <button onClick={() => setShowNoticeModal(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Notice Date</label>
+                <input type="date" value={noticeForm.noticeDate}
+                  onChange={(e) => setNoticeForm((f) => ({ ...f, noticeDate: e.target.value }))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Expected Vacate Date</label>
+                <input type="date" value={noticeForm.vacateDate}
+                  onChange={(e) => setNoticeForm((f) => ({ ...f, vacateDate: e.target.value }))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+                <textarea value={noticeForm.notes} rows={3}
+                  onChange={(e) => setNoticeForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Reason for vacating, condition notes, etc."
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black resize-none" />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={noticeForm.bondRefunded}
+                  onChange={(e) => setNoticeForm((f) => ({ ...f, bondRefunded: e.target.checked }))}
+                  className="h-4 w-4 rounded border-gray-300" />
+                <span className="text-sm text-gray-600">Bond / security deposit has been refunded</span>
+              </label>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
+              <button onClick={() => setShowNoticeModal(false)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (onUpdateLease) onUpdateLease(lease.id, {
+                    noticeGiven: true,
+                    noticeDate: noticeForm.noticeDate,
+                    vacateDate: noticeForm.vacateDate,
+                    bondRefunded: noticeForm.bondRefunded,
+                    noticeNotes: noticeForm.notes,
+                  })
+                  setShowNoticeModal(false)
+                }}
+                className="px-4 py-2 text-sm bg-black text-white rounded font-semibold hover:bg-gray-800"
+              >
+                Save Notice
               </button>
             </div>
           </div>

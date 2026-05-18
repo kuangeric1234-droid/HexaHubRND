@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Pencil, Building2, Mail, Phone, Hash, Plus } from 'lucide-react'
+import { ArrowLeft, Pencil, Building2, Mail, Phone, Hash, Plus, FileDown } from 'lucide-react'
 import InvoiceForm from './InvoiceForm.jsx'
+import { jsPDF } from 'jspdf'
 
 const SIG_BADGE = {
   manually_signed:   { label: 'Signed',       cls: 'bg-green-100 text-green-700' },
@@ -44,6 +45,96 @@ function Section({ title, action, children }) {
 export default function TenantProfile({ tenant, leases, invoices, spaces, settings, onBack, onEdit, onSelectInvoice, onSelectContract, onAddInvoice }) {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false)
   const tenantLeases = leases.filter((l) => l.tenantId === tenant.id)
+
+  function generateStatement() {
+    const taxRate = (settings?.billingRules?.taxRate ?? 10) / 100
+    const companyName = settings?.billing?.businessName ?? settings?.company?.name ?? 'HexaHub Pty Ltd'
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W = doc.internal.pageSize.getWidth()
+    const H = doc.internal.pageSize.getHeight()
+    const ml = 15, mr = W - 15
+    let y = 20
+
+    doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
+    doc.text('STATEMENT OF ACCOUNT', ml, y); y += 8
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(80)
+    doc.text(`Prepared: ${format(new Date(), 'dd/MM/yyyy')}`, ml, y)
+    doc.text(companyName, mr, y, { align: 'right' }); y += 10
+
+    doc.setDrawColor(0); doc.setLineWidth(0.4)
+    doc.line(ml, y, mr, y); y += 6
+
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
+    doc.text('To:', ml, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(tenant.businessName ?? '', ml + 8, y); y += 5
+    if (tenant.contactName) { doc.text(tenant.contactName, ml + 8, y); y += 5 }
+    if (tenant.email) { doc.text(tenant.email, ml + 8, y); y += 5 }
+    y += 5
+
+    // Table header
+    const cols = { num: ml, date: ml + 28, due: ml + 58, period: ml + 88, status: ml + 130, amount: mr }
+    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(60)
+    doc.text('Invoice', cols.num, y)
+    doc.text('Issue Date', cols.date, y)
+    doc.text('Due Date', cols.due, y)
+    doc.text('Period', cols.period, y)
+    doc.text('Status', cols.status, y)
+    doc.text('Amount', cols.amount, y, { align: 'right' })
+    y += 2
+    doc.setLineWidth(0.3); doc.setDrawColor(180)
+    doc.line(ml, y, mr, y); y += 5
+
+    const tInvoices = invoices.filter((inv) => inv.tenantId === tenant.id && inv.status !== 'voided')
+    let totalInvoiced = 0, totalPaid = 0
+
+    for (const inv of tInvoices) {
+      if (y > H - 30) { doc.addPage(); y = 20 }
+      const sub = (inv.lineItems ?? []).reduce((s, l) => s + Math.round(l.unitPrice * l.qty * (1 - (l.discountPct ?? 0) / 100) * 100) / 100, 0)
+      const gst = inv.vatEnabled !== false ? Math.round(sub * taxRate * 100) / 100 : 0
+      const total = sub + gst
+      const paid = (inv.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+      totalInvoiced += total; totalPaid += paid
+
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(0); doc.setFontSize(8)
+      doc.text(inv.number ?? '', cols.num, y)
+      doc.text(inv.issueDate ?? '', cols.date, y)
+      doc.text(inv.dueDate ?? '', cols.due, y)
+      const period = inv.periodStart ? `${inv.periodStart.slice(0, 7)}` : (inv.invoiceType === 'deposit' ? 'Deposit' : '—')
+      doc.text(period, cols.period, y)
+      doc.setTextColor(inv.status === 'overdue' ? 180 : inv.status === 'paid' ? 0 : 80, 0, 0)
+      doc.text(inv.status?.toUpperCase() ?? '', cols.status, y)
+      doc.setTextColor(0)
+      doc.text(`$${total.toLocaleString('en-AU', { minimumFractionDigits: 2 })}`, cols.amount, y, { align: 'right' })
+      y += 6
+
+      // Show payments
+      for (const pay of (inv.payments ?? [])) {
+        if (y > H - 30) { doc.addPage(); y = 20 }
+        doc.setTextColor(0, 120, 0); doc.setFontSize(7.5)
+        doc.text(`  Payment received ${pay.date ?? ''} — ${pay.method ?? ''}`, cols.num, y)
+        doc.text(`-$${Number(pay.amount).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`, cols.amount, y, { align: 'right' })
+        doc.setTextColor(0)
+        y += 5
+      }
+    }
+
+    // Totals
+    y += 4; doc.setLineWidth(0.4); doc.setDrawColor(0)
+    doc.line(ml + 80, y, mr, y); y += 5
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal')
+    doc.text('Total Invoiced:', ml + 80, y)
+    doc.text(`$${totalInvoiced.toLocaleString('en-AU', { minimumFractionDigits: 2 })}`, mr, y, { align: 'right' }); y += 5
+    doc.text('Total Paid:', ml + 80, y)
+    doc.text(`$${totalPaid.toLocaleString('en-AU', { minimumFractionDigits: 2 })}`, mr, y, { align: 'right' }); y += 5
+    doc.setFont('helvetica', 'bold')
+    doc.text('Balance Outstanding:', ml + 80, y)
+    doc.text(`$${Math.max(0, totalInvoiced - totalPaid).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`, mr, y, { align: 'right' })
+
+    const slug = (tenant.businessName ?? 'tenant').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
+    doc.save(`Statement_${slug}_${format(new Date(), 'yyyy-MM-dd')}.pdf`)
+  }
+
 
   const tenantInvoices = invoices.filter((inv) => inv.tenantId === tenant.id)
   const taxRate = (settings?.billingRules?.taxRate ?? 10) / 100
@@ -88,9 +179,14 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
             <span className="text-gray-300">/</span>
             <span className="text-sm font-semibold text-gray-800">{tenant.businessName}</span>
           </div>
-          <button onClick={onEdit} className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600">
-            <Pencil size={13} /> Edit Details
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={generateStatement} className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600">
+              <FileDown size={13} /> Statement PDF
+            </button>
+            <button onClick={onEdit} className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600">
+              <Pencil size={13} /> Edit Details
+            </button>
+          </div>
         </div>
       </div>
 
