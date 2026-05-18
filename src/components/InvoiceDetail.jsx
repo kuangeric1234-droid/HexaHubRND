@@ -213,6 +213,95 @@ export default function InvoiceDetail({
     }
   }
 
+  async function handleSendReminder() {
+    const email = tenant?.email
+    if (!email) { alert('No email address on file for this tenant.'); return }
+    if (!window.confirm(`Send overdue payment reminder to ${email}?`)) return
+    try {
+      const companyName = settings?.company?.name ?? 'HexaHub'
+      const sub = (invoice.lineItems ?? []).reduce((s, l) => s + Math.round(l.unitPrice * l.qty * (1 - (l.discountPct ?? 0) / 100) * 100) / 100, 0)
+      const gst = invoice.vatEnabled !== false ? Math.round(sub * (taxRate) * 100) / 100 : 0
+      const total = sub + gst
+      await sendEmail({
+        to: email,
+        subject: `Payment reminder — ${invoice.number} overdue`,
+        html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:0">
+<div style="max-width:560px;margin:32px auto;background:#fff;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden">
+  <div style="background:#000;padding:20px 32px"><span style="color:#fff;font-size:18px;font-weight:bold;letter-spacing:2px">${companyName.toUpperCase()}</span></div>
+  <div style="padding:32px">
+    <h2 style="margin:0 0 12px;font-size:16px;color:#c00">Payment Reminder</h2>
+    <p style="color:#555;font-size:14px;margin:0 0 16px">Hi ${tenant?.contactName ?? tenant?.businessName ?? ''},</p>
+    <p style="color:#555;font-size:14px;margin:0 0 20px">Invoice <strong>${invoice.number}</strong> for <strong>$${total.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</strong> was due on <strong>${invoice.dueDate}</strong> and remains unpaid. Please arrange payment at your earliest convenience.</p>
+    <p style="font-size:12px;color:#888;margin-top:24px">If you have already made payment, please disregard this message.</p>
+  </div>
+</div></body></html>`,
+        settings,
+      })
+      alert('Reminder sent.')
+    } catch (err) {
+      alert(`Failed to send: ${err.message}`)
+    }
+  }
+
+  async function handleSendReceipt(payment) {
+    const email = tenant?.email
+    if (!email) { alert('No email address on file for this tenant.'); return }
+    const companyName = settings?.company?.name ?? 'HexaHub'
+    const sub = (invoice.lineItems ?? []).reduce((s, l) => s + Math.round(l.unitPrice * l.qty * (1 - (l.discountPct ?? 0) / 100) * 100) / 100, 0)
+    const gst = invoice.vatEnabled !== false ? Math.round(sub * taxRate * 100) / 100 : 0
+    const total = sub + gst
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const W = doc.internal.pageSize.getWidth()
+      const ml = 15, mr = W - 15
+      doc.setFontSize(22); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
+      doc.text('RECEIPT', ml, 24)
+      doc.setFontSize(14); doc.setFont('helvetica', 'bold')
+      doc.text(companyName.toUpperCase(), mr, 18, { align: 'right' })
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60)
+      doc.text(tenant?.businessName ?? '', ml, 31)
+      doc.setDrawColor(180); doc.setLineWidth(0.3)
+      doc.line(ml, 36, mr, 36)
+      let y = 44
+      const info = (label, val) => {
+        doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(0)
+        doc.text(label, ml, y)
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 60)
+        doc.text(String(val), ml + 40, y); y += 6
+      }
+      info('Invoice Number:', invoice.number)
+      info('Payment Date:', payment?.date ?? format(new Date(), 'yyyy-MM-dd'))
+      info('Payment Method:', payment?.method ?? invoice.paymentMethod ?? '—')
+      info('Amount Paid:', `$${Number(payment?.amount ?? total).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`)
+      info('Invoice Total:', `$${total.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`)
+      y += 4
+      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 120, 0)
+      doc.text('Payment received — thank you.', ml, y)
+      const pdfBase64 = doc.output('datauristring').split(',')[1]
+      const slug = (tenant?.businessName ?? 'receipt').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
+      await sendEmail({
+        to: email,
+        subject: `Payment receipt — ${invoice.number}`,
+        html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:0">
+<div style="max-width:560px;margin:32px auto;background:#fff;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden">
+  <div style="background:#000;padding:20px 32px"><span style="color:#fff;font-size:18px;font-weight:bold;letter-spacing:2px">${companyName.toUpperCase()}</span></div>
+  <div style="padding:32px">
+    <h2 style="margin:0 0 12px;font-size:16px">Payment Received ✓</h2>
+    <p style="color:#555;font-size:14px;margin:0 0 16px">Hi ${tenant?.contactName ?? ''},</p>
+    <p style="color:#555;font-size:14px;margin:0 0 8px">Thank you — your payment for <strong>${invoice.number}</strong> has been received.</p>
+    <p style="color:#555;font-size:14px;margin:0 0 16px">Amount: <strong>$${Number(payment?.amount ?? total).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</strong></p>
+    <p style="font-size:12px;color:#888">A receipt is attached for your records.</p>
+  </div>
+</div></body></html>`,
+        settings,
+        attachments: [{ filename: `Receipt_${invoice.number}_${slug}.pdf`, content: pdfBase64 }],
+      })
+      alert('Receipt sent.')
+    } catch (err) {
+      alert(`Failed to send receipt: ${err.message}`)
+    }
+  }
+
   function handleDetachConfirm() {
     if (!detachSelected.length) return
     const remaining = (invoice.lineItems ?? []).filter((l) => !detachSelected.includes(l.id))
@@ -283,6 +372,12 @@ export default function InvoiceDetail({
               {invoice.xeroSync ? <ToggleRight size={14} className="text-blue-600" /> : <ToggleLeft size={14} />}
               Sync
             </button>
+            {invoice.status === 'overdue' && (
+              <button onClick={handleSendReminder}
+                className="flex items-center gap-1.5 text-xs border border-red-300 rounded px-3 py-1.5 hover:bg-red-50 text-red-700 font-medium">
+                <Send size={13} /> Send Reminder
+              </button>
+            )}
             <button onClick={handleSend}
               className="flex items-center gap-1.5 text-xs border border-blue-300 rounded px-3 py-1.5 hover:bg-blue-50 text-blue-700 font-medium">
               <Send size={13} /> Send
@@ -484,9 +579,19 @@ export default function InvoiceDetail({
                     </div>
                     {pay.note && <div className="text-xs text-gray-500">{pay.note}</div>}
                   </div>
-                  <div className="text-xs text-gray-400 text-right">
-                    <div>{format(parseISO(pay.date), 'dd/MM/yyyy')}</div>
-                    <div>{pay.method}</div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs text-gray-400 text-right">
+                      <div>{format(parseISO(pay.date), 'dd/MM/yyyy')}</div>
+                      <div>{pay.method}</div>
+                    </div>
+                    {tenant?.email && (
+                      <button
+                        onClick={() => handleSendReceipt(pay)}
+                        className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                      >
+                        Receipt
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

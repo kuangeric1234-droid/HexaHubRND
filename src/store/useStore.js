@@ -690,6 +690,18 @@ export function useStore() {
         } else {
           setInvoices(loadedInvoices)
         }
+
+        // ── Mark overdue invoices ─────────────────────────────────────────
+        const todayStr = new Date().toISOString().split('T')[0]
+        const toMarkOverdue = loadedInvoices.filter(
+          (inv) => inv.status === 'pending' && inv.dueDate && inv.dueDate < todayStr
+        )
+        if (toMarkOverdue.length > 0) {
+          setInvoices((prev) =>
+            prev.map((inv) => toMarkOverdue.some((o) => o.id === inv.id) ? { ...inv, status: 'overdue' } : inv)
+          )
+          await Promise.all(toMarkOverdue.map((inv) => syncRow('invoices', inv.id, { ...inv, status: 'overdue' })))
+        }
       } catch (err) {
         console.error('Supabase load failed:', err)
       } finally {
