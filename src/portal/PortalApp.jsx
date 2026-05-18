@@ -87,19 +87,34 @@ function SetPasswordScreen({ onDone }) {
   )
 }
 
+function clearPortalSession() {
+  // Wipe all Supabase session data from localStorage and reload
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('sb-') || k.startsWith('supabase'))
+    .forEach(k => localStorage.removeItem(k))
+  sessionStorage.clear()
+  window.location.replace('/')
+}
+
 export default function PortalApp() {
   const [session, setSession]             = useState(null)
   const [tenant, setTenant]               = useState(null)
   const [invoices, setInvoices]           = useState([])
   const [leases, setLeases]               = useState([])
   const [loading, setLoading]             = useState(true)
+  const [loadError, setLoadError]         = useState(false)
   const [needsPassword, setNeedsPassword] = useState(IS_RECOVERY_FLOW)
-  // Guard so data is fetched at most once per email — prevents multiple auth events from stacking
   const loadedFor = useRef(null)
 
   useEffect(() => {
-    // Initial session check
+    // Timeout so we never get permanently stuck loading
+    const stuck = setTimeout(() => {
+      setLoading(false)
+      setLoadError(true)
+    }, 8000)
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(stuck)
       setSession(session)
       if (IS_RECOVERY_FLOW || !session) {
         setLoading(false)
@@ -176,6 +191,24 @@ export default function PortalApp() {
         <div className="text-center">
           <div className="text-2xl font-black tracking-widest text-gray-900 mb-3">HEXAHUB</div>
           <div className="text-sm text-gray-400">Loading…</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="text-2xl font-black tracking-widest text-gray-900 mb-6">HEXAHUB</div>
+          <p className="text-gray-600 mb-2">Having trouble connecting.</p>
+          <p className="text-sm text-gray-400 mb-8">This is usually caused by a stale login session.</p>
+          <button
+            onClick={clearPortalSession}
+            className="w-full bg-black text-white text-sm font-semibold py-2.5 rounded mb-3 hover:bg-gray-800"
+          >
+            Clear Session &amp; Sign In Again
+          </button>
         </div>
       </div>
     )

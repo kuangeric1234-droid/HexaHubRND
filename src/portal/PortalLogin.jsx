@@ -137,6 +137,20 @@ export default function PortalLogin() {
         <p className="text-center text-xs text-gray-400 mt-6">
           hexahub.com.au · build locally, scale sustainably
         </p>
+        <p className="text-center mt-3">
+          <button
+            onClick={() => {
+              Object.keys(localStorage)
+                .filter(k => k.startsWith('sb-') || k.startsWith('supabase'))
+                .forEach(k => localStorage.removeItem(k))
+              sessionStorage.clear()
+              window.location.replace('/')
+            }}
+            className="text-xs text-gray-300 hover:text-gray-500"
+          >
+            Having trouble signing in? Clear session
+          </button>
+        </p>
       </div>
     </div>
   )
