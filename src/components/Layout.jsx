@@ -10,6 +10,7 @@ import {
   Receipt,
   Settings,
   LogOut,
+  Wrench,
 } from 'lucide-react'
 import { logout } from '../lib/auth.js'
 
@@ -21,6 +22,7 @@ const nav = [
   { to: '/billing', icon: Receipt, label: 'Billing' },
   { to: '/agreements', icon: FilePlus, label: 'Agreements' },
   { to: '/renewals', icon: RefreshCw, label: 'Renewals' },
+  { to: '/maintenance', icon: Wrench, label: 'Maintenance' },
   { to: '/templates', icon: BookOpen, label: 'Templates' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

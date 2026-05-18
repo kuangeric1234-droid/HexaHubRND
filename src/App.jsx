@@ -10,6 +10,7 @@ import Renewals from './components/Renewals.jsx'
 import Templates from './components/Templates.jsx'
 import Billing from './components/Billing.jsx'
 import Settings from './components/Settings.jsx'
+import Maintenance from './components/Maintenance.jsx'
 import Login from './components/Login.jsx'
 import SignPage from './components/SignPage.jsx'
 import { useStore } from './store/useStore.js'
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="billing" element={<Billing />} />
           <Route path="renewals" element={<Renewals />} />
           <Route path="templates" element={<Templates />} />
+          <Route path="maintenance" element={<Maintenance />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

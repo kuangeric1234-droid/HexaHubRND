@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { format, parseISO, startOfMonth, endOfMonth, getDaysInMonth, isAfter, isBefore, addMonths, differenceInDays } from 'date-fns'
-import { Plus, Search, Filter, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Search, X, Check, Download, Send, Ban } from 'lucide-react'
 import InvoiceDetail from './InvoiceDetail.jsx'
 import InvoiceForm from './InvoiceForm.jsx'
+import { sendEmail, invoiceEmailHtml } from '../lib/sendEmail.js'
+import { jsPDF } from 'jspdf'
 
 const STATUS_STYLE = {
   pending: 'bg-orange-100 text-orange-800',
@@ -40,6 +42,8 @@ export default function Billing() {
   const [search, setSearch] = useState('')
   const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [selected, setSelected] = useState(new Set()) // bulk selection
+  const [bulkWorking, setBulkWorking] = useState(false)
 
   // Discount form state
   const [showDiscountForm, setShowDiscountForm] = useState(false)
@@ -140,6 +144,83 @@ export default function Billing() {
       newInvoices.forEach((inv) => addInvoice(inv))
       alert(`${generated} invoice${generated !== 1 ? 's' : ''} generated.`)
     }
+  }
+
+  // ── CSV Export ────────────────────────────────────────────────────────────
+  function exportCSV() {
+    const rows = [['Number', 'Tenant', 'Status', 'Sent', 'Issue Date', 'Due Date', 'Period', 'Subtotal', 'GST', 'Total', 'Paid', 'Amount Due']]
+    for (const inv of filtered) {
+      const tenant = tenants.find((t) => t.id === inv.tenantId)
+      const sub = (inv.lineItems ?? []).reduce((s, l) => s + Math.round(l.unitPrice * l.qty * (1 - (l.discountPct ?? 0) / 100) * 100) / 100, 0)
+      const gst = inv.vatEnabled !== false ? Math.round(sub * taxRate * 100) / 100 : 0
+      const total = sub + gst
+      const paid = (inv.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+      rows.push([
+        inv.number ?? '', tenant?.businessName ?? '', inv.status ?? '', inv.sentStatus ?? '',
+        inv.issueDate ?? '', inv.dueDate ?? '',
+        inv.periodStart ? `${inv.periodStart} to ${inv.periodEnd}` : (inv.invoiceType === 'deposit' ? 'Deposit' : ''),
+        sub.toFixed(2), gst.toFixed(2), total.toFixed(2), paid.toFixed(2), Math.max(0, total - paid).toFixed(2),
+      ])
+    }
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `invoices_${format(new Date(), 'yyyy-MM-dd')}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ── Bulk actions ──────────────────────────────────────────────────────────
+  function toggleSelect(id) {
+    setSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+  function selectAll() {
+    setSelected((prev) => prev.size === filtered.length ? new Set() : new Set(filtered.map((i) => i.id)))
+  }
+  async function bulkVoid() {
+    if (!window.confirm(`Void ${selected.size} invoice(s)?`)) return
+    selected.forEach((id) => voidInvoice(id))
+    setSelected(new Set())
+  }
+  async function bulkMarkPaid() {
+    if (!window.confirm(`Mark ${selected.size} invoice(s) as paid?`)) return
+    const today = format(new Date(), 'yyyy-MM-dd')
+    selected.forEach((id) => {
+      const inv = invoices.find((i) => i.id === id)
+      if (!inv || inv.status === 'voided') return
+      const sub = (inv.lineItems ?? []).reduce((s, l) => s + Math.round(l.unitPrice * l.qty * (1 - (l.discountPct ?? 0) / 100) * 100) / 100, 0)
+      const gst = inv.vatEnabled !== false ? Math.round(sub * taxRate * 100) / 100 : 0
+      const total = sub + gst
+      const paid = (inv.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+      const remaining = Math.max(0, total - paid)
+      if (remaining > 0) {
+        addPaymentToInvoice(id, { amount: remaining, date: today, method: 'Bank Transfer', note: 'Bulk mark paid' })
+      }
+      updateInvoice(id, { status: 'paid' })
+    })
+    setSelected(new Set())
+  }
+  async function bulkSend() {
+    setBulkWorking(true)
+    let sent = 0
+    for (const id of selected) {
+      const inv = invoices.find((i) => i.id === id)
+      if (!inv) continue
+      const tenant = tenants.find((t) => t.id === inv.tenantId)
+      if (!tenant?.email) continue
+      try {
+        await sendEmail({
+          to: tenant.email,
+          subject: `Invoice ${inv.number} from ${settings?.company?.name ?? 'HexaHub'}`,
+          html: invoiceEmailHtml({ invoice: inv, tenant, settings }),
+          settings,
+        })
+        updateInvoice(id, { sentStatus: 'sent' })
+        sent++
+      } catch { /* silently skip failed sends */ }
+    }
+    setBulkWorking(false)
+    setSelected(new Set())
+    alert(`Sent ${sent} of ${selected.size} invoice(s).`)
   }
 
   // ── Invoice update handler (handles credit note creation) ───────────────
@@ -304,6 +385,10 @@ export default function Billing() {
                   className="pl-8 pr-3 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-48"
                 />
               </div>
+              <button onClick={exportCSV}
+                className="flex items-center gap-1.5 text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-600 hover:bg-gray-50 font-medium">
+                <Download size={14} /> Export CSV
+              </button>
               <button
                 onClick={handleBillRun}
                 className="flex items-center gap-1.5 text-sm border border-gray-300 rounded px-3 py-1.5 text-gray-600 hover:bg-gray-50 font-medium"
@@ -319,11 +404,38 @@ export default function Billing() {
             </div>
           </div>
 
+          {/* Bulk action bar */}
+          {selected.size > 0 && (
+            <div className="mb-3 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-md px-4 py-2.5">
+              <span className="text-sm font-medium text-blue-800">{selected.size} selected</span>
+              <button onClick={bulkSend} disabled={bulkWorking}
+                className="flex items-center gap-1.5 text-xs bg-blue-600 text-white rounded px-3 py-1.5 hover:bg-blue-700 disabled:opacity-50">
+                <Send size={12} /> {bulkWorking ? 'Sending…' : 'Send All'}
+              </button>
+              <button onClick={bulkMarkPaid}
+                className="flex items-center gap-1.5 text-xs bg-green-600 text-white rounded px-3 py-1.5 hover:bg-green-700">
+                <Check size={12} /> Mark Paid
+              </button>
+              <button onClick={bulkVoid}
+                className="flex items-center gap-1.5 text-xs border border-red-300 text-red-600 rounded px-3 py-1.5 hover:bg-red-50">
+                <Ban size={12} /> Void
+              </button>
+              <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-blue-500 hover:text-blue-800">
+                Clear
+              </button>
+            </div>
+          )}
+
           {/* Invoice table */}
           <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="pl-4 py-3 w-8">
+                    <input type="checkbox" className="h-4 w-4 rounded border-gray-300"
+                      checked={selected.size === filtered.length && filtered.length > 0}
+                      onChange={selectAll} />
+                  </th>
                   {['Number', 'To', 'Status', 'Issue Date', 'Due Date', 'Amount Due', ''].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       {h}
@@ -352,20 +464,24 @@ export default function Billing() {
                   return (
                     <tr
                       key={inv.id}
-                      onClick={() => setSelectedInvoice(inv)}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer"
+                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                     >
-                      <td className="px-4 py-3">
+                      <td className="pl-4 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" className="h-4 w-4 rounded border-gray-300"
+                          checked={selected.has(inv.id)}
+                          onChange={() => toggleSelect(inv.id)} />
+                      </td>
+                      <td className="px-4 py-3 cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
                         <div className="font-mono text-xs font-semibold text-blue-700">{inv.number}</div>
                         <div className="text-xs text-gray-400 mt-0.5">
                           {inv.isProrated ? 'Prorated · ' : ''}{inv.source === 'bill-run' ? 'Bill Run' : 'Manual'}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
                         <div className="font-medium text-gray-900">{tenant?.businessName ?? '—'}</div>
                         <div className="text-xs text-gray-400">Found Huntingdale</div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
                         <div className="flex flex-col gap-1">
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded capitalize w-fit ${STATUS_STYLE[inv._status]}`}>
                             {inv._status}

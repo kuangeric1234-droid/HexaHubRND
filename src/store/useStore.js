@@ -513,6 +513,7 @@ export function useStore() {
   const [templates, setTemplates] = useState([])
   const [invoices, setInvoices] = useState([])
   const [discounts, setDiscounts] = useState([])
+  const [maintenance, setMaintenance] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   // Always-current settings ref for callbacks
@@ -526,7 +527,7 @@ export function useStore() {
         const [
           { data: tData }, { data: sData }, { data: lData },
           { data: tmData }, { data: invData }, { data: discData },
-          { data: settData }, { data: metaData },
+          { data: maintData }, { data: settData }, { data: metaData },
         ] = await Promise.all([
           supabase.from('tenants').select('data'),
           supabase.from('spaces').select('data'),
@@ -534,6 +535,7 @@ export function useStore() {
           supabase.from('templates').select('data'),
           supabase.from('invoices').select('data'),
           supabase.from('discounts').select('data'),
+          supabase.from('maintenance').select('data'),
           supabase.from('settings').select('data').eq('id', 'global'),
           supabase.from('meta').select('*'),
         ])
@@ -546,8 +548,9 @@ export function useStore() {
         const loadedLeases    = lData?.length    ? extractRows(lData)    : (isSeeded ? [] : SAMPLE_LEASES)
         const loadedTemplates = tmData?.length   ? extractRows(tmData)   : (isSeeded ? [] : SAMPLE_TEMPLATES)
         const loadedInvoices  = invData?.length  ? extractRows(invData)  : (isSeeded ? [] : SAMPLE_INVOICES)
-        const loadedDiscounts = discData?.length ? extractRows(discData) : (isSeeded ? [] : SAMPLE_DISCOUNTS)
-        const loadedSettings  = settData?.[0]?.data ?? DEFAULT_SETTINGS
+        const loadedDiscounts   = discData?.length  ? extractRows(discData)  : (isSeeded ? [] : SAMPLE_DISCOUNTS)
+        const loadedMaintenance = maintData?.length ? extractRows(maintData) : []
+        const loadedSettings    = settData?.[0]?.data ?? DEFAULT_SETTINGS
         const lastBillRun     = metaData?.find((m) => m.key === 'last_bill_run')?.value ?? null
 
         // Seed sample data only on the very first ever load
@@ -567,6 +570,7 @@ export function useStore() {
         setLeases(loadedLeases)
         setTemplates(loadedTemplates)
         setDiscounts(loadedDiscounts)
+        setMaintenance(loadedMaintenance)
         setSettings(loadedSettings)
         settingsRef.current = loadedSettings
 
@@ -898,6 +902,23 @@ export function useStore() {
     deleteRow('discounts', id)
   }, [])
 
+  // ── Maintenance ───────────────────────────────────────────────────────────
+  const addMaintenanceIssue = useCallback((issue) => {
+    const item = { ...issue, id: `maint${Date.now()}`, createdAt: new Date().toISOString().split('T')[0] }
+    setMaintenance((prev) => [item, ...prev])
+    syncRow('maintenance', item.id, item)
+  }, [])
+
+  const updateMaintenanceIssue = useCallback((id, updates) => {
+    setMaintenance((prev) => prev.map((m) => m.id === id ? { ...m, ...updates } : m))
+    setMaintenance((prev) => { const m = prev.find((i) => i.id === id); if (m) syncRow('maintenance', id, { ...m, ...updates }); return prev })
+  }, [])
+
+  const deleteMaintenanceIssue = useCallback((id) => {
+    setMaintenance((prev) => prev.filter((m) => m.id !== id))
+    deleteRow('maintenance', id)
+  }, [])
+
   // ── Settings ──────────────────────────────────────────────────────────────
   const updateSettings = useCallback((patch) => {
     setSettings((prev) => {
@@ -940,6 +961,7 @@ export function useStore() {
     templates, addTemplate, updateTemplate, deleteTemplate,
     invoices, addInvoice, updateInvoice, voidInvoice, addPaymentToInvoice, addCommentToInvoice, runAutoBillRun,
     discounts, addDiscount, updateDiscount, deleteDiscount,
+    maintenance, addMaintenanceIssue, updateMaintenanceIssue, deleteMaintenanceIssue,
     settings, updateSettings,
     resetSampleData,
   }
