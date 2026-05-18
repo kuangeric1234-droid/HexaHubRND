@@ -1,31 +1,24 @@
 // POST /api/event-bookings/send-signing
 //
-// Called in three modes:
-//   mode=undefined (default) — Admin sent docs for signing → email organiser with signing link
-//   mode='admin_notify'      — Organiser just signed → notify admin to countersign
-//   mode='insurance_deferred'— Organiser said "I'll submit later" → remind admin to chase insurance
-//
-// Body: { booking, signingUrl?, mode? }
+// mode=undefined        — Admin sends vendor agreement → email vendor signing link
+// mode='admin_notify'   — Vendor signed → notify admin
+// mode='insurance_deferred' — Vendor deferred insurance → remind admin
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 
-function fmtDate(d) {
-  if (!d) return '—'
-  try {
-    return new Date(d).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  } catch { return d }
+const EVENT = {
+  name: 'Hexa Hub Pop-Up',
+  date: 'Sunday 7 June 2026',
+  hours: '10:00 AM – 10:00 PM',
+  venue: 'The Hub, 18 Logistic Court, Huntingdale VIC 3166',
 }
 
-function fmtMoney(v) {
-  if (!v && v !== 0) return '—'
-  return `$${Number(v).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`
-}
-
-function emailFrame(bodyHtml) {
+function frame(bodyHtml) {
   return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1a1a1a;margin:0;padding:0;background:#f5f5f5">
 <div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden">
   <div style="background:#000;padding:24px 32px">
     <span style="color:#fff;font-size:20px;font-weight:900;letter-spacing:3px">HEXAHUB</span>
+    <span style="color:#666;font-size:12px;margin-left:12px">Hexa Hub Pop-Up · 7 June 2026</span>
   </div>
   <div style="padding:32px">${bodyHtml}</div>
   <div style="background:#f5f5f5;padding:16px 32px;border-top:1px solid #eee">
@@ -38,25 +31,22 @@ function emailFrame(bodyHtml) {
 </div></body></html>`
 }
 
-function buildSigningEmail({ booking, signingUrl }) {
-  const eventDate = fmtDate(booking.eventDate)
-  const venue = booking.venue || '17 Logistic Court, Huntingdale VIC 3166'
-  const fee = fmtMoney(booking.licenceFee)
-
+function buildVendorSigningEmail({ booking, signingUrl }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
-    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Event Venue Licence Agreement</p>
-    <h2 style="font-size:20px;color:#111;margin:0 0 20px">${booking.ref} — Please Review &amp; Sign</h2>
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Vendor Participation Agreement</p>
+    <h2 style="font-size:20px;color:#111;margin:0 0 20px">Hi ${booking.vendorName} — please review &amp; sign your vendor agreement</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      Hi ${booking.organiserName},
+      We're excited to have <strong>${vendor}</strong> joining us at the <strong>Hexa Hub Pop-Up on 7 June 2026</strong>.
+      Before the event, please review and sign the Vendor Participation Agreement, Liability Waiver, and Venue Rules using the button below.
     </p>
-    <p style="font-size:14px;color:#555;margin:0 0 24px">
-      HexaHub has prepared your Event Venue Licence Agreement, Liability Waiver, and Venue Rules for your upcoming event. Please review all three documents and sign online using the button below.
-    </p>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">
-      <tr><td style="padding:8px 0;color:#888;width:120px">Event</td><td style="padding:8px 0;font-weight:600;color:#111">${booking.eventDescription || booking.permittedUse || '—'}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0;font-weight:600;color:#111">${eventDate}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Venue</td><td style="padding:8px 0;color:#111">${venue}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Licence Fee</td><td style="padding:8px 0;color:#111">${fee}</td></tr>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:28px;font-size:13px">
+      <tr><td style="padding:8px 0;color:#888;width:130px">Event</td><td style="padding:8px 0;font-weight:600;color:#111">${EVENT.name}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0;color:#111">${EVENT.date}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Hours</td><td style="padding:8px 0;color:#111">${EVENT.hours}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Venue</td><td style="padding:8px 0;color:#111">${EVENT.venue}</td></tr>
+      ${booking.vendorType ? `<tr><td style="padding:8px 0;color:#888">Vendor Type</td><td style="padding:8px 0;color:#111">${booking.vendorType}</td></tr>` : ''}
+      ${booking.allocatedSpace ? `<tr><td style="padding:8px 0;color:#888">Allocated Space</td><td style="padding:8px 0;color:#111">${booking.allocatedSpace}</td></tr>` : ''}
     </table>
     <div style="text-align:center;margin:28px 0">
       <a href="${signingUrl}"
@@ -64,58 +54,60 @@ function buildSigningEmail({ booking, signingUrl }) {
         Review &amp; Sign Documents
       </a>
     </div>
-    <p style="font-size:12px;color:#888;margin:0">
-      If the button doesn't work, copy this link: <a href="${signingUrl}" style="color:#888;word-break:break-all">${signingUrl}</a>
+    <p style="font-size:12px;color:#999;margin:0 0 12px">
+      If the button doesn't work, copy this link:<br>
+      <a href="${signingUrl}" style="color:#888;word-break:break-all">${signingUrl}</a>
     </p>
-    <p style="font-size:12px;color:#bbb;margin:24px 0 0">
-      After signing, you will be prompted to submit your Certificate of Currency (Public Liability Insurance — min. AUD $20,000,000). Please have this ready.
+    <p style="font-size:12px;color:#bbb;margin:0">
+      After signing, you'll be asked to submit a Certificate of Currency for Public Liability Insurance (min. AUD $10,000,000). Please have this ready.
+      Any questions? Reply to this email or contact <a href="mailto:info@hexahub.com.au" style="color:#888">info@hexahub.com.au</a>.
     </p>`
-
-  return emailFrame(body)
+  return frame(body)
 }
 
 function buildAdminNotifyEmail({ booking }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
-    <h2 style="font-size:18px;color:#111;margin:0 0 16px">Event Booking Signed ✅</h2>
+    <h2 style="font-size:18px;color:#111;margin:0 0 16px">Vendor Agreement Signed ✅</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      <strong>${booking.organiserName}${booking.organiserCompany ? ` (${booking.organiserCompany})` : ''}</strong>
-      has signed the documents for booking <strong>${booking.ref}</strong>.
+      <strong>${vendor}</strong> has signed their vendor agreement for the <strong>Hexa Hub Pop-Up</strong>.
     </p>
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">
-      <tr><td style="padding:8px 0;color:#888;width:120px">Event</td><td style="padding:8px 0;font-weight:600;color:#111">${booking.eventDescription || booking.permittedUse || '—'}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0;color:#111">${fmtDate(booking.eventDate)}</td></tr>
+      <tr><td style="padding:8px 0;color:#888;width:130px">Ref</td><td style="padding:8px 0;font-weight:600;color:#111">${booking.ref}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Vendor</td><td style="padding:8px 0;color:#111">${vendor}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Vendor Type</td><td style="padding:8px 0;color:#111">${booking.vendorType || '—'}</td></tr>
+      ${booking.allocatedSpace ? `<tr><td style="padding:8px 0;color:#888">Space</td><td style="padding:8px 0;color:#111">${booking.allocatedSpace}</td></tr>` : ''}
       <tr><td style="padding:8px 0;color:#888">Signed by</td><td style="padding:8px 0;color:#111">${booking.signerName}${booking.signerTitle ? ` — ${booking.signerTitle}` : ''}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Licence Fee</td><td style="padding:8px 0;color:#111">${fmtMoney(booking.licenceFee)}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Email</td><td style="padding:8px 0;color:#111">${booking.vendorEmail}</td></tr>
     </table>
     <p style="font-size:13px;color:#555;margin:0 0 16px">
-      Please log in to the admin portal to countersign and confirm the booking. The organiser has been asked to submit their Certificate of Currency.
+      The vendor has been asked to submit their Certificate of Currency. Check the admin portal to confirm insurance status.
     </p>
     <a href="https://app.hexahub.com.au/event-bookings"
        style="display:inline-block;background:#000;color:#fff;text-decoration:none;padding:12px 28px;font-size:13px;font-weight:700;border-radius:6px">
       Open Admin Portal →
     </a>`
-
-  return emailFrame(body)
+  return frame(body)
 }
 
 function buildInsuranceDeferredEmail({ booking }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
-    <h2 style="font-size:18px;color:#111;margin:0 0 16px">Insurance Pending — Action Required ⚠️</h2>
+    <h2 style="font-size:18px;color:#111;margin:0 0 16px">Insurance Pending — Follow Up Required ⚠️</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      <strong>${booking.organiserName}</strong> has indicated they will submit their Certificate of Currency by email.
-      Please chase this up before the event date.
+      <strong>${vendor}</strong> has indicated they will email their Certificate of Currency separately.
+      Please follow up to ensure it is received before the event date.
     </p>
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">
-      <tr><td style="padding:8px 0;color:#888;width:120px">Booking</td><td style="padding:8px 0;font-weight:600;color:#111">${booking.ref}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Event Date</td><td style="padding:8px 0;color:#111">${fmtDate(booking.eventDate)}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Organiser Email</td><td style="padding:8px 0;color:#111">${booking.organiserEmail}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Requirement</td><td style="padding:8px 0;color:#111">${booking.insuranceRequired || 'Min. AUD $20,000,000 PLI'}</td></tr>
+      <tr><td style="padding:8px 0;color:#888;width:130px">Vendor</td><td style="padding:8px 0;color:#111">${vendor}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Email</td><td style="padding:8px 0;color:#111">${booking.vendorEmail}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Ref</td><td style="padding:8px 0;color:#111">${booking.ref}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Requirement</td><td style="padding:8px 0;color:#111">Min. AUD $10,000,000 Public Liability Insurance</td></tr>
     </table>
     <p style="font-size:12px;color:#888;margin:0">
-      Once received, mark the booking as "Insurance Received" in the admin portal.
+      Once received, mark the vendor as "Insurance Received" in the admin portal.
     </p>`
-
-  return emailFrame(body)
+  return frame(body)
 }
 
 async function sendMail({ to, subject, html }) {
@@ -144,33 +136,33 @@ export default async function handler(req, res) {
 
   try {
     if (!mode) {
-      // Send signing link to organiser
-      if (!booking.organiserEmail) return res.status(400).json({ error: 'No organiser email.' })
+      if (!booking.vendorEmail) return res.status(400).json({ error: 'No vendor email.' })
       if (!signingUrl) return res.status(400).json({ error: 'Missing signingUrl.' })
 
+      const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
-        to: booking.organiserEmail,
-        subject: `Please sign: ${booking.ref} — Event Venue Licence Agreement`,
-        html: buildSigningEmail({ booking, signingUrl }),
+        to: booking.vendorEmail,
+        subject: `Vendor Agreement — Hexa Hub Pop-Up · ${vendor}`,
+        html: buildVendorSigningEmail({ booking, signingUrl }),
       })
       return res.status(ok ? 200 : 500).json({ sent: ok })
     }
 
     if (mode === 'admin_notify') {
-      // Organiser signed — notify admin
+      const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: 'info@hexahub.com.au',
-        subject: `Booking signed: ${booking.ref} — ${booking.organiserName}`,
+        subject: `Vendor signed: ${vendor} — Hexa Hub Pop-Up`,
         html: buildAdminNotifyEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
     }
 
     if (mode === 'insurance_deferred') {
-      // Organiser deferred insurance — remind admin
+      const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: 'info@hexahub.com.au',
-        subject: `Insurance pending: ${booking.ref} — ${booking.organiserName}`,
+        subject: `Insurance pending: ${vendor} — Hexa Hub Pop-Up`,
         html: buildInsuranceDeferredEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })

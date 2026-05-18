@@ -3,71 +3,60 @@ import { format, parseISO } from 'date-fns'
 import { supabase } from '../lib/supabase.js'
 import SignatureCanvas from './SignatureCanvas.jsx'
 
-function fmtTime(t) {
-  if (!t) return '—'
-  const [h, m] = t.split(':').map(Number)
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  const hour = h % 12 || 12
-  return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
+const EVENT = {
+  name: 'Hexa Hub Pop-Up',
+  date: 'Sunday, 7 June 2026',
+  hours: '10:00 AM – 10:00 PM',
+  venue: 'The Hub, 18 Logistic Court, Huntingdale VIC 3166',
+  bumpIn: '8:00 AM',
+  bumpOut: '11:00 PM',
+  licensor: 'HexaHub Pty Ltd (ABN 51 234 567 890)',
+  organiser: 'info@hexahub.com.au',
 }
 
-function fmtDate(d) {
-  if (!d) return '—'
-  try { return format(parseISO(d), 'EEEE, d MMMM yyyy') } catch { return d }
-}
+// ── Document 1: Vendor Participation Agreement ────────────────────────────────
 
-function fmtMoney(v) {
-  if (!v && v !== 0) return '—'
-  return `$${Number(v).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`
-}
-
-// ── Document generators ───────────────────────────────────────────────────────
-
-function AgreementDoc({ booking }) {
+function VendorAgreementDoc({ booking }) {
   const b = booking
   const today = format(new Date(), 'd MMMM yyyy')
+  const vendorDisplay = [b.vendorBusiness, b.vendorName, b.vendorAbn ? `ABN ${b.vendorAbn}` : null].filter(Boolean).join(' · ')
 
   return (
     <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-6">
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
-        <h1 className="text-xl font-bold tracking-tight">Event Venue Licence Agreement</h1>
+        <h1 className="text-xl font-bold tracking-tight">Vendor Participation Agreement</h1>
+        <h2 className="text-base font-semibold text-gray-600">Hexa Hub Pop-Up — 7 June 2026</h2>
         <div className="text-xs text-gray-500">This agreement is entered into on {today}</div>
       </div>
 
       <hr className="border-gray-300" />
 
-      {/* Schedule 1 */}
       <div>
-        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-3">Schedule 1 — Booking Details</h2>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-3">Schedule — Vendor Details</h2>
         <table className="w-full text-xs border-collapse">
           <tbody>
             {[
-              ['Licensor', 'HexaHub Pty Ltd (ABN 51 234 567 890)'],
-              ['Licensee', [b.organiserCompany, b.organiserName, b.organiserAbn ? `ABN ${b.organiserAbn}` : null].filter(Boolean).join(' · ') || b.organiserName],
-              ['Venue', b.venue || '17 Logistic Court, Huntingdale VIC 3166'],
-              ['Permitted Use', b.permittedUse || '—'],
-              ['Event Description', b.eventDescription || '—'],
-              ['Event Date', fmtDate(b.eventDate)],
-              ['Access / Bump-In Time', fmtTime(b.accessTime)],
-              ['Event Commencement', fmtTime(b.eventStartTime)],
-              ['Event Finish', fmtTime(b.eventFinishTime)],
-              ['Bump-Out Completion', fmtTime(b.bumpOutTime)],
-              ['Maximum Attendance', b.maxAttendance ? `${b.maxAttendance} persons` : '—'],
-              ['Licence Fee', b.licenceFee ? `${fmtMoney(b.licenceFee)} AUD (inclusive of GST)` : '—'],
-              ['Bond', b.bond ? `${fmtMoney(b.bond)} AUD` : '—'],
-              ['Deposit', b.deposit ? `${fmtMoney(b.deposit)} AUD (due upon signing)` : '—'],
-              ['Balance Due Date', b.balanceDueDate ? fmtDate(b.balanceDueDate) : '—'],
-              ['Included Services', b.includedServices || '—'],
-              ['Excluded Services', b.excludedServices || '—'],
-              ['Insurance Requirement', b.insuranceRequired || 'Min. AUD $20,000,000 Public Liability Insurance'],
-              ['Security Required', b.securityRequired ? 'Yes' : 'No'],
-              ['Alcohol Permitted', b.alcoholPermitted ? 'Yes' : 'No'],
-              ['Food Permitted', b.foodPermitted ? 'Yes' : 'No'],
+              ['Licensor (Event Organiser)', EVENT.licensor],
+              ['Vendor (Licensee)', vendorDisplay || b.vendorName],
+              ['Vendor Contact', b.vendorName],
+              ['Vendor Email', b.vendorEmail],
+              ['Vendor Type', b.vendorType || '—'],
+              ['Goods / Services', b.vendorDescription || '—'],
+              ['Allocated Space', b.allocatedSpace || 'As directed by HexaHub on the day'],
+              ['Event', EVENT.name],
+              ['Event Date', EVENT.date],
+              ['Event Hours', EVENT.hours],
+              ['Venue', EVENT.venue],
+              ['Bump-In Time', EVENT.bumpIn],
+              ['Bump-Out Completion', EVENT.bumpOut],
+              ['Participation Fee', b.participationFee ? `$${Number(b.participationFee).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD` : 'Nil — participating by invitation'],
+              ['Bond', b.bond ? `$${Number(b.bond).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD` : 'Nil'],
+              ['Insurance Requirement', 'Min. AUD $10,000,000 Public Liability Insurance'],
               ['Special Conditions', b.specialConditions || 'Nil'],
             ].map(([label, value]) => (
               <tr key={label} className="border border-gray-200">
-                <td className="bg-gray-50 px-3 py-2 font-semibold text-gray-700 w-44 align-top">{label}</td>
+                <td className="bg-gray-50 px-3 py-2 font-semibold text-gray-700 w-48 align-top">{label}</td>
                 <td className="px-3 py-2 text-gray-900 whitespace-pre-wrap">{value}</td>
               </tr>
             ))}
@@ -75,72 +64,59 @@ function AgreementDoc({ booking }) {
         </table>
       </div>
 
-      {/* Terms */}
-      <div className="space-y-4">
+      <div className="space-y-3 text-xs">
         <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700">Terms and Conditions</h2>
 
-        <div className="space-y-3 text-xs">
-          <div><strong>1. Grant of Licence.</strong> HexaHub Pty Ltd ("Licensor") grants the Licensee a non-exclusive, non-transferable licence to use the Venue on the Event Date solely for the Permitted Use specified in Schedule 1, subject to these terms and the Venue Rules (Annexure A).</div>
+        <div><strong>1. Grant of Licence.</strong> HexaHub Pty Ltd ("HexaHub") grants the Vendor a non-exclusive, revocable licence to occupy and operate from the Allocated Space at the Venue on the Event Date solely for the purpose of selling, displaying, or offering the Goods/Services described in this Agreement. This licence is personal to the Vendor and cannot be transferred or sublicensed.</div>
 
-          <div><strong>2. Fees and Payment.</strong> The Licensee must pay the Licence Fee, Bond, and Deposit as set out in Schedule 1. The Deposit is due upon signing. The balance of the Licence Fee is due by the Balance Due Date. The Bond is refundable subject to clause 4. All amounts are inclusive of GST unless stated otherwise.</div>
+        <div><strong>2. Participation Fee and Bond.</strong> If a Participation Fee is specified, it is payable in full prior to the Event Date. If a Bond is specified, it is payable upon signing and will be refunded within 14 days of the Event Date, less any deductions for damage, excess cleaning, or failure to comply with these terms.</div>
 
-          <div><strong>3. Bond.</strong> The Bond is held as security against damage, additional cleaning, or other costs arising from the Event. The Licensor will refund the Bond within 14 days of the Event Date, less any deductions for damage, excess cleaning, or overtime use. The Licensee acknowledges the Bond is not a substitute for the Licence Fee.</div>
+        <div><strong>3. Setup and Pack-Down.</strong> The Vendor may access the Venue from {EVENT.bumpIn} on {EVENT.date} for setup purposes. The Vendor must complete pack-down and vacate the Allocated Space by {EVENT.bumpOut}. All equipment, fixtures, and unsold goods must be removed by this time. HexaHub is not responsible for any items left after the Bump-Out time.</div>
 
-          <div><strong>4. Insurance.</strong> The Licensee must, prior to the Event Date, obtain and provide evidence of: (a) Public Liability Insurance for a minimum of AUD $20,000,000 per occurrence; and (b) any other insurance required by law or specified in Schedule 1. Failure to provide evidence of insurance may result in cancellation of this licence without refund.</div>
+        <div><strong>4. Permitted Use.</strong> The Vendor may only sell, display, or offer the Goods/Services described in this Agreement from the Allocated Space. The Vendor must not operate from any other area of the Venue without HexaHub's prior written consent. The Allocated Space must not be sublet or shared with another party.</div>
 
-          <div><strong>5. Permitted Use.</strong> The Venue may only be used for the Permitted Use. The Licensee must not sublet or allow any other person to use the Venue without the Licensor's prior written consent.</div>
+        <div><strong>5. Conduct.</strong> The Vendor and their staff must: (a) conduct themselves in a professional and courteous manner at all times; (b) comply with all directions given by HexaHub staff; (c) not engage in any activity that is unlawful, unsafe, or offensive; and (d) not interfere with or impede other vendors, exhibitors, or event attendees.</div>
 
-          <div><strong>6. Access.</strong> The Licensee and their guests may access the Venue during the hours specified in Schedule 1 only. Early access or extensions must be approved in writing and may incur additional charges.</div>
+        <div><strong>6. Food and Beverage.</strong> Vendors selling or providing food and beverage items must: (a) hold a current Food Business Registration or equivalent; (b) ensure all food handlers hold appropriate food safety qualifications; (c) comply with the Food Act 1984 (Vic) and all relevant food handling regulations; and (d) provide evidence of compliance to HexaHub upon request. HexaHub may require a vendor to cease food service if compliance cannot be evidenced.</div>
 
-          <div><strong>7. Capacity.</strong> The Maximum Attendance specified in Schedule 1 must not be exceeded at any time during the Event. The Licensee is responsible for monitoring attendance at all times.</div>
+        <div><strong>7. Insurance.</strong> Prior to the Event Date, the Vendor must hold and maintain Public Liability Insurance of at least AUD $10,000,000 per occurrence and must provide a current Certificate of Currency to HexaHub. Failure to provide evidence of insurance may result in the Vendor being denied entry to the Venue. HexaHub's insurance does not cover the Vendor's goods, property, or liability.</div>
 
-          <div><strong>8. Alcohol.</strong> Alcohol may only be served if specified as Permitted in Schedule 1. Where permitted, the Licensee must comply with all applicable Victorian liquor licensing laws. The Licensor may revoke permission to serve alcohol if the Licensee fails to comply.</div>
+        <div><strong>8. Damage and Cleanliness.</strong> The Vendor is responsible for: (a) maintaining their Allocated Space in a clean and tidy condition throughout the Event; (b) removing all rubbish and waste from their space by Bump-Out; (c) the cost of repairing or replacing any damage caused by the Vendor or their staff to the Venue, equipment, or other property. HexaHub may deduct repair costs from the Bond or invoice the Vendor accordingly.</div>
 
-          <div><strong>9. Food.</strong> Food service or catering is permitted only if specified in Schedule 1. The Licensee is responsible for ensuring all food handlers hold appropriate food safety certifications.</div>
+        <div><strong>9. Intellectual Property and Marketing.</strong> HexaHub may photograph and film the Event, including the Vendor's stall and products, for marketing and promotional purposes. By participating in the Event, the Vendor grants HexaHub a non-exclusive, royalty-free licence to use such images and footage for marketing purposes. The Vendor may photograph and promote their own participation, provided they do not misrepresent their affiliation with HexaHub.</div>
 
-          <div><strong>10. Security.</strong> If security is specified as Required in Schedule 1, the Licensee must engage licensed security personnel throughout the Event at their own cost. Security personnel must be licensed under the Private Security Act 2004 (Vic).</div>
+        <div><strong>10. No Exclusivity.</strong> HexaHub does not guarantee exclusivity to the Vendor in relation to their product or service category. Other vendors at the Event may offer similar goods or services.</div>
 
-          <div><strong>11. Venue Rules.</strong> The Licensee must comply with the Venue Rules set out in Annexure A at all times. Breach of the Venue Rules may result in immediate termination of the licence without refund.</div>
+        <div><strong>11. Termination.</strong> HexaHub may immediately terminate this Agreement and require the Vendor to vacate the Venue if the Vendor: (a) breaches any term of this Agreement or the Venue Rules; (b) engages in conduct that is unlawful, unsafe, or detrimental to the Event or other participants; (c) fails to provide evidence of insurance before the Event Date; or (d) HexaHub reasonably considers the Vendor poses a risk to persons or property. No refund of the Participation Fee will be payable upon termination for cause.</div>
 
-          <div><strong>12. Damage.</strong> The Licensee is responsible for all damage to the Venue, equipment, or common areas caused by the Licensee, their guests, contractors, or vendors. The Licensor will invoice the Licensee for all repair or replacement costs, which the Licensee must pay within 14 days.</div>
+        <div><strong>12. Cancellation by Vendor.</strong> If the Vendor cancels their participation: (a) more than 14 days before the Event, the Participation Fee is refunded in full; (b) 7–14 days before, 50% of the Participation Fee is forfeited; (c) fewer than 7 days before, the full Participation Fee is forfeited. The Bond will be refunded in full upon cancellation.</div>
 
-          <div><strong>13. Cleaning.</strong> The Licensee must leave the Venue in a clean and tidy condition by the Bump-Out Completion time. If the Venue requires additional cleaning beyond normal standards, the Licensor may deduct cleaning costs from the Bond or invoice the Licensee accordingly.</div>
+        <div><strong>13. Force Majeure.</strong> If the Event is cancelled or postponed due to circumstances beyond HexaHub's reasonable control (including but not limited to extreme weather, government direction, or public emergency), HexaHub will offer the Vendor a full refund of the Participation Fee or the option to transfer to a rescheduled event. HexaHub will not be liable for any other losses incurred by the Vendor as a result of cancellation or postponement.</div>
 
-          <div><strong>14. Cancellation.</strong> If the Licensee cancels: (a) more than 30 days before the Event Date, the Deposit is forfeited; (b) 14–30 days before, 50% of the Licence Fee is forfeited; (c) fewer than 14 days before, 100% of the Licence Fee is forfeited. The Licensor may cancel this licence without penalty in the event of Force Majeure or if the Licensor reasonably considers the Event poses a risk to persons or property.</div>
+        <div><strong>14. Indemnity.</strong> The Vendor indemnifies HexaHub and its directors, employees, and agents against all claims, losses, costs, and liabilities arising from: (a) the Vendor's presence at or participation in the Event; (b) the Vendor's goods or services (including any product liability claims); (c) any act or omission of the Vendor or their staff; or (d) any breach of this Agreement.</div>
 
-          <div><strong>15. Indemnity.</strong> The Licensee indemnifies and holds harmless the Licensor, its directors, employees, and agents from all claims, losses, damages, and costs arising from: (a) the Licensee's use of the Venue; (b) any act or omission of the Licensee, their guests, or contractors; (c) any breach of this Agreement; or (d) any personal injury or property damage arising during the Event. This indemnity survives termination of this Agreement.</div>
+        <div><strong>15. HexaHub's Liability.</strong> To the extent permitted by law, HexaHub's liability to the Vendor is limited to the Participation Fee paid. HexaHub is not liable for the Vendor's loss of profits, loss of sales, indirect or consequential loss, or any damage to or theft of the Vendor's property at the Event.</div>
 
-          <div><strong>16. Licensor's Liability.</strong> To the extent permitted by law, the Licensor's liability is limited to the Licence Fee paid. The Licensor is not liable for indirect or consequential loss, loss of revenue, or personal injury arising from the Licensee's use of the Venue.</div>
+        <div><strong>16. Compliance with Laws.</strong> The Vendor must comply with all applicable laws in connection with their participation in the Event, including (without limitation) the Food Act 1984 (Vic), Australian Consumer Law, Liquor Control Reform Act 1998 (Vic) (if applicable), Occupational Health and Safety Act 2004 (Vic), and any relevant licensing requirements.</div>
 
-          <div><strong>17. Compliance with Laws.</strong> The Licensee must comply with all applicable laws, including but not limited to the Liquor Control Reform Act 1998 (Vic), Occupational Health and Safety Act 2004 (Vic), and Environment Protection Act 2017 (Vic).</div>
+        <div><strong>17. Entire Agreement.</strong> This Agreement, together with the Venue Rules (Annexure A), constitutes the entire agreement between the parties in respect of the Vendor's participation at the Event.</div>
 
-          <div><strong>18. No Assignment.</strong> The Licensee must not assign or transfer this Agreement without the Licensor's prior written consent.</div>
-
-          <div><strong>19. Governing Law.</strong> This Agreement is governed by the laws of Victoria, Australia. Any disputes are subject to the exclusive jurisdiction of the Victorian courts.</div>
-
-          <div><strong>20. Entire Agreement.</strong> This Agreement, together with Schedule 1 and Annexures A and B, constitutes the entire agreement between the parties and supersedes all prior agreements, representations, and understandings.</div>
-
-          <div><strong>21. Severability.</strong> If any provision is held invalid or unenforceable, it will be severed and the remaining provisions will continue in full force.</div>
-
-          <div><strong>22. Liability Waiver.</strong> By signing this Agreement, the Licensee acknowledges they have read and accept the Liability Waiver set out in Document 2 of this signing package.</div>
-        </div>
+        <div><strong>18. Governing Law.</strong> This Agreement is governed by the laws of Victoria, Australia.</div>
       </div>
 
-      {/* Signature blocks */}
       <div>
         <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-4">Executed as an Agreement</h2>
         <div className="grid grid-cols-2 gap-8 text-xs">
           <div className="space-y-4">
-            <div className="font-semibold text-gray-700">SIGNED for and on behalf of</div>
-            <div className="font-bold">HexaHub Pty Ltd (Licensor)</div>
+            <div className="font-semibold text-gray-700">SIGNED for HexaHub Pty Ltd</div>
             <div className="border-b border-gray-400 pt-8 w-full" />
-            <div className="text-gray-500">Authorised Signatory &nbsp;·&nbsp; Date: ___________</div>
+            <div className="text-gray-500">Authorised Signatory · Date: ___________</div>
           </div>
           <div className="space-y-4">
-            <div className="font-semibold text-gray-700">SIGNED by the Licensee</div>
-            <div className="font-bold">{booking.organiserName}{booking.organiserCompany ? ` — ${booking.organiserCompany}` : ''}</div>
+            <div className="font-semibold text-gray-700">SIGNED by the Vendor</div>
+            <div className="font-bold">{b.vendorName}{b.vendorBusiness ? ` — ${b.vendorBusiness}` : ''}</div>
             <div className="border-b border-gray-400 pt-8 w-full" />
-            <div className="text-gray-500">Signature &nbsp;·&nbsp; Date: ___________</div>
+            <div className="text-gray-500">Signature · Date: ___________</div>
           </div>
         </div>
       </div>
@@ -148,157 +124,127 @@ function AgreementDoc({ booking }) {
   )
 }
 
+// ── Document 2: Liability Waiver ──────────────────────────────────────────────
+
 function LiabilityWaiverDoc({ booking }) {
-  const today = format(new Date(), 'd MMMM yyyy')
+  const b = booking
   return (
     <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-5">
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
-        <h1 className="text-xl font-bold tracking-tight">Liability Waiver and Indemnity</h1>
-        <div className="text-xs text-gray-500">Event: {booking.eventDescription || booking.permittedUse || 'Event'} — {fmtDate(booking.eventDate)}</div>
+        <h1 className="text-xl font-bold tracking-tight">Vendor Liability Waiver and Indemnity</h1>
+        <div className="text-sm text-gray-600 font-sans">Hexa Hub Pop-Up · Sunday 7 June 2026</div>
       </div>
 
       <hr className="border-gray-300" />
 
       <div className="space-y-4 text-xs">
-        <p>This Liability Waiver and Indemnity ("Waiver") is given by the Licensee named in the Event Venue Licence Agreement (the "Organiser") in favour of HexaHub Pty Ltd ABN 51 234 567 890 ("HexaHub") in connection with the use of the Venue at {booking.venue || '17 Logistic Court, Huntingdale VIC 3166'} on {fmtDate(booking.eventDate)} (the "Event").</p>
+        <p>This Liability Waiver and Indemnity ("Waiver") is given by the Vendor named in the Vendor Participation Agreement — {b.vendorBusiness || b.vendorName} — ("the Vendor") in favour of HexaHub Pty Ltd ABN 51 234 567 890 ("HexaHub") in connection with the Vendor's participation in the Hexa Hub Pop-Up event held on Sunday 7 June 2026 at The Hub, 18 Logistic Court, Huntingdale VIC 3166 (the "Event").</p>
 
         <div>
           <strong>1. Acknowledgement of Risk.</strong>
-          <p className="mt-1">The Organiser acknowledges that: (a) participation in or attendance at the Event involves inherent risks, including but not limited to physical injury, property damage, and loss; (b) HexaHub makes no representation as to the suitability of the Venue for any specific purpose; and (c) the Organiser has conducted its own assessment of the Venue and the Event risks and is satisfied that it is appropriate to proceed.</p>
+          <p className="mt-1">The Vendor acknowledges that participation in the Event as a vendor or stallholder involves inherent risks, including but not limited to personal injury, property damage, theft, and financial loss. The Vendor has conducted its own assessment of those risks and is satisfied that it is appropriate to participate.</p>
         </div>
 
         <div>
           <strong>2. Release and Waiver.</strong>
-          <p className="mt-1">To the fullest extent permitted by law, the Organiser, on behalf of itself and its employees, contractors, agents, vendors, guests, and all attendees at the Event (collectively, "Participants"), releases, waives, discharges, and covenants not to sue HexaHub, its directors, officers, employees, agents, and successors ("Released Parties") from any and all claims, demands, causes of action, damages, losses, costs, and expenses (including legal costs on a solicitor-client basis) of any kind, whether known or unknown, arising directly or indirectly from the Organiser's or any Participant's attendance at or participation in the Event, including but not limited to: (a) personal injury, death, or illness; (b) loss of or damage to personal property; and (c) financial or economic loss.</p>
+          <p className="mt-1">To the fullest extent permitted by law, the Vendor releases, waives, discharges, and covenants not to sue HexaHub, its directors, officers, employees, contractors, and agents ("Released Parties") from any and all claims, demands, and causes of action of any kind arising from the Vendor's participation in the Event, including but not limited to: (a) personal injury or death sustained by the Vendor or the Vendor's staff; (b) damage to or theft of the Vendor's equipment, goods, or property; (c) financial loss arising from reduced attendance, poor weather, or any other cause; and (d) any damage caused by another vendor, attendee, or third party at the Event.</p>
         </div>
 
         <div>
-          <strong>3. Indemnity.</strong>
-          <p className="mt-1">The Organiser agrees to indemnify, defend, and hold harmless the Released Parties against any and all claims, actions, losses, damages, costs, and liabilities (including reasonable legal fees) arising from or connected to: (a) any act or omission of the Organiser or any Participant; (b) any breach by the Organiser of the Event Venue Licence Agreement or the Venue Rules; (c) any personal injury, death, or property damage occurring during the Event; or (d) any failure by the Organiser to comply with applicable laws.</p>
+          <strong>3. Indemnity for Vendor's Goods and Services.</strong>
+          <p className="mt-1">The Vendor agrees to indemnify, defend, and hold harmless the Released Parties from any and all claims, actions, losses, and liabilities (including legal costs) brought by any third party (including event attendees) arising from: (a) the Vendor's goods or services (including any defective products or food safety incidents); (b) any act or omission of the Vendor or their staff at the Event; (c) any breach by the Vendor of the Vendor Participation Agreement; or (d) any non-compliance by the Vendor with applicable laws.</p>
         </div>
 
         <div>
-          <strong>4. Insurance.</strong>
-          <p className="mt-1">The Organiser warrants that it holds, and will maintain in force through the Event Date, Public Liability Insurance with a minimum cover of AUD $20,000,000 per occurrence. The Organiser agrees to provide a current Certificate of Currency to HexaHub prior to the Event Date. The Released Parties' agreement to allow the Event to proceed does not constitute an admission that such insurance is adequate.</p>
+          <strong>4. Property.</strong>
+          <p className="mt-1">HexaHub is not responsible for loss, theft, or damage to the Vendor's equipment, stock, cash, or any other property brought to or left at the Venue before, during, or after the Event. The Vendor assumes sole responsibility for the security and safety of their property.</p>
         </div>
 
         <div>
-          <strong>5. Assumption of Liability for Guests.</strong>
-          <p className="mt-1">The Organiser accepts full responsibility for the conduct of all Participants at the Event and acknowledges that HexaHub bears no liability for the actions or omissions of any Participant. The Organiser agrees to ensure that all Participants are made aware of and comply with the Venue Rules set out in Annexure A of the Event Venue Licence Agreement.</p>
+          <strong>5. Insurance Warranty.</strong>
+          <p className="mt-1">The Vendor warrants that it holds, and will maintain in force through the Event Date, Public Liability Insurance of at least AUD $10,000,000 per occurrence. The Vendor agrees to provide a current Certificate of Currency to HexaHub prior to the Event. The Vendor acknowledges that HexaHub's agreement to allow participation does not constitute a representation that this level of insurance is adequate for the Vendor's specific circumstances.</p>
         </div>
 
         <div>
           <strong>6. Consumer Guarantees.</strong>
-          <p className="mt-1">Nothing in this Waiver excludes, restricts, or modifies any right or remedy or guarantee that the Organiser may have under the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010 (Cth)) or any other applicable legislation that cannot by law be excluded, restricted, or modified.</p>
+          <p className="mt-1">Nothing in this Waiver excludes, restricts, or modifies any right or remedy or guarantee that the Vendor may have under the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010 (Cth)) or any other applicable legislation that cannot by law be excluded, restricted, or modified.</p>
         </div>
 
-        <div>
-          <strong>7. Governing Law.</strong>
-          <p className="mt-1">This Waiver is governed by the laws of Victoria, Australia.</p>
-        </div>
-
-        <p className="italic text-gray-600">By signing the Event Venue Licence Agreement, the Organiser acknowledges that they have read, understood, and agreed to this Waiver on behalf of themselves and all Participants.</p>
+        <p className="italic text-gray-600">By signing the Vendor Participation Agreement, the Vendor confirms they have read, understood, and agreed to this Waiver on behalf of themselves and their staff participating in the Event.</p>
       </div>
     </div>
   )
 }
 
-function VenueRulesDoc({ booking }) {
+// ── Document 3: Venue Rules ───────────────────────────────────────────────────
+
+function VenueRulesDoc() {
   return (
     <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-5">
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
-        <h1 className="text-xl font-bold tracking-tight">Venue Rules & Housekeeping</h1>
-        <div className="text-sm text-gray-600 font-sans">Annexure A — {booking.venue || '17 Logistic Court, Huntingdale VIC 3166'}</div>
+        <h1 className="text-xl font-bold tracking-tight">Vendor Rules & Housekeeping</h1>
+        <div className="text-sm text-gray-600 font-sans">Hexa Hub Pop-Up · 7 June 2026 · The Hub, 18 Logistic Court, Huntingdale</div>
       </div>
 
       <hr className="border-gray-300" />
 
-      <p className="text-xs text-gray-600 italic">These Venue Rules apply to the Organiser, their staff, contractors, vendors, and all event attendees. Compliance is mandatory. Breach of these Rules may result in immediate termination of the licence without refund.</p>
+      <p className="text-xs text-gray-600 italic">These rules apply to all vendors, their staff, and contractors at the Hexa Hub Pop-Up. Compliance is mandatory. Failure to follow these rules may result in removal from the Event without refund.</p>
 
       <div className="space-y-4 text-xs">
-        <div>
-          <strong>Rule 1 — Access Hours.</strong> Access to the Venue is strictly limited to the hours specified in Schedule 1. All guests and contractors must vacate the Venue by the Bump-Out Completion time. Overtime will be charged at a rate of $150 per hour (or part thereof), deducted from the Bond.
-        </div>
+        <div><strong>Rule 1 — Access Hours.</strong> Vendors may access the Venue from 8:00 AM for bump-in and setup. The Venue opens to the public at 10:00 AM. All vendors must be set up and ready by 9:45 AM. Pack-down may commence from 10:00 PM and must be completed by 11:00 PM. No vendor may leave the Venue during event hours without informing HexaHub staff.</div>
 
-        <div>
-          <strong>Rule 2 — Bump-In and Bump-Out.</strong> Setup and pack-down must be completed within the access windows specified in Schedule 1. Large vehicle deliveries (trucks, vans) must use the designated loading areas and must not obstruct common driveways or fire lanes. No vehicles are permitted inside the Venue without prior written approval from HexaHub.
-        </div>
+        <div><strong>Rule 2 — Allocated Space.</strong> Vendors must operate solely from their allocated space as designated by HexaHub. Signage, display items, and equipment must remain within the allocated space boundaries and must not encroach on walkways, emergency exits, or neighbouring spaces. Vendors must not rearrange their space layout without HexaHub's prior approval.</div>
 
-        <div>
-          <strong>Rule 3 — Maximum Attendance.</strong> The Maximum Attendance specified in Schedule 1 must not be exceeded at any time. The Organiser is responsible for monitoring the number of attendees throughout the Event. HexaHub reserves the right to stop entry if the limit is reached.
-        </div>
+        <div><strong>Rule 3 — Setup and Equipment.</strong> All vendor equipment, furniture, shelving, and display structures must be stable, secure, and safe for public interaction. HexaHub reserves the right to require the removal of any item considered unsafe. Vendors using electrical equipment must ensure all items are tested and tagged. Power outlets are limited — all electrical requirements must be communicated to HexaHub in advance. Generators are not permitted without prior written approval.</div>
 
-        <div>
-          <strong>Rule 4 — Noise and Neighbours.</strong> Music, amplified sound, and any activities generating significant noise must conclude by 10:00 PM. The Organiser must take all reasonable steps to ensure the Event does not cause unreasonable disturbance to neighbouring tenants or residents. HexaHub may require noise levels to be reduced if complaints are received.
-        </div>
+        <div><strong>Rule 4 — Food and Beverage Vendors.</strong> All food and beverage vendors must: (a) display their Food Business Registration certificate at their stall; (b) ensure all food is stored, handled, and served in accordance with food safety regulations; (c) have appropriate waste disposal for food scraps and packaging; (d) not prepare or cook food in a manner that produces excessive smoke, odour, or open flames without prior approval; (e) not sell alcohol unless in possession of a valid liquor licence and prior written approval from HexaHub.</div>
 
-        <div>
-          <strong>Rule 5 — Alcohol.</strong> Alcohol may only be served or consumed if Permitted in Schedule 1. Where permitted: (a) RSA-trained staff must supervise all alcohol service; (b) alcohol must not be served to intoxicated persons or minors; (c) a responsible service plan must be in place before the Event commences; and (d) the Organiser is solely responsible for compliance with the Liquor Control Reform Act 1998 (Vic).
-        </div>
+        <div><strong>Rule 5 — Presentation.</strong> Vendors are expected to maintain a professional and visually appealing presentation throughout the Event. Displays should be clean, well-presented, and consistent with the premium aesthetic of the Hexa Hub Pop-Up. HexaHub reserves the right to request adjustments to signage or displays that are inconsistent with the event's style guidelines.</div>
 
-        <div>
-          <strong>Rule 6 — Food and Catering.</strong> All food handlers must hold current food safety certifications. Food preparation must comply with the Food Act 1984 (Vic). The Organiser is responsible for adequate refrigeration and hygienic food storage. All food waste must be removed from the Venue and disposed of appropriately.
-        </div>
+        <div><strong>Rule 6 — Noise.</strong> Vendors must not use amplified music, PA systems, or any audio equipment that creates excessive noise or interferes with neighbouring vendors or the event's ambient sound. Any audio requirements must be communicated to HexaHub in advance. HexaHub's decision regarding noise levels is final.</div>
 
-        <div>
-          <strong>Rule 7 — Decorations and Fixtures.</strong> Decorations may be placed within the Venue without causing damage. Nails, screws, bolts, and adhesive attachments to walls, ceilings, floors, or roller doors are strictly prohibited. All decorations must be removed by Bump-Out Completion. Confetti, glitter, and similar items are not permitted.
-        </div>
+        <div><strong>Rule 7 — Engagement with Attendees.</strong> Vendors and their staff must engage with attendees respectfully and professionally. High-pressure sales tactics are not permitted. Vendors must not approach attendees who have expressed disinterest. Any complaints from attendees about vendor conduct will be taken seriously and may result in the Vendor being asked to leave.</div>
 
-        <div>
-          <strong>Rule 8 — Fire Safety.</strong> Fire exits, fire extinguishers, sprinkler systems, and evacuation routes must remain clear and unobstructed at all times. Open flames (including candles) require prior written approval. The Organiser must brief all staff and key personnel on emergency evacuation procedures before the Event. In the event of a fire alarm activation, all persons must immediately evacuate. Emergency services must be called before re-entry.
-        </div>
+        <div><strong>Rule 8 — Waste and Cleanliness.</strong> Vendors are responsible for managing their own waste throughout the Event. All rubbish must be placed in designated bins. At pack-down, vendors must remove all waste from their space and place it in the appropriate waste disposal areas. Vendors must not leave any rubbish, packaging, or equipment at the Venue after Bump-Out.</div>
 
-        <div>
-          <strong>Rule 9 — Security and Conduct.</strong> The Organiser is responsible for ensuring the orderly conduct of all attendees. Any person engaging in violent, threatening, or disruptive behaviour must be removed from the Venue immediately. Where security is Required in Schedule 1, licensed security personnel must be present from event opening until all guests have departed. HexaHub reserves the right to call police if the safety of persons or property is at risk.
-        </div>
+        <div><strong>Rule 9 — No Damage to the Venue.</strong> Vendors must not drill, screw, nail, tape, or affix anything to walls, floors, ceilings, roller doors, or any building structure without HexaHub's written approval. Protective matting must be used under any heavy equipment. Any damage caused by the Vendor will be charged to them.</div>
 
-        <div>
-          <strong>Rule 10 — Prohibited Items.</strong> The following are strictly prohibited: (a) illegal substances of any kind; (b) weapons or any item that could cause harm; (c) pyrotechnics, smoke machines, or fog effects without prior written approval; (d) animals (except approved assistance animals); and (e) any goods or substances the Licensor deems a hazard.
-        </div>
+        <div><strong>Rule 10 — Fire Safety.</strong> Fire exits, extinguisher access points, and evacuation routes must be kept clear at all times. Open flames (including gas burners, candles, and heaters) require prior written approval and must be supervised at all times. In the event of a fire alarm, all vendors and staff must evacuate immediately via the nearest exit and assemble at the designated muster point. Do not re-enter until cleared by emergency services.</div>
 
-        <div>
-          <strong>Rule 11 — Cleaning.</strong> The Organiser must ensure the Venue is left in a clean and tidy condition by the Bump-Out Completion time. This includes: (a) removal of all rubbish, waste, and recycling; (b) clearing of all tables, chairs, and equipment; (c) mopping of any spills; and (d) removal of all decorations and signage. Additional cleaning costs will be deducted from the Bond. The Licensor reserves the right to engage professional cleaners and charge the cost to the Licensee if the Venue is not left in an acceptable condition.
-        </div>
+        <div><strong>Rule 11 — Photography and Social Media.</strong> Vendors are encouraged to document and share their participation on social media. Please tag @hexahub.official and use #HexaHubPopUp. Vendors must obtain consent before photographing or filming other vendors, staff, or attendees in a way that identifies them. Vendors must not photograph or publish any content that portrays the Event or HexaHub negatively.</div>
 
-        <div>
-          <strong>Rule 12 — Damage Reporting.</strong> Any damage to the Venue, building, or equipment must be reported to HexaHub immediately. The Organiser must not attempt to repair damage themselves. HexaHub will assess all damage and invoice the Organiser for repair or replacement costs within 14 days of the Event.
-        </div>
+        <div><strong>Rule 12 — HexaHub Staff Direction.</strong> All HexaHub staff and event managers are authorised to issue directions to vendors in relation to safety, noise, layout, conduct, and compliance with these rules. Vendors must follow all such directions promptly. Disputes should be raised calmly with the event manager — disruptions to the Event will not be tolerated.</div>
 
-        <div>
-          <strong>Rule 13 — Compliance and Right of Entry.</strong> HexaHub staff or representatives may enter the Venue at any time during the Event to conduct inspections, address safety concerns, or enforce these Rules. The Organiser must cooperate fully with any such inspection. HexaHub may terminate the Event without notice and without refund if the Organiser or any Participant is in material breach of these Rules or the Event Venue Licence Agreement.
-        </div>
+        <div><strong>Rule 13 — Pack-Down.</strong> Pack-down must not begin before 10:00 PM. Vendors who begin packing down early without HexaHub's permission may not be invited to future HexaHub events. All vehicle access for pack-down must be coordinated with HexaHub staff to avoid congestion.</div>
       </div>
 
       <div className="text-xs text-gray-500 italic mt-4">
-        These Rules are incorporated into and form part of the Event Venue Licence Agreement between HexaHub Pty Ltd and the Organiser. HexaHub Pty Ltd · 7 Distribution Circuit, Huntingdale VIC 3166 · info@hexahub.com.au · hexahub.com.au
+        These Rules form part of the Vendor Participation Agreement. By signing the Agreement, the Vendor accepts these Rules. HexaHub Pty Ltd · info@hexahub.com.au · hexahub.com.au
       </div>
     </div>
   )
 }
 
-// ── Public sign page ──────────────────────────────────────────────────────────
+// ── Main sign page ────────────────────────────────────────────────────────────
 
 export default function EventBookingSignPage({ token }) {
-  const [state, setState] = useState('loading') // loading|ready|signed|invalid|error
+  const [state, setState] = useState('loading')
   const [booking, setBooking] = useState(null)
-  const [view, setView] = useState('doc1') // doc1|doc2|doc3|sign
+  const [view, setView] = useState('doc1')
   const [signerName, setSignerName] = useState('')
   const [signerTitle, setSignerTitle] = useState('')
   const [signerDate, setSignerDate] = useState(format(new Date(), 'dd/MM/yyyy'))
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [insuranceChoice, setInsuranceChoice] = useState(null) // null|'later'|'done'
+  const [insuranceChoice, setInsuranceChoice] = useState(null)
   const sigRef = useRef(null)
 
   useEffect(() => {
     async function load() {
       try {
-        const { data, error } = await supabase
-          .from('event_bookings')
-          .select('data')
-
+        const { data, error } = await supabase.from('event_bookings').select('data')
         if (error) { setState('error'); return }
 
         const match = (data ?? []).map(r => r.data).find(b => b?.signingToken === token)
@@ -306,7 +252,7 @@ export default function EventBookingSignPage({ token }) {
 
         setBooking(match)
         if (match.signedAt) { setState('signed'); return }
-        if (match.signerName) setSignerName(match.signerName)
+        if (match.vendorName) setSignerName(match.vendorName)
         setState('ready')
       } catch {
         setState('error')
@@ -339,7 +285,6 @@ export default function EventBookingSignPage({ token }) {
         .update({ data: updated, updated_at: now })
         .eq('id', booking.id)
 
-      // Notify admin
       await fetch('/api/event-bookings/send-signing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -380,7 +325,7 @@ export default function EventBookingSignPage({ token }) {
   }
 
   const TABS = [
-    { key: 'doc1', label: '1. Licence Agreement' },
+    { key: 'doc1', label: '1. Participation Agreement' },
     { key: 'doc2', label: '2. Liability Waiver' },
     { key: 'doc3', label: '3. Venue Rules' },
     { key: 'sign', label: '✍ Sign' },
@@ -388,42 +333,41 @@ export default function EventBookingSignPage({ token }) {
 
   if (state === 'loading') return <Screen title="Loading…" />
   if (state === 'invalid') return (
-    <Screen icon="🔒" title="Invalid or expired link" subtitle="This signing link is invalid or has already been used. Please contact HexaHub for assistance." />
+    <Screen icon="🔒" title="Invalid or expired link" subtitle="This signing link is invalid or has already been used. Contact info@hexahub.com.au for assistance." />
   )
   if (state === 'error') return <Screen icon="⚠️" title="Something went wrong" subtitle="Please try again or contact info@hexahub.com.au." />
 
   if (state === 'signed' && insuranceChoice == null) {
     return (
       <div className="min-h-screen bg-gray-100">
-        <Header booking={booking} label="Document Signing" />
+        <Header booking={booking} />
         <div className="max-w-xl mx-auto my-10 px-4">
-          <div className="bg-white border border-gray-200 rounded-md p-8 shadow-sm text-center">
-            <div className="text-4xl mb-4">✅</div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Documents Signed</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              Thank you, {booking?.signerName}. Your signature has been received. HexaHub will countersign and be in touch shortly.
+          <div className="bg-white border border-gray-200 rounded-md p-8 shadow-sm">
+            <div className="text-4xl mb-4 text-center">✅</div>
+            <h2 className="text-lg font-bold text-gray-900 mb-2 text-center">Agreement Signed</h2>
+            <p className="text-sm text-gray-500 mb-6 text-center">
+              Thank you, {booking?.signerName}. Your vendor agreement is signed. We'll be in touch to confirm your participation in the Hexa Hub Pop-Up.
             </p>
-            <div className="border border-gray-200 rounded-md p-5 text-left mb-6">
-              <h3 className="font-semibold text-sm text-gray-800 mb-3">Public Liability Insurance</h3>
+            <div className="border border-gray-200 rounded-md p-5">
+              <h3 className="font-semibold text-sm text-gray-800 mb-2">Public Liability Insurance</h3>
               <p className="text-xs text-gray-500 mb-4">
-                Your event requires a Certificate of Currency showing at least{' '}
-                <strong>AUD $20,000,000 Public Liability Insurance</strong>.
+                Your participation requires a Certificate of Currency showing at least{' '}
+                <strong>AUD $10,000,000 Public Liability Insurance</strong>.
                 Please send this to{' '}
-                <a href="mailto:info@hexahub.com.au" className="text-black underline">info@hexahub.com.au</a>{' '}
-                as soon as possible.
+                <a href="mailto:info@hexahub.com.au" className="text-black underline">info@hexahub.com.au</a>.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => submitInsuranceChoice('later')}
                   className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm hover:bg-gray-50 font-medium"
                 >
-                  I'll submit by email
+                  I'll email it shortly
                 </button>
                 <button
                   onClick={() => submitInsuranceChoice('done')}
                   className="flex-1 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
                 >
-                  Already sent / confirmed
+                  Already sent
                 </button>
               </div>
             </div>
@@ -437,11 +381,11 @@ export default function EventBookingSignPage({ token }) {
     return (
       <Screen
         icon="✅"
-        title="All done!"
+        title="You're all set!"
         subtitle={
           insuranceChoice === 'later'
-            ? `Thanks ${booking?.signerName}. Please email your Certificate of Currency to info@hexahub.com.au before the event date. HexaHub will be in touch to confirm your booking.`
-            : `Thanks ${booking?.signerName}. Your documents are signed and insurance confirmed. HexaHub will be in touch shortly to finalise your booking.`
+            ? `Thanks ${booking?.signerName}. Please email your Certificate of Currency to info@hexahub.com.au. See you on June 7!`
+            : `Thanks ${booking?.signerName}. Agreement signed and insurance confirmed. See you on June 7!`
         }
       />
     )
@@ -449,9 +393,8 @@ export default function EventBookingSignPage({ token }) {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Header booking={booking} label={booking?.ref || 'Event Booking'} />
+      <Header booking={booking} />
 
-      {/* Tabs */}
       <div className="bg-white border-b border-gray-200 px-4 flex overflow-x-auto">
         {TABS.map(tab => (
           <button
@@ -466,10 +409,9 @@ export default function EventBookingSignPage({ token }) {
         ))}
       </div>
 
-      {/* Document views */}
       {view === 'doc1' && (
         <DocFrame>
-          <AgreementDoc booking={booking} />
+          <VendorAgreementDoc booking={booking} />
           <NavBtn onClick={() => setView('doc2')}>Next: Liability Waiver →</NavBtn>
         </DocFrame>
       )}
@@ -481,18 +423,17 @@ export default function EventBookingSignPage({ token }) {
       )}
       {view === 'doc3' && (
         <DocFrame>
-          <VenueRulesDoc booking={booking} />
+          <VenueRulesDoc />
           <NavBtn onClick={() => setView('sign')}>Proceed to Sign →</NavBtn>
         </DocFrame>
       )}
 
-      {/* Sign view */}
       {view === 'sign' && (
         <div className="max-w-xl mx-auto my-8 px-4">
           <div className="bg-white border border-gray-200 rounded-md p-8 shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Sign as Organiser / Licensee</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Sign as Vendor</h2>
             <p className="text-sm text-gray-500 mb-6">
-              By signing, you confirm you have read and agree to all three documents above.
+              By signing, you confirm you have read and agree to all three documents above and that you are authorised to sign on behalf of the business.
             </p>
 
             <div className="mb-4">
@@ -512,7 +453,7 @@ export default function EventBookingSignPage({ token }) {
                 type="text"
                 value={signerTitle}
                 onChange={e => setSignerTitle(e.target.value)}
-                placeholder="e.g. Director, CEO, Event Manager"
+                placeholder="e.g. Director, Owner, Manager"
                 className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
               />
             </div>
@@ -539,15 +480,15 @@ export default function EventBookingSignPage({ token }) {
             <label className="flex items-start gap-3 mb-6 cursor-pointer">
               <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 shrink-0" />
               <span className="text-sm text-gray-600">
-                I confirm I have read and agree to (1) the Event Venue Licence Agreement, (2) the Liability Waiver, and (3) the Venue Rules, and that I am authorised to sign on behalf of the Licensee.
+                I confirm I have read and agree to the (1) Vendor Participation Agreement, (2) Liability Waiver, and (3) Vendor Rules for the Hexa Hub Pop-Up on 7 June 2026.
               </span>
             </label>
 
             <div className="bg-gray-50 rounded-md p-4 text-xs text-gray-500 mb-6 space-y-1">
-              {booking?.organiserCompany && <div><span className="font-medium text-gray-700">Licensee:</span> {booking.organiserCompany}</div>}
-              <div><span className="font-medium text-gray-700">Event:</span> {booking?.eventDescription || booking?.permittedUse}</div>
-              <div><span className="font-medium text-gray-700">Date:</span> {fmtDate(booking?.eventDate)}</div>
-              <div><span className="font-medium text-gray-700">Venue:</span> {booking?.venue}</div>
+              {booking?.vendorBusiness && <div><span className="font-medium text-gray-700">Business:</span> {booking.vendorBusiness}</div>}
+              <div><span className="font-medium text-gray-700">Vendor Type:</span> {booking?.vendorType}</div>
+              {booking?.allocatedSpace && <div><span className="font-medium text-gray-700">Allocated Space:</span> {booking.allocatedSpace}</div>}
+              <div><span className="font-medium text-gray-700">Event:</span> Hexa Hub Pop-Up · Sunday 7 June 2026</div>
             </div>
 
             <button
@@ -555,7 +496,7 @@ export default function EventBookingSignPage({ token }) {
               disabled={submitting || !agreed}
               className="w-full bg-black text-white py-3 rounded-md text-sm font-bold hover:bg-gray-800 disabled:opacity-40 transition-colors"
             >
-              {submitting ? 'Submitting…' : 'Sign & Submit All Documents'}
+              {submitting ? 'Submitting…' : 'Sign & Submit'}
             </button>
           </div>
         </div>
@@ -564,15 +505,16 @@ export default function EventBookingSignPage({ token }) {
   )
 }
 
-function Header({ booking, label }) {
+function Header({ booking }) {
   return (
     <div className="bg-black text-white px-6 py-4 flex items-center justify-between sticky top-0 z-10">
       <div>
         <span className="font-black tracking-widest text-lg">HEXAHUB</span>
-        <span className="text-gray-400 text-sm ml-3">Event Booking</span>
+        <span className="text-gray-400 text-sm ml-3">Vendor Agreement</span>
       </div>
-      <div className="text-sm text-gray-300 hidden sm:block">
-        {booking?.eventDate ? fmtDate(booking.eventDate) : label}
+      <div className="text-right hidden sm:block">
+        <div className="text-sm font-medium text-white">Hexa Hub Pop-Up</div>
+        <div className="text-xs text-gray-400">Sunday 7 June 2026</div>
       </div>
     </div>
   )
@@ -591,10 +533,7 @@ function DocFrame({ children }) {
 function NavBtn({ onClick, children }) {
   return (
     <div className="mt-8 flex justify-end">
-      <button
-        onClick={onClick}
-        className="bg-black text-white px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
-      >
+      <button onClick={onClick} className="bg-black text-white px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800">
         {children}
       </button>
     </div>
