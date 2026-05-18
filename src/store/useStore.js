@@ -802,7 +802,7 @@ export function useStore() {
     setLeases((prev) => {
       const next = prev.map((l) => (l.id === id ? { ...l, ...updates } : l))
       const updated = next.find((l) => l.id === id)
-      if (updated) syncRow('leases', id, updated)
+      if (updated) { syncRow('leases', id, updated); logAudit('update', 'lease', id, updated.contractNumber ?? id, Object.keys(updates).join(', ')) }
       return next
     })
   }, [])
@@ -888,6 +888,8 @@ export function useStore() {
 
   const addPaymentToInvoice = useCallback((invoiceId, payment) => {
     setInvoices((prev) => {
+      const inv = prev.find((i) => i.id === invoiceId)
+      logAudit('payment', 'invoice', invoiceId, inv?.number ?? invoiceId, `$${Number(payment.amount).toFixed(2)} via ${payment.method ?? '—'}`)
       const next = prev.map((i) => i.id === invoiceId
         ? { ...i, payments: [...(i.payments ?? []), { ...payment, id: `pay${Date.now()}` }], status: 'paid' }
         : i)
@@ -948,6 +950,7 @@ export function useStore() {
 
   // ── Settings ──────────────────────────────────────────────────────────────
   const updateSettings = useCallback((patch) => {
+    logAudit('update', 'settings', 'global', 'Settings', Object.keys(patch).join(', '))
     setSettings((prev) => {
       const next = { ...prev, ...patch }
       settingsRef.current = next

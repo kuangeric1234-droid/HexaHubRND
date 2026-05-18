@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { ArrowLeft, Send, RefreshCw, Ban, FileMinus, FileDown, Plus, MessageSquare, ToggleLeft, ToggleRight } from 'lucide-react'
 import { sendEmail, invoiceEmailHtml, resolveEmailTemplate } from '../lib/sendEmail.js'
+import { logAudit } from '../lib/audit.js'
 import { jsPDF } from 'jspdf'
 
 const STATUS_STYLE = {
@@ -206,6 +207,7 @@ export default function InvoiceDetail({
         tenantId: invoice.tenantId, emailType: 'invoice',
       })
       onUpdate(invoice.id, { sentStatus: 'sent' })
+      logAudit('send', 'invoice', invoice.id, invoice.number, `Sent to ${email}`)
     } catch (err) {
       onUpdate(invoice.id, { sentStatus: 'sent' })
       if (err.message !== 'Failed to fetch') {

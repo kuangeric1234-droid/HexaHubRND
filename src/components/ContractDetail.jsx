@@ -8,6 +8,7 @@ import { sendEmail, eSignEmailHtml } from '../lib/sendEmail.js'
 import { supabase } from '../lib/supabase.js'
 import { jsPDF } from 'jspdf'
 import DocumentsPanel from './DocumentsPanel.jsx'
+import { logAudit } from '../lib/audit.js'
 
 const SIG_STATUS = {
   manually_signed: { label: 'Manually Signed', cls: 'bg-green-500 text-white' },
@@ -124,6 +125,7 @@ export default function ContractDetail({
         signatureStatus: 'manually_signed',
         signedAt: new Date().toISOString(),
       })
+      logAudit('sign', 'lease', lease.id, contractNum, 'Manually marked as signed')
     }
   }
 
@@ -171,6 +173,7 @@ export default function ContractDetail({
       if (onUpdateLease) onUpdateLease(lease.id, { signatureStatus: 'e_signed', signedAt: now, signerName: lease.tenantSignerName ?? tenant?.contactName })
       setESignData((prev) => ({ ...prev, status: 'fully_signed', licensor_signature_data: signatureData, licensor_signer_name: licensorName, licensor_signed_at: now }))
       setShowCountersignModal(false)
+      logAudit('sign', 'lease', lease.id, contractNum, `Countersigned by ${licensorName}`)
 
       // Email tenant that agreement is fully executed
       if (tenant?.email) {
@@ -355,53 +358,64 @@ export default function ContractDetail({
       y += 10; doc.setTextColor(0)
 
       // ── Signature blocks ──────────────────────────────────────
-      checkPage(55)
+      checkPage(65)
       doc.setFillColor(0); doc.rect(ml, y, mr - ml, 0.5, 'F')
-      y += 7
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(60)
-      doc.text('LICENSEE', ml, y); doc.text('LICENSOR', colMid, y)
-      doc.setTextColor(0); y += 2
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5)
-      doc.text(`For and on behalf of ${tenant?.businessName ?? 'the Licensee'}:`, ml, y + 4)
-      doc.text(`For and on behalf of ${companyName}:`, colMid, y + 4)
-      y += 10
-      y += 6
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(8.5)
-      doc.text('For and on behalf of You The Licensee:', ml, y)
-      doc.text('For and on behalf of Us The Licensor:', colMid, y)
       y += 8
-      const sigStartY = y
-      for (const field of ['Name:', 'Title:', 'Date:', 'Signature:']) {
-        doc.setFont('helvetica', 'bold')
-        doc.text(field, ml, y)
-        doc.text(field, colMid, y)
-        doc.setDrawColor(100)
-        doc.line(ml + 18, y + 1, colMid - 6, y + 1)
-        doc.line(colMid + 18, y + 1, mr, y + 1)
-        y += 9
+
+      const sigColW = (mr - ml - 8) / 2
+      const sigLeft = ml
+      const sigRight = ml + sigColW + 8
+
+      function drawSigBlock(x, party, name, sName, sTitle, sDate, sImgData) {
+        const bx = x, bw = sigColW
+        // Header
+        doc.setFillColor(20, 20, 20)
+        doc.rect(bx, y, bw, 7, 'F')
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255)
+        doc.text(party.toUpperCase(), bx + 3, y + 4.5)
+        doc.setTextColor(0)
+        // Party name
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(80)
+        doc.text(`For and on behalf of: ${name}`, bx, y + 11)
+        doc.setTextColor(0)
+        // Fields
+        const fieldY = y + 16
+        const fields = [
+          { label: 'Full Name', value: sName ?? '' },
+          { label: 'Title / Position', value: sTitle ?? '' },
+          { label: 'Date', value: sDate ?? '' },
+        ]
+        let fy = fieldY
+        for (const f of fields) {
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(100)
+          doc.text(f.label, bx, fy)
+          doc.setDrawColor(180); doc.setLineWidth(0.3)
+          doc.rect(bx, fy + 1, bw, 6, 'S')
+          if (f.value) {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(0)
+            doc.text(f.value, bx + 2, fy + 5.5)
+          }
+          fy += 11
+        }
+        // Signature box
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(100)
+        doc.text('Signature', bx, fy)
+        doc.setDrawColor(180); doc.setLineWidth(0.3)
+        doc.rect(bx, fy + 1, bw, 18, 'S')
+        if (sImgData) {
+          try { doc.addImage(sImgData, 'PNG', bx + 2, fy + 2, bw - 4, 14) } catch {}
+        }
       }
 
-      // Fill in Licensee (left) block
-      if (sigData?.licensee_signer_name) {
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(0)
-        doc.text(sigData.licensee_signer_name, ml + 18, sigStartY + 1)
-        if (sigData.licensee_title) doc.text(sigData.licensee_title, ml + 18, sigStartY + 10)
-        const licenseeDate = sigData.licensee_date ?? (sigData.licensee_signed_at ? format(parseISO(sigData.licensee_signed_at), 'dd/MM/yyyy') : '')
-        if (licenseeDate) doc.text(licenseeDate, ml + 18, sigStartY + 19)
-        if (sigData.licensee_signature_data) {
-          try { doc.addImage(sigData.licensee_signature_data, 'PNG', ml + 18, sigStartY + 21, 48, 12) } catch {}
-        }
-      }
-      // Fill in Licensor (right) block
-      if (sigData?.licensor_signer_name) {
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(0)
-        doc.text(sigData.licensor_signer_name, colMid + 18, sigStartY + 1)
-        if (sigData.licensor_signed_at) doc.text(format(parseISO(sigData.licensor_signed_at), 'dd/MM/yyyy'), colMid + 18, sigStartY + 19)
-        if (sigData.licensor_signature_data) {
-          try { doc.addImage(sigData.licensor_signature_data, 'PNG', colMid + 18, sigStartY + 21, 48, 12) } catch {}
-        }
-      }
+      const licenseeDate = sigData?.licensee_date ?? (sigData?.licensee_signed_at ? format(parseISO(sigData.licensee_signed_at), 'dd/MM/yyyy') : '')
+      const licensorDate = sigData?.licensor_signed_at ? format(parseISO(sigData.licensor_signed_at), 'dd/MM/yyyy') : ''
+
+      drawSigBlock(sigLeft, 'Licensee', tenant?.businessName ?? 'The Licensee',
+        sigData?.licensee_signer_name, sigData?.licensee_title, licenseeDate, sigData?.licensee_signature_data)
+      drawSigBlock(sigRight, 'Licensor', companyName,
+        sigData?.licensor_signer_name, null, licensorDate, sigData?.licensor_signature_data)
+
+      y += 72
 
       // ── Attached Templates (T&C, House Rules, etc.) ───────────────────
       if (attachedTemplates.length > 0) {

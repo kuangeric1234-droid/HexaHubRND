@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
-import { Plus, Pencil, Trash2, X, Check, LayoutGrid, Map } from 'lucide-react'
+import { useOutletContext, useNavigate } from 'react-router-dom'
+import { Plus, Pencil, Trash2, X, Check, LayoutGrid, Map, FileText } from 'lucide-react'
 import FloorPlan from './FloorPlan.jsx'
+import ContractForm from './ContractForm.jsx'
 
 const SPACE_TYPES = ['warehouse', 'storage', 'desk', 'office', 'popup']
 const LOCATIONS = ['huntingdale', 'lonsdale', 'whitehorse']
@@ -34,10 +35,12 @@ const TYPE_LABEL = {
 }
 
 export default function Spaces() {
-  const { spaces, leases, tenants, addSpace, updateSpace, deleteSpace, resetSampleData } =
-    useOutletContext()
+  const { spaces, leases, tenants, addSpace, updateSpace, deleteSpace, resetSampleData,
+    addLease, templates, discounts, settings } = useOutletContext()
+  const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState(null)
+  const [contractSpace, setContractSpace] = useState(null) // space to create contract for
   const [form, setForm] = useState(EMPTY_FORM)
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -99,6 +102,7 @@ export default function Spaces() {
   const vacantCount = spaces.filter((s) => s.status === 'vacant').length
 
   return (
+    <>
     <div className="p-8">
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -235,7 +239,15 @@ export default function Spaces() {
               {space.attributes && (
                 <p className="text-xs text-gray-400 mt-3 leading-relaxed">{space.attributes}</p>
               )}
-              <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+              <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100 flex-wrap">
+                {space.status === 'vacant' && (
+                  <button
+                    onClick={() => setContractSpace(space)}
+                    className="flex items-center gap-1.5 text-xs text-white bg-black hover:bg-gray-800 px-2.5 py-1.5 rounded-md font-medium"
+                  >
+                    <FileText size={12} /> New Contract
+                  </button>
+                )}
                 <button
                   onClick={() => openEdit(space)}
                   className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 border border-gray-200 px-2.5 py-1.5 rounded-md hover:bg-gray-50"
@@ -392,5 +404,38 @@ export default function Spaces() {
         </div>
       )}
     </div>
+
+    {/* Quick New Contract modal */}
+    {contractSpace && (
+      <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+        <div className="min-h-full flex items-start justify-center p-4 pt-8">
+          <div className="bg-white rounded-md w-full max-w-4xl shadow-2xl relative">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-900">
+                New Contract — {contractSpace.unitNumber}
+              </h2>
+              <button onClick={() => setContractSpace(null)}
+                className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+            </div>
+            <ContractForm
+              editLease={{ spaceId: contractSpace.id, monthlyRent: contractSpace.monthlyRate }}
+              leases={leases}
+              tenants={tenants}
+              spaces={spaces}
+              templates={templates ?? []}
+              discounts={discounts ?? []}
+              settings={settings}
+              onSave={(data) => {
+                addLease(data)
+                setContractSpace(null)
+                navigate('/leases')
+              }}
+              onCancel={() => setContractSpace(null)}
+            />
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
