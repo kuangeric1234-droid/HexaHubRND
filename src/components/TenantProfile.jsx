@@ -185,7 +185,6 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
             <button onClick={generateStatement} className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600">
               <FileDown size={13} /> Statement PDF
             </button>
-            <InvitePortalButton email={tenant.email} />
             <button onClick={onEdit} className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600">
               <Pencil size={13} /> Edit Details
             </button>
@@ -373,6 +372,9 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
               )}
             </Section>
 
+            {/* ── Portal Access ── */}
+            <PortalAccessSection email={tenant.email} />
+
             {/* ── Documents ── */}
             <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
               <DocumentsPanel tenantId={tenant.id} title="Documents" />
@@ -441,34 +443,83 @@ function Row({ label, icon, children }) {
   )
 }
 
-function InvitePortalButton({ email }) {
-  const [status, setStatus] = useState('idle') // idle | sending | sent | error
+function PortalAccessSection({ email }) {
+  const [portalStatus, setPortalStatus] = useState(null) // null | 'not_invited' | 'invited' | 'active'
+  const [inviteStatus, setInviteStatus] = useState('idle') // idle | sending | sent | error
 
-  async function invite() {
+  useEffect(() => {
     if (!email) return
-    setStatus('sending')
+    fetch(`/api/portal/status?email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(d => setPortalStatus(d.status))
+      .catch(() => setPortalStatus('not_invited'))
+  }, [email])
+
+  async function sendInvite() {
+    setInviteStatus('sending')
     try {
       const res = await fetch('/api/auth/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      setStatus(res.ok ? 'sent' : 'error')
+      if (res.ok) {
+        setInviteStatus('sent')
+        setPortalStatus('invited')
+      } else {
+        setInviteStatus('error')
+      }
     } catch {
-      setStatus('error')
+      setInviteStatus('error')
     }
-    setTimeout(() => setStatus('idle'), 4000)
+    setTimeout(() => setInviteStatus('idle'), 4000)
+  }
+
+  const badge = {
+    active:       <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">Active Member</span>,
+    invited:      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">Invited — Pending</span>,
+    not_invited:  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">Not Invited</span>,
   }
 
   return (
-    <button
-      onClick={invite}
-      disabled={status === 'sending' || !email}
-      className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600 disabled:opacity-50"
-    >
-      <MessageSquare size={13} />
-      {status === 'sent' ? 'Invite sent!' : status === 'error' ? 'Failed' : 'Invite to Portal'}
-    </button>
+    <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+      <div className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100 bg-gray-50">
+        <MessageSquare size={13} className="text-gray-400" />
+        <span className="text-sm font-semibold text-gray-700">Portal Access</span>
+      </div>
+      <div className="px-5 py-4 flex items-center justify-between gap-4">
+        <div>
+          <div className="text-xs text-gray-400 mb-1.5">members.hexahub.com.au</div>
+          {portalStatus === null
+            ? <span className="text-xs text-gray-400">Checking…</span>
+            : badge[portalStatus]}
+          {portalStatus === 'active' && (
+            <p className="text-xs text-gray-400 mt-1.5">Member has signed in to the portal.</p>
+          )}
+          {portalStatus === 'invited' && (
+            <p className="text-xs text-gray-400 mt-1.5">Invite sent — awaiting first login.</p>
+          )}
+          {portalStatus === 'not_invited' && (
+            <p className="text-xs text-gray-400 mt-1.5">This member has not been invited yet.</p>
+          )}
+        </div>
+
+        {/* Only show invite/resend if not yet active */}
+        {portalStatus !== 'active' && portalStatus !== null && (
+          <button
+            onClick={sendInvite}
+            disabled={inviteStatus === 'sending' || !email}
+            className="shrink-0 text-xs font-medium px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+          >
+            {inviteStatus === 'sent'    ? '✓ Sent!'
+             : inviteStatus === 'error' ? 'Failed — retry'
+             : inviteStatus === 'sending' ? 'Sending…'
+             : portalStatus === 'invited' ? 'Resend Invite'
+             : 'Invite to Portal'}
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 
