@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useNavigate } from 'react-router-dom'
 import { Plus, Pencil, Trash2, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import TenantProfile from './TenantProfile.jsx'
@@ -16,6 +16,7 @@ const EMPTY_FORM = {
 
 export default function Tenants() {
   const { tenants, addTenant, updateTenant, deleteTenant, leases, invoices, spaces, settings, addInvoice } = useOutletContext()
+  const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -76,6 +77,7 @@ export default function Tenants() {
           settings={settings}
           onBack={() => setSelectedTenant(null)}
           onEdit={() => openEdit(selectedTenant)}
+          onSelectContract={(lease) => navigate('/leases', { state: { openLeaseId: lease.id } })}
           onAddInvoice={(data) => addInvoice({ ...data, tenantId: selectedTenant.id })}
         />
         {showForm && (

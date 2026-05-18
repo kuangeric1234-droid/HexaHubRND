@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useOutletContext, useNavigate } from 'react-router-dom'
+import { useOutletContext, useNavigate, useLocation } from 'react-router-dom'
 import { Settings, ChevronDown, Trash2, FileText, ChevronUp, Filter, Settings2 } from 'lucide-react'
 import { format, parseISO, differenceInDays, addMonths, startOfMonth } from 'date-fns'
 import ContractForm from './ContractForm.jsx'
@@ -86,8 +86,11 @@ export default function Leases() {
   const { leases, tenants, spaces, templates, invoices = [], addLease, updateLease, deleteLease, settings } = useOutletContext()
   const navigate = useNavigate()
 
-  const [mode, setMode] = useState('list') // 'list' | 'detail' | 'create' | 'edit'
-  const [selectedLease, setSelectedLease] = useState(null)
+  const { state: navState } = useLocation()
+  const [mode, setMode] = useState(navState?.openLeaseId ? 'detail' : 'list')
+  const [selectedLease, setSelectedLease] = useState(
+    navState?.openLeaseId ? leases.find(l => l.id === navState.openLeaseId) ?? null : null
+  )
   const [editingLease, setEditingLease] = useState(null)
   const [sort, setSort] = useState({ key: 'contractNumber', dir: 'desc' })
   const [openGearId, setOpenGearId] = useState(null)

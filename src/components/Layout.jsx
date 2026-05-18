@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Warehouse, FileText, FilePlus,
   RefreshCw, BookOpen, Receipt, Settings, LogOut,
-  Wrench, BarChart2, Menu, X, Calendar,
+  Wrench, BarChart2, Menu, X, Calendar, MessageSquare,
 } from 'lucide-react'
 import { logout } from '../lib/auth.js'
+import { supabase } from '../lib/supabase.js'
 
 const nav = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -17,6 +18,7 @@ const nav = [
   { to: '/renewals', icon: RefreshCw, label: 'Renewals' },
   { to: '/maintenance', icon: Wrench, label: 'Maintenance' },
   { to: '/reports', icon: BarChart2, label: 'Reports' },
+  { to: '/messages', icon: MessageSquare, label: 'Messages' },
   { to: '/events', icon: Calendar, label: 'Events' },
   { to: '/templates', icon: BookOpen, label: 'Templates' },
   { to: '/settings', icon: Settings, label: 'Settings' },
@@ -24,6 +26,22 @@ const nav = [
 
 export default function Layout({ store, onLogout }) {
   const [open, setOpen] = useState(false)
+  const [unreadMessages, setUnreadMessages] = useState(0)
+
+  useEffect(() => {
+    loadUnread()
+    const channel = supabase
+      .channel('layout_msgs')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'portal_messages' }, loadUnread)
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [])
+
+  async function loadUnread() {
+    const { data } = await supabase.from('portal_messages').select('data')
+    const count = (data ?? []).filter(r => r.data?.sender === 'tenant' && !r.data?.readByAdmin).length
+    setUnreadMessages(count)
+  }
 
   const sidebar = (
     <aside className="w-52 bg-black text-white flex flex-col h-full">
@@ -53,7 +71,12 @@ export default function Layout({ store, onLogout }) {
             }
           >
             <Icon size={16} />
-            {label}
+            <span className="flex-1">{label}</span>
+            {to === '/messages' && unreadMessages > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                {unreadMessages}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

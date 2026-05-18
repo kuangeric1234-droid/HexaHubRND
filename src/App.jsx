@@ -13,6 +13,7 @@ import Settings from './components/Settings.jsx'
 import Maintenance from './components/Maintenance.jsx'
 import Reports from './components/Reports.jsx'
 import Events from './components/Events.jsx'
+import AdminMessages from './components/AdminMessages.jsx'
 import Login from './components/Login.jsx'
 import SignPage from './components/SignPage.jsx'
 import PortalApp from './portal/PortalApp.jsx'
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="templates" element={<Templates />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="messages" element={<AdminMessages />} />
           <Route path="events" element={<Events />} />
           <Route path="settings" element={<Settings />} />
         </Route>
