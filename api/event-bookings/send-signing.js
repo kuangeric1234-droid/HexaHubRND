@@ -90,6 +90,23 @@ function buildAdminNotifyEmail({ booking }) {
   return frame(body)
 }
 
+function buildInsuranceUploadedEmail({ booking }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
+  const body = `
+    <h2 style="font-size:18px;color:#111;margin:0 0 16px">Insurance Certificate Uploaded ✅</h2>
+    <p style="font-size:14px;color:#555;margin:0 0 20px">
+      <strong>${vendor}</strong> has uploaded their Certificate of Currency for the Hexa Hub Pop-Up.
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">
+      <tr><td style="padding:8px 0;color:#888;width:130px">Vendor</td><td style="padding:8px 0;color:#111">${vendor}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Ref</td><td style="padding:8px 0;color:#111">${booking.ref}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">File</td><td style="padding:8px 0;color:#111">${booking.insuranceFileName || 'Certificate uploaded'}</td></tr>
+    </table>
+    ${booking.insuranceUrl ? `<a href="${booking.insuranceUrl}" style="display:inline-block;background:#000;color:#fff;text-decoration:none;padding:12px 28px;font-size:13px;font-weight:700;border-radius:6px">View Certificate →</a>` : ''}
+    <p style="font-size:12px;color:#888;margin:16px 0 0">Please review the certificate and mark the vendor as confirmed in the admin portal.</p>`
+  return frame(body)
+}
+
 function buildInsuranceDeferredEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
@@ -154,6 +171,16 @@ export default async function handler(req, res) {
         to: 'info@hexahub.com.au',
         subject: `Vendor signed: ${vendor} — Hexa Hub Pop-Up`,
         html: buildAdminNotifyEmail({ booking }),
+      })
+      return res.status(200).json({ sent: ok })
+    }
+
+    if (mode === 'insurance_uploaded') {
+      const vendor = booking.vendorBusiness || booking.vendorName
+      const ok = await sendMail({
+        to: 'info@hexahub.com.au',
+        subject: `Insurance uploaded: ${vendor} — Hexa Hub Pop-Up`,
+        html: buildInsuranceUploadedEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
     }

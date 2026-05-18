@@ -161,16 +161,45 @@ function VendorDetail({
             </div>
           )}
           {isSigned && (
-            <button
-              onClick={onMarkInsuranceReceived}
-              className="w-full flex items-center justify-center gap-2 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
-            >
-              <CheckCircle size={14} /> Mark Insurance Received
-            </button>
+            <>
+              {booking.insuranceUrl ? (
+                <a
+                  href={booking.insuranceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm hover:bg-gray-50 font-medium"
+                >
+                  <CheckCircle size={14} className="text-green-500" />
+                  View Certificate — {booking.insuranceFileName || 'Certificate of Currency'}
+                </a>
+              ) : (
+                <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-2">
+                  No certificate uploaded yet. Vendor will email to info@hexahub.com.au.
+                </div>
+              )}
+              <button
+                onClick={onMarkInsuranceReceived}
+                className="w-full flex items-center justify-center gap-2 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
+              >
+                <CheckCircle size={14} /> Mark Insurance Confirmed
+              </button>
+            </>
           )}
           {isComplete && (
-            <div className="bg-green-50 border border-green-100 rounded-md px-3 py-2.5 text-xs text-green-700 font-medium">
-              ✓ Agreement signed and insurance received. Vendor is confirmed.
+            <div className="space-y-2">
+              <div className="bg-green-50 border border-green-100 rounded-md px-3 py-2.5 text-xs text-green-700 font-medium">
+                ✓ Agreement signed and insurance confirmed. Vendor confirmed for June 7.
+              </div>
+              {booking.insuranceUrl && (
+                <a
+                  href={booking.insuranceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 py-2 rounded-md text-xs hover:bg-gray-50"
+                >
+                  View Insurance Certificate
+                </a>
+              )}
             </div>
           )}
           {booking.signingToken && !isCancelled && (

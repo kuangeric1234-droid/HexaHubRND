@@ -295,7 +295,95 @@ function LicenceAgreementDoc({ booking }) {
   )
 }
 
-// ── Document 2: Annexure A — Venue Rules (verbatim) ───────────────────────────
+// ── Document 2: Liability Waiver (standalone) ────────────────────────────────
+
+function LiabilityWaiverDoc({ booking }) {
+  const b = booking
+  const vendor = b.vendorBusiness || b.vendorName
+  const today = format(new Date(), 'd MMMM yyyy')
+  return (
+    <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-5">
+      <div className="text-center space-y-1">
+        <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
+        <h1 className="text-xl font-bold tracking-tight">Vendor Liability Waiver and Acknowledgement</h1>
+        <div className="text-xs text-gray-500 font-sans">Hexa Hub Pop-Up · Sunday 7 June 2026 · 17 Logistic Court, Huntingdale, Victoria</div>
+      </div>
+
+      <hr className="border-gray-300" />
+
+      <p className="text-xs text-gray-600 italic">This Waiver is given by the Vendor named below in favour of HexaHub Pty Ltd ABN 51 234 567 890 (<strong>HexaHub</strong>) and is to be read together with and forms part of the Event Venue Licence Agreement between the parties dated {today}.</p>
+
+      <div className="space-y-4 text-xs">
+        <div>
+          <strong>1. Defined Terms</strong>
+          <p className="mt-1">Words defined in the Event Venue Licence Agreement have the same meaning in this Waiver. <em>Vendor</em> means the Licensee named in the Agreement. <em>Vendor Personnel</em> means the Vendor's employees, contractors, agents, representatives and any person operating at or from the Vendor's stall or space.</p>
+        </div>
+
+        <div>
+          <strong>2. Acknowledgement of Risk</strong>
+          <p className="mt-1">The Vendor acknowledges and agrees that:</p>
+          <p className="mt-1">(a) participation in the Event as a vendor, stallholder or exhibitor involves inherent risks, including but not limited to personal injury, property damage, theft, financial loss and disruption;</p>
+          <p className="mt-1">(b) HexaHub makes no representation or warranty that the Venue or Premises is suitable for the Vendor's specific purposes or that the Event will attract any particular number of attendees;</p>
+          <p className="mt-1">(c) the Vendor has independently assessed the suitability of the Venue and the risks associated with its participation and is satisfied that it is appropriate to proceed on the terms of this Waiver and the Agreement; and</p>
+          <p className="mt-1">(d) HexaHub does not guarantee exclusivity for the Vendor's product or service category at the Event.</p>
+        </div>
+
+        <div>
+          <strong>3. Waiver and Release</strong>
+          <p className="mt-1">To the fullest extent permitted by law, the Vendor, for itself and on behalf of all Vendor Personnel, releases, waives, discharges and covenants not to sue HexaHub, its officers, directors, employees, contractors and agents (<strong>Released Parties</strong>) from and against any and all claims, demands, causes of action, losses, costs, damages and liabilities of any kind, whether known or unknown, arising directly or indirectly from or in connection with:</p>
+          <p className="mt-1">(a) the Vendor's or any Vendor Personnel's presence at, participation in or preparation for the Event;</p>
+          <p className="mt-1">(b) any personal injury, illness or death suffered by the Vendor or any Vendor Personnel at or in connection with the Event;</p>
+          <p className="mt-1">(c) any loss of or damage to the Vendor's goods, stock, cash, equipment, vehicles, display materials or other property, howsoever caused, including loss or damage caused by theft, other vendors, attendees or third parties;</p>
+          <p className="mt-1">(d) any loss of revenue, loss of sales, loss of profit or other financial loss arising from the Vendor's participation in the Event, including reduced attendance or cancellation; and</p>
+          <p className="mt-1">(e) any act or omission of any other vendor, exhibitor, attendee, contractor or third party at or in connection with the Event.</p>
+        </div>
+
+        <div>
+          <strong>4. Vendor's Responsibility for Attendees and Customers</strong>
+          <p className="mt-1">The Vendor accepts full responsibility for the safety and conduct of all persons who visit, interact with or purchase from the Vendor's stall or space during the Event, including responsibility for:</p>
+          <p className="mt-1">(a) ensuring its stall and display items are stable, safe and do not pose a hazard to attendees;</p>
+          <p className="mt-1">(b) any injury or damage caused to an attendee or customer arising from the Vendor's goods, products, samples, displays or operations; and</p>
+          <p className="mt-1">(c) any claim by an attendee or customer arising out of the Vendor's goods or services, including any product liability, food safety or consumer law claim.</p>
+        </div>
+
+        <div>
+          <strong>5. Indemnity</strong>
+          <p className="mt-1">In addition to and without limiting clause 20 of the Event Venue Licence Agreement, the Vendor indemnifies and keeps indemnified the Released Parties from and against all Loss arising from or in connection with:</p>
+          <p className="mt-1">(a) the Vendor's participation in the Event and use of the Venue;</p>
+          <p className="mt-1">(b) any claim by a Vendor customer or attendee arising from the Vendor's goods, services or operations;</p>
+          <p className="mt-1">(c) any food safety incident, product defect, or personal injury caused by the Vendor's goods or operations;</p>
+          <p className="mt-1">(d) any breach by the Vendor of this Waiver or the Agreement; and</p>
+          <p className="mt-1">(e) any non-compliance by the Vendor with applicable laws, including food registration, liquor licensing, electrical safety and occupational health and safety requirements.</p>
+          <p className="mt-1">This indemnity survives expiry or termination of the Agreement.</p>
+        </div>
+
+        <div>
+          <strong>6. Insurance Confirmation</strong>
+          <p className="mt-1">The Vendor warrants that it holds, and will maintain in force through the Event Date, public liability insurance of at least AUD $20,000,000 per occurrence, together with workers compensation insurance as required by law and any other insurance reasonably required having regard to the nature of the Vendor's operations. The Vendor acknowledges that it is required to provide a current Certificate of Currency to HexaHub no later than 5 Business Days before the Event Date and that failure to do so entitles HexaHub to refuse access to the Venue.</p>
+        </div>
+
+        <div>
+          <strong>7. Food and Beverage Vendors</strong>
+          <p className="mt-1">Where the Vendor's goods or services include food or beverage, the Vendor additionally warrants that all food handlers hold current food safety qualifications, the Vendor holds all required food business registrations or notifications, all food is handled, stored and served in compliance with the Food Act 1984 (Vic) and applicable food standards, and the Vendor will immediately cease food service if directed by HexaHub or a relevant authority.</p>
+        </div>
+
+        <div>
+          <strong>8. Preservation of Statutory Rights</strong>
+          <p className="mt-1">Nothing in this Waiver excludes, restricts or modifies any right, remedy or guarantee that the Vendor may have under the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010 (Cth)) or any other applicable legislation that cannot by law be excluded, restricted or modified. To the extent that such rights apply, nothing in this Waiver affects those rights.</p>
+        </div>
+
+        <div>
+          <strong>9. Severability and Governing Law</strong>
+          <p className="mt-1">If any provision of this Waiver is held to be void, invalid or unenforceable, that provision must be read down to the minimum extent necessary or severed, and the remaining provisions continue in full force. This Waiver is governed by the laws of Victoria, Australia.</p>
+        </div>
+
+        <p className="italic text-gray-600 mt-2">By signing the Event Venue Licence Agreement, the Vendor confirms that it has read, understood and agreed to this Liability Waiver and Acknowledgement on behalf of itself and all Vendor Personnel.</p>
+      </div>
+    </div>
+  )
+}
+
+// ── Document 3: Annexure A — Venue Rules (verbatim) ───────────────────────────
 
 function VenueRulesDoc() {
   return (
@@ -559,8 +647,9 @@ export default function EventBookingSignPage({ token }) {
 
   const TABS = [
     { key: 'doc1', label: '1. Licence Agreement' },
-    { key: 'doc2', label: '2. Venue Rules (Annexure A)' },
-    { key: 'doc3', label: '3. Compliance & Marketing (B & C)' },
+    { key: 'doc2', label: '2. Liability Waiver' },
+    { key: 'doc3', label: '3. Venue Rules (Annexure A)' },
+    { key: 'doc4', label: '4. Compliance & Marketing (B & C)' },
     { key: 'sign', label: '✍ Sign' },
   ]
 
@@ -579,24 +668,7 @@ export default function EventBookingSignPage({ token }) {
             <p className="text-sm text-gray-500 mb-6 text-center">
               Thank you, {booking?.signerName}. Your agreement is signed. HexaHub will countersign and be in touch to confirm your participation.
             </p>
-            <div className="border border-gray-200 rounded-md p-5">
-              <h3 className="font-semibold text-sm text-gray-800 mb-2">Public Liability Insurance</h3>
-              <p className="text-xs text-gray-500 mb-4">
-                Your participation requires a Certificate of Currency showing at least{' '}
-                <strong>AUD $20,000,000 Public Liability Insurance</strong> per occurrence (clause 9).
-                Please send this to{' '}
-                <a href="mailto:info@hexahub.com.au" className="text-black underline">info@hexahub.com.au</a>{' '}
-                no later than 5 Business Days before the event.
-              </p>
-              <div className="flex gap-3">
-                <button onClick={() => submitInsuranceChoice('later')} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm hover:bg-gray-50 font-medium">
-                  I'll email it shortly
-                </button>
-                <button onClick={() => submitInsuranceChoice('done')} className="flex-1 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800">
-                  Already sent
-                </button>
-              </div>
-            </div>
+            <InsuranceUploadStep booking={booking} onDone={setInsuranceChoice} />
           </div>
         </div>
       </div>
@@ -635,12 +707,15 @@ export default function EventBookingSignPage({ token }) {
       </div>
 
       {view === 'doc1' && (
-        <DocFrame><LicenceAgreementDoc booking={booking} /><NavBtn onClick={() => setView('doc2')}>Next: Venue Rules →</NavBtn></DocFrame>
+        <DocFrame><LicenceAgreementDoc booking={booking} /><NavBtn onClick={() => setView('doc2')}>Next: Liability Waiver →</NavBtn></DocFrame>
       )}
       {view === 'doc2' && (
-        <DocFrame><VenueRulesDoc /><NavBtn onClick={() => setView('doc3')}>Next: Compliance & Marketing →</NavBtn></DocFrame>
+        <DocFrame><LiabilityWaiverDoc booking={booking} /><NavBtn onClick={() => setView('doc3')}>Next: Venue Rules →</NavBtn></DocFrame>
       )}
       {view === 'doc3' && (
+        <DocFrame><VenueRulesDoc /><NavBtn onClick={() => setView('doc4')}>Next: Compliance & Marketing →</NavBtn></DocFrame>
+      )}
+      {view === 'doc4' && (
         <DocFrame><ComplianceAndMarketingDoc /><NavBtn onClick={() => setView('sign')}>Proceed to Sign →</NavBtn></DocFrame>
       )}
 
@@ -674,7 +749,7 @@ export default function EventBookingSignPage({ token }) {
             <label className="flex items-start gap-3 mb-6 cursor-pointer">
               <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 shrink-0" />
               <span className="text-sm text-gray-600">
-                I confirm I have read and agree to the Event Venue Licence Agreement (including all 27 clauses), Annexure A (Venue Rules and Operating Conditions), Annexure B (Victorian Compliance Notes), and Annexure C (Digital Marketing Requirements), and that I am authorised to sign on behalf of the Licensee.
+                I confirm I have read and agree to the (1) Event Venue Licence Agreement (including all 27 clauses), (2) Liability Waiver and Acknowledgement, (3) Annexure A — Venue Rules and Operating Conditions, and (4) Annexures B & C — Compliance Notes and Digital Marketing Requirements, and that I am authorised to sign on behalf of the Licensee.
               </span>
             </label>
 
@@ -691,6 +766,127 @@ export default function EventBookingSignPage({ token }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Insurance upload step ─────────────────────────────────────────────────────
+
+function InsuranceUploadStep({ booking, onDone }) {
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
+  const fileRef = useRef(null)
+
+  async function handleUpload(file) {
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) { setUploadError('File must be under 10 MB.'); return }
+    setUploading(true)
+    setUploadError(null)
+    try {
+      const ext = file.name.split('.').pop()
+      const filePath = `${booking.id}/${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('event-insurance')
+        .upload(filePath, file, { contentType: file.type, upsert: true })
+
+      if (uploadErr) throw uploadErr
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('event-insurance')
+        .getPublicUrl(filePath)
+
+      const now = new Date().toISOString()
+      const updated = {
+        ...booking,
+        status: 'insurance_received',
+        insuranceStatus: 'received',
+        insuranceUrl: publicUrl,
+        insuranceFileName: file.name,
+        insuranceUploadedAt: now,
+        updatedAt: now,
+      }
+      await supabase.from('event_bookings').update({ data: updated, updated_at: now }).eq('id', booking.id)
+
+      await fetch('/api/event-bookings/send-signing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking: updated, mode: 'insurance_uploaded' }),
+      }).catch(() => {})
+
+      onDone('done')
+    } catch (err) {
+      console.error(err)
+      setUploadError('Upload failed. Please try again or email your certificate to info@hexahub.com.au.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleDefer() {
+    const now = new Date().toISOString()
+    const updated = {
+      ...booking,
+      status: 'insurance_pending',
+      insuranceStatus: 'pending',
+      insuranceDeferredAt: now,
+      updatedAt: now,
+    }
+    await supabase.from('event_bookings').update({ data: updated, updated_at: now }).eq('id', booking.id)
+    await fetch('/api/event-bookings/send-signing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking: updated, mode: 'insurance_deferred' }),
+    }).catch(() => {})
+    onDone('later')
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-md p-5">
+      <h3 className="font-semibold text-sm text-gray-800 mb-1">Public Liability Insurance Required</h3>
+      <p className="text-xs text-gray-500 mb-4">
+        Clause 9 of your agreement requires a Certificate of Currency showing at least{' '}
+        <strong>AUD $20,000,000 Public Liability Insurance</strong> per occurrence,
+        provided no later than 5 Business Days before the event.
+      </p>
+
+      {/* Upload area */}
+      <div
+        onClick={() => fileRef.current?.click()}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleUpload(f) }}
+        className="border-2 border-dashed border-gray-200 rounded-md p-6 text-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors mb-3"
+      >
+        <div className="text-2xl mb-2">📄</div>
+        <p className="text-sm font-medium text-gray-700">
+          {uploading ? 'Uploading…' : 'Upload Certificate of Currency'}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">PDF, JPG or PNG · max 10 MB · drag & drop or click</p>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png"
+          className="hidden"
+          onChange={e => { const f = e.target.files[0]; if (f) handleUpload(f) }}
+        />
+      </div>
+
+      {uploadError && (
+        <p className="text-xs text-red-500 mb-3">{uploadError}</p>
+      )}
+
+      <div className="flex items-center gap-3 mt-2">
+        <div className="flex-1 h-px bg-gray-100" />
+        <span className="text-xs text-gray-400">or</span>
+        <div className="flex-1 h-px bg-gray-100" />
+      </div>
+
+      <button
+        onClick={handleDefer}
+        disabled={uploading}
+        className="w-full mt-3 border border-gray-200 text-gray-600 py-2 rounded-md text-sm hover:bg-gray-50 disabled:opacity-40"
+      >
+        I'll email it to info@hexahub.com.au
+      </button>
     </div>
   )
 }
