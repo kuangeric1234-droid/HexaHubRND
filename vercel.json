@@ -7,6 +7,10 @@
     {
       "path": "/api/overdue-reminders",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/auto-billing",
+      "schedule": "0 0 1 * *"
     }
   ]
 }

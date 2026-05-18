@@ -398,6 +398,7 @@ export default function Billing() {
               >
                 Bill Run
               </button>
+              <AutoBillRunButton />
               <button
                 onClick={() => setShowForm(true)}
                 className="flex items-center gap-1.5 text-sm bg-blue-600 text-white rounded px-3 py-1.5 hover:bg-blue-700 font-medium"
@@ -656,5 +657,88 @@ export default function Billing() {
         />
       )}
     </div>
+  )
+}
+
+function AutoBillRunButton() {
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState(null)
+
+  async function run() {
+    if (!window.confirm(
+      'Run auto-billing for this month?\n\nThis will create invoices for all active leases that don\'t already have one for the current month, and email each tenant.'
+    )) return
+
+    setRunning(true)
+    setResult(null)
+    try {
+      const res = await fetch('/api/auto-billing', { method: 'POST' })
+      const data = await res.json()
+      setResult(data)
+    } catch (err) {
+      setResult({ error: err.message })
+    }
+    setRunning(false)
+  }
+
+  return (
+    <>
+      <button
+        onClick={run}
+        disabled={running}
+        className="flex items-center gap-1.5 text-sm border border-blue-300 bg-blue-50 text-blue-700 rounded px-3 py-1.5 hover:bg-blue-100 font-medium disabled:opacity-50"
+      >
+        {running ? 'Running…' : '⚡ Auto Bill Run'}
+      </button>
+
+      {result && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="font-bold text-gray-900 mb-1">Auto Bill Run Complete</h3>
+            <p className="text-xs text-gray-400 mb-4">{result.period}</p>
+
+            {result.error ? (
+              <p className="text-sm text-red-600">{result.error}</p>
+            ) : (
+              <div className="space-y-3 text-sm">
+                <div>
+                  <div className="font-medium text-green-700 mb-1">
+                    ✓ {result.created?.length ?? 0} invoice{result.created?.length !== 1 ? 's' : ''} created &amp; emailed
+                  </div>
+                  {result.created?.map(c => (
+                    <div key={c.number} className="text-gray-600 pl-3">{c.number} — {c.tenant}</div>
+                  ))}
+                </div>
+                {result.skipped?.length > 0 && (
+                  <div>
+                    <div className="font-medium text-gray-500 mb-1">
+                      — {result.skipped.length} skipped (already invoiced)
+                    </div>
+                    {result.skipped.map((s, i) => (
+                      <div key={i} className="text-gray-400 pl-3">{s}</div>
+                    ))}
+                  </div>
+                )}
+                {result.errors?.length > 0 && (
+                  <div>
+                    <div className="font-medium text-red-600 mb-1">✗ {result.errors.length} errors</div>
+                    {result.errors.map((e, i) => (
+                      <div key={i} className="text-red-500 pl-3">{e.tenant ?? e.leaseId}: {e.reason}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => { setResult(null); window.location.reload() }}
+              className="mt-5 w-full bg-black text-white text-sm font-semibold py-2 rounded hover:bg-gray-800"
+            >
+              Close &amp; Refresh
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

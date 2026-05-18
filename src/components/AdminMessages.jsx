@@ -76,6 +76,18 @@ export default function AdminMessages() {
     setAllMessages(prev => [...prev, msg])
 
     await supabase.from('portal_messages').insert({ id: msg.id, data: msg })
+
+    // Notify tenant by email (fire-and-forget)
+    fetch('/api/portal/notify-reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantEmail: selectedThread.tenant.email,
+        tenantName: selectedThread.tenant.businessName,
+        message: content,
+      }),
+    }).catch(() => {})
+
     setSending(false)
     inputRef.current?.focus()
   }
