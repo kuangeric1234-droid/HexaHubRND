@@ -67,16 +67,66 @@ export default function Tenants() {
 
   if (selectedTenant) {
     return (
-      <TenantProfile
-        tenant={selectedTenant}
-        leases={leases ?? []}
-        invoices={invoices ?? []}
-        spaces={spaces ?? []}
-        settings={settings}
-        onBack={() => setSelectedTenant(null)}
-        onEdit={() => openEdit(selectedTenant)}
-        onAddInvoice={(data) => addInvoice({ ...data, tenantId: selectedTenant.id })}
-      />
+      <>
+        <TenantProfile
+          tenant={selectedTenant}
+          leases={leases ?? []}
+          invoices={invoices ?? []}
+          spaces={spaces ?? []}
+          settings={settings}
+          onBack={() => setSelectedTenant(null)}
+          onEdit={() => openEdit(selectedTenant)}
+          onAddInvoice={(data) => addInvoice({ ...data, tenantId: selectedTenant.id })}
+        />
+        {showForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-md w-full max-w-lg shadow-xl">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h2 className="font-semibold text-gray-900">Edit Tenant</h2>
+                <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-700">
+                  <X size={18} />
+                </button>
+              </div>
+              <form onSubmit={(e) => { handleSubmit(e); setSelectedTenant(tenants.find(t => t.id === editId) ?? selectedTenant) }} className="px-6 py-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Business Name *</label>
+                    <input required value={form.businessName} onChange={(e) => setForm({ ...form, businessName: e.target.value })} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Contact Name</label>
+                    <input value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
+                    <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                    <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">ABN</label>
+                    <input value={form.abn} onChange={(e) => setForm({ ...form, abn: e.target.value })} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Industry</label>
+                    <input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Country</label>
+                    <input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm border border-gray-200 rounded-md hover:bg-gray-50">Cancel</button>
+                  <button type="submit" className="px-4 py-2 text-sm bg-black text-white rounded-md hover:bg-gray-800">Save Changes</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </>
     )
   }
 

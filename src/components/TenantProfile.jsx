@@ -211,6 +211,9 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
             {tenant.country && <Row label="Country">{tenant.country}</Row>}
             {tenant.createdAt && <Row label="Since">{fmt(tenant.createdAt)}</Row>}
           </div>
+
+          {/* Portal status */}
+          <PortalSidebarStatus email={tenant.email} />
         </aside>
 
         {/* Scrollable main content */}
@@ -439,6 +442,39 @@ function Row({ label, icon, children }) {
     <div className="flex items-start gap-2">
       {icon ? <span className="text-gray-400 mt-0.5 shrink-0">{icon}</span> : <span className="text-gray-400 uppercase font-semibold w-14 shrink-0 text-[10px] mt-0.5">{label}</span>}
       <span>{children}</span>
+    </div>
+  )
+}
+
+function PortalSidebarStatus({ email }) {
+  const [status, setStatus] = useState(null)
+
+  useEffect(() => {
+    if (!email) return
+    fetch(`/api/portal/status?email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(d => setStatus(d.status))
+      .catch(() => setStatus(null))
+  }, [email])
+
+  if (!status || status === 'not_invited') return null
+
+  return (
+    <div className="mt-5 pt-4 border-t border-gray-100">
+      <div className="text-xs text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+        <MessageSquare size={10} /> Portal Access
+      </div>
+      {status === 'active' ? (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+          Active Member
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">
+          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 inline-block" />
+          Invited
+        </span>
+      )}
     </div>
   )
 }
