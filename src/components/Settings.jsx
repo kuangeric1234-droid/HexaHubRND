@@ -217,10 +217,24 @@ function CompanyBillingSection({ settings, updateSettings }) {
 }
 
 // ── Admin Users ───────────────────────────────────────────────────────────────
-function AdminUsersSection() {
+function AdminUsersSection({ settings, updateSettings }) {
   const [inviteEmail, setInviteEmail] = useState('')
-  const [status, setStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
+  const [inviteName, setInviteName] = useState('')
+  const [inviteRole, setInviteRole] = useState('Admin')
+  const [status, setStatus] = useState(null)
   const [errorMsg, setErrorMsg] = useState('')
+
+  const users = settings.adminUsers ?? []
+
+  function updateUserRole(id, role) {
+    const updated = users.map(u => u.id === id ? { ...u, role } : u)
+    updateSettings({ adminUsers: updated })
+  }
+
+  function removeUser(id) {
+    if (!window.confirm('Remove this user from the admin list?')) return
+    updateSettings({ adminUsers: users.filter(u => u.id !== id) })
+  }
 
   async function handleInvite(e) {
     e.preventDefault()
@@ -235,8 +249,19 @@ function AdminUsersSection() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Invite failed')
+      // Add to adminUsers list
+      const newUser = {
+        id: `u_${Date.now()}`,
+        name: inviteName.trim() || inviteEmail.trim(),
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        access: inviteRole === 'Super Admin' ? 'Full Access' : 'Standard Access',
+      }
+      updateSettings({ adminUsers: [...users, newUser] })
       setStatus('sent')
       setInviteEmail('')
+      setInviteName('')
+      setInviteRole('Admin')
       setTimeout(() => setStatus(null), 4000)
     } catch (err) {
       setErrorMsg(err.message)
@@ -248,31 +273,114 @@ function AdminUsersSection() {
     <div>
       <h1 className="text-xl font-bold text-gray-900 mb-1">Admin Users</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Invite team members to the portal. They'll receive an email to set their password and gain access.
+        Manage who has access to HexaHub and their permission level.
       </p>
 
+      {/* Current users table */}
+      {users.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-md overflow-hidden mb-6">
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <span className="text-sm font-semibold text-gray-700">Current Users</span>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-5 py-2.5" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {users.map(u => (
+                <tr key={u.id} className="hover:bg-gray-50">
+                  <td className="px-5 py-3 font-medium text-gray-900">{u.name}</td>
+                  <td className="px-5 py-3 text-gray-500">{u.email}</td>
+                  <td className="px-5 py-3">
+                    <select
+                      value={u.role}
+                      onChange={e => updateUserRole(u.id, e.target.value)}
+                      className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-black bg-white"
+                    >
+                      <option value="Admin">Admin</option>
+                      <option value="Super Admin">Super Admin</option>
+                    </select>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <button onClick={() => removeUser(u.id)} className="text-xs text-gray-400 hover:text-red-500">
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Role explanation */}
+      <div className="bg-white border border-gray-200 rounded-md p-5 mb-6">
+        <h3 className="text-sm font-semibold text-gray-800 mb-3">Role Permissions</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-900 text-white shrink-0">Super Admin</span>
+            <span className="text-gray-600">Full access — including permanently deleting invoices from the system.</span>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-300 shrink-0">Admin</span>
+            <span className="text-gray-600">Standard access — can manage everything except permanent invoice deletion.</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Invite form */}
       <div className="bg-white border border-gray-200 rounded-md p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-800 mb-4">Invite a team member</h2>
-        <form onSubmit={handleInvite} className="flex gap-3 items-end">
-          <div className="flex-1">
-            <label className="block text-xs text-gray-500 mb-1">Email address</label>
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="teammate@hexahub.com.au"
-              required
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        <form onSubmit={handleInvite} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Name</label>
+              <input
+                type="text"
+                value={inviteName}
+                onChange={e => setInviteName(e.target.value)}
+                placeholder="Full name"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Role</label>
+              <select
+                value={inviteRole}
+                onChange={e => setInviteRole(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black bg-white"
+              >
+                <option value="Admin">Admin</option>
+                <option value="Super Admin">Super Admin</option>
+              </select>
+            </div>
           </div>
-          <button
-            type="submit"
-            disabled={status === 'sending'}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
-          >
-            <Plus size={14} />
-            {status === 'sending' ? 'Sending…' : 'Send Invite'}
-          </button>
+          <div className="flex gap-3 items-end">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1">Email address *</label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+                placeholder="teammate@hexahub.com.au"
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={status === 'sending'}
+              className="flex items-center gap-1.5 px-4 py-2 bg-black text-white text-sm rounded-md font-medium hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap"
+            >
+              <Plus size={14} />
+              {status === 'sending' ? 'Sending…' : 'Send Invite'}
+            </button>
+          </div>
         </form>
 
         {status === 'sent' && (
@@ -285,21 +393,6 @@ function AdminUsersSection() {
             {errorMsg}
           </div>
         )}
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm text-blue-700">
-        <p className="font-medium mb-1">Managing existing users</p>
-        <p className="text-xs text-blue-600">
-          To reset a password or remove a user, go to{' '}
-          <a
-            href="https://supabase.com/dashboard/project/yitkqjlytlyyflrsnfwc/auth/users"
-            target="_blank"
-            rel="noreferrer"
-            className="underline font-medium"
-          >
-            Supabase → Authentication → Users
-          </a>.
-        </p>
       </div>
     </div>
   )
@@ -696,7 +789,7 @@ export default function Settings() {
 
   const SECTIONS = {
     'company-billing': <CompanyBillingSection settings={settings} updateSettings={updateSettings} />,
-    'admin-users': <AdminUsersSection />,
+    'admin-users': <AdminUsersSection settings={settings} updateSettings={updateSettings} />,
     'emails': <EmailsSection settings={settings} updateSettings={updateSettings} />,
     'contracts': <ContractsSection settings={settings} updateSettings={updateSettings} />,
     'billing-rules': <BillingRulesSection settings={settings} updateSettings={updateSettings} />,

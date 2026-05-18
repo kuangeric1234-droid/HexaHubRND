@@ -886,6 +886,15 @@ export function useStore() {
     })
   }, [])
 
+  const deleteInvoice = useCallback((id) => {
+    setInvoices((prev) => {
+      const inv = prev.find((i) => i.id === id)
+      logAudit('delete', 'invoice', id, inv?.number ?? id, 'Permanently deleted')
+      deleteRow('invoices', id)
+      return prev.filter((i) => i.id !== id)
+    })
+  }, [])
+
   const addPaymentToInvoice = useCallback((invoiceId, payment) => {
     setInvoices((prev) => {
       const inv = prev.find((i) => i.id === invoiceId)
@@ -983,16 +992,32 @@ export function useStore() {
   // runAutoBillRun is now handled inside the load useEffect — kept as no-op for compatibility
   const runAutoBillRun = useCallback(() => {}, [])
 
+  // Derive current user's role from Supabase session + adminUsers settings
+  const [currentUserEmail, setCurrentUserEmail] = useState('')
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserEmail(user?.email ?? '')
+    })
+  }, [])
+  const currentUserRole = (() => {
+    if (!currentUserEmail) return 'admin'
+    const match = settings.adminUsers?.find(
+      u => u.email?.toLowerCase() === currentUserEmail.toLowerCase()
+    )
+    return (match?.role ?? 'admin').toLowerCase().replace(/\s+/g, '_') // 'super_admin' | 'admin'
+  })()
+
   return {
     loading,
     tenants, addTenant, updateTenant, deleteTenant,
     spaces, addSpace, updateSpace, deleteSpace,
     leases, addLease, updateLease, deleteLease,
     templates, addTemplate, updateTemplate, deleteTemplate,
-    invoices, addInvoice, updateInvoice, voidInvoice, addPaymentToInvoice, addCommentToInvoice, runAutoBillRun,
+    invoices, addInvoice, updateInvoice, voidInvoice, deleteInvoice, addPaymentToInvoice, addCommentToInvoice, runAutoBillRun,
     discounts, addDiscount, updateDiscount, deleteDiscount,
     maintenance, addMaintenanceIssue, updateMaintenanceIssue, deleteMaintenanceIssue,
     settings, updateSettings,
+    currentUserRole, currentUserEmail,
     resetSampleData,
   }
 }

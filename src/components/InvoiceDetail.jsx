@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format, parseISO, differenceInDays } from 'date-fns'
-import { ArrowLeft, Send, RefreshCw, Ban, FileMinus, FileDown, Plus, MessageSquare, ToggleLeft, ToggleRight } from 'lucide-react'
+import { ArrowLeft, Send, RefreshCw, Ban, FileMinus, FileDown, Plus, MessageSquare, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react'
 import { sendEmail, invoiceEmailHtml, resolveEmailTemplate } from '../lib/sendEmail.js'
 import { logAudit } from '../lib/audit.js'
 import { jsPDF } from 'jspdf'
@@ -36,8 +36,10 @@ export default function InvoiceDetail({
   onBack,
   onUpdate,
   onVoid,
+  onDelete,
   onAddPayment,
   onAddComment,
+  isSuperAdmin = false,
 }) {
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [payForm, setPayForm] = useState({ amount: '', date: format(new Date(), 'yyyy-MM-dd'), method: 'Bank Transfer', note: '' })
@@ -391,6 +393,19 @@ export default function InvoiceDetail({
               <button onClick={handleVoid}
                 className="flex items-center gap-1.5 text-xs border border-orange-300 rounded px-3 py-1.5 hover:bg-orange-50 text-orange-700">
                 <Ban size={13} /> Void
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                onClick={() => {
+                  if (window.confirm(`Permanently delete ${invoice.number}? This cannot be undone and will remove it from the system entirely.`)) {
+                    onDelete?.(invoice.id)
+                    onBack?.()
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs border border-red-300 rounded px-3 py-1.5 hover:bg-red-50 text-red-600 font-medium"
+              >
+                <Trash2 size={13} /> Delete
               </button>
             )}
             <button onClick={handleCreditNote}
