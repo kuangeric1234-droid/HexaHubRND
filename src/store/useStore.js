@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS = {
     address: '7 Distribution Circuit, Huntingdale VIC 3166',
   },
   adminUsers: [
-    { id: 'u1', name: 'Admin User', email: 'admin@hexahub.com.au', role: 'Admin', access: 'Full Access' },
+    { id: 'u1', name: 'HexaHub Admin', email: 'info@hexahub.com.au', role: 'Super Admin', access: 'Full Access' },
   ],
   emails: {
     notificationEmail: 'info@hexahub.com.au',

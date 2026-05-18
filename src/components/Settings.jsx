@@ -216,6 +216,58 @@ function CompanyBillingSection({ settings, updateSettings }) {
   )
 }
 
+function AddExistingUserForm({ users, updateSettings }) {
+  const [form, setForm] = useState({ name: '', email: '', role: 'Admin' })
+  const [done, setDone] = useState(false)
+
+  function handleAdd(e) {
+    e.preventDefault()
+    if (!form.email.trim()) return
+    const newUser = {
+      id: `u_${Date.now()}`,
+      name: form.name.trim() || form.email.trim(),
+      email: form.email.trim().toLowerCase(),
+      role: form.role,
+      access: form.role === 'Super Admin' ? 'Full Access' : 'Standard Access',
+    }
+    updateSettings({ adminUsers: [...users, newUser] })
+    setForm({ name: '', email: '', role: 'Admin' })
+    setDone(true)
+    setTimeout(() => setDone(false), 3000)
+  }
+
+  return (
+    <form onSubmit={handleAdd} className="space-y-3">
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Name</label>
+          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="Full name" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Email *</label>
+          <input type="email" required value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+            placeholder="user@hexahub.com.au" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Role</label>
+          <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black bg-white">
+            <option value="Admin">Admin</option>
+            <option value="Super Admin">Super Admin</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <button type="submit" className="px-4 py-2 bg-black text-white text-sm rounded-md font-medium hover:bg-gray-800">
+          Add User
+        </button>
+        {done && <span className="text-sm text-green-600">✓ Added successfully</span>}
+      </div>
+    </form>
+  )
+}
+
 // ── Admin Users ───────────────────────────────────────────────────────────────
 function AdminUsersSection({ settings, updateSettings }) {
   const [inviteEmail, setInviteEmail] = useState('')
@@ -333,9 +385,17 @@ function AdminUsersSection({ settings, updateSettings }) {
         </div>
       </div>
 
+      {/* Add existing user (no invite email) */}
+      <div className="bg-white border border-gray-200 rounded-md p-6 mb-4">
+        <h2 className="text-sm font-semibold text-gray-800 mb-1">Add existing user</h2>
+        <p className="text-xs text-gray-400 mb-4">Already have a Supabase login? Add them to the admin list without sending an email.</p>
+        <AddExistingUserForm users={users} updateSettings={updateSettings} />
+      </div>
+
       {/* Invite form */}
       <div className="bg-white border border-gray-200 rounded-md p-6 mb-6">
-        <h2 className="text-sm font-semibold text-gray-800 mb-4">Invite a team member</h2>
+        <h2 className="text-sm font-semibold text-gray-800 mb-1">Invite a new team member</h2>
+        <p className="text-xs text-gray-400 mb-4">Creates a Supabase account and sends them a setup email.</p>
         <form onSubmit={handleInvite} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
