@@ -58,8 +58,19 @@ export default function PortalMessages({ tenant }) {
     setMessages(prev => [...prev, msg])
 
     await supabase.from('portal_messages').insert({ id: msg.id, data: msg })
+
+    // Fire-and-forget email notification to admin
+    fetch('/api/portal/notify-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantName: tenant.businessName,
+        tenantEmail: tenant.email,
+        message: content,
+      }),
+    }).catch(() => {})
+
     setSending(false)
-    // Keep focus on input
     inputRef.current?.focus()
   }
 
