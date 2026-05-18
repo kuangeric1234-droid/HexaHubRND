@@ -9,7 +9,7 @@ import PortalMessages from './PortalMessages.jsx'
 import PortalAccount from './PortalAccount.jsx'
 import PortalEvents from './PortalEvents.jsx'
 
-// Read the hash that main.jsx saved before Supabase could process it
+// Capture hash before Supabase processes it (saved by main.jsx)
 const _savedHash = sessionStorage.getItem('_initialHash') ?? ''
 sessionStorage.removeItem('_initialHash')
 const IS_RECOVERY_FLOW = _savedHash.includes('type=recovery') || _savedHash.includes('type=invite')
@@ -17,17 +17,17 @@ const IS_RECOVERY_FLOW = _savedHash.includes('type=recovery') || _savedHash.incl
 function SetPasswordScreen({ onDone }) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm]   = useState('')
-  const [loading, setLoading]   = useState(false)
+  const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (password.length < 8) return setError('Password must be at least 8 characters.')
     if (password !== confirm)  return setError('Passwords do not match.')
-    setLoading(true)
+    setSaving(true)
     setError('')
     const { error } = await supabase.auth.updateUser({ password })
-    if (error) { setError(error.message); setLoading(false); return }
+    if (error) { setError(error.message); setSaving(false); return }
     onDone()
   }
 
@@ -72,10 +72,10 @@ function SetPasswordScreen({ onDone }) {
             </div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={saving}
               className="w-full bg-black text-white py-2.5 rounded text-sm font-semibold hover:bg-gray-800 disabled:opacity-50"
             >
-              {loading ? 'Saving…' : 'Set Password & Enter Portal'}
+              {saving ? 'Saving…' : 'Set Password & Enter Portal'}
             </button>
           </form>
         </div>
@@ -88,86 +88,81 @@ function SetPasswordScreen({ onDone }) {
 }
 
 export default function PortalApp() {
-  const [session, setSession]               = useState(null)
-  const [tenant, setTenant]                 = useState(null)
-  const [invoices, setInvoices]             = useState([])
-  const [leases, setLeases]                 = useState([])
-  const [loading, setLoading]               = useState(true)
-  const [needsPassword, setNeedsPassword]   = useState(IS_RECOVERY_FLOW)
-  const initialised = useRef(false)
+  const [session, setSession]             = useState(null)
+  const [tenant, setTenant]               = useState(null)
+  const [invoices, setInvoices]           = useState([])
+  const [leases, setLeases]               = useState([])
+  const [loading, setLoading]             = useState(true)
+  const [needsPassword, setNeedsPassword] = useState(IS_RECOVERY_FLOW)
+  // Guard so data is fetched at most once per email — prevents multiple auth events from stacking
+  const loadedFor = useRef(null)
 
   useEffect(() => {
+    // Initial session check
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
-      // If this is a recovery/invite link, just show the set-password screen — don't load portal data yet
-      if (IS_RECOVERY_FLOW) {
+      if (IS_RECOVERY_FLOW || !session) {
         setLoading(false)
         return
       }
-      try {
-        if (session) await loadData(session.user.email)
-      } catch (e) {
-        console.error('loadData error', e)
-      } finally {
-        setLoading(false)
-      }
-      initialised.current = true
+      await fetchData(session.user.email)
     })
 
+    // Auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // PASSWORD_RECOVERY fires if the listener was registered before Supabase processed the hash
       if (event === 'PASSWORD_RECOVERY') {
         setSession(session)
         setNeedsPassword(true)
         setLoading(false)
         return
       }
-
-      // Skip the SIGNED_IN that fires right after the initial getSession() to avoid double-loading
-      if (!initialised.current && event === 'SIGNED_IN') return
-
-      setSession(session)
-      if (session) {
-        setLoading(true)
-        try {
-          await loadData(session.user.email)
-        } catch (e) {
-          console.error('loadData error', e)
-        } finally {
-          setLoading(false)
-        }
-      } else {
+      if (!session) {
+        // Signed out — reset everything
+        setSession(null)
         setTenant(null)
         setInvoices([])
         setLeases([])
+        loadedFor.current = null
+        return
+      }
+      setSession(session)
+      // Only load data on a real sign-in (not TOKEN_REFRESHED / USER_UPDATED)
+      if (event === 'SIGNED_IN') {
+        await fetchData(session.user.email)
       }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  async function loadData(email) {
-    const [tRes, lRes, iRes] = await Promise.all([
-      supabase.from('tenants').select('data'),
-      supabase.from('leases').select('data'),
-      supabase.from('invoices').select('data'),
-    ])
-    const tenants = (tRes.data ?? []).map(r => r.data)
-    const found = tenants.find(t => t.email?.toLowerCase() === email?.toLowerCase())
-    setTenant(found ?? null)
-    if (found) {
-      setLeases((lRes.data ?? []).map(r => r.data).filter(l => l.tenantId === found.id))
-      setInvoices((iRes.data ?? []).map(r => r.data).filter(i => i.tenantId === found.id))
+  async function fetchData(email) {
+    // Skip if already loaded for this email
+    if (loadedFor.current === email) return
+    loadedFor.current = email
+    setLoading(true)
+    try {
+      const [tRes, lRes, iRes] = await Promise.all([
+        supabase.from('tenants').select('data'),
+        supabase.from('leases').select('data'),
+        supabase.from('invoices').select('data'),
+      ])
+      const tenants = (tRes.data ?? []).map(r => r.data)
+      const found = tenants.find(t => t.email?.toLowerCase() === email?.toLowerCase())
+      setTenant(found ?? null)
+      if (found) {
+        setLeases((lRes.data ?? []).map(r => r.data).filter(l => l.tenantId === found.id))
+        setInvoices((iRes.data ?? []).map(r => r.data).filter(i => i.tenantId === found.id))
+      }
+    } catch (err) {
+      console.error('Portal fetchData error:', err)
+    } finally {
+      setLoading(false)
     }
-  }
-
-  function handlePasswordSet() {
-    // Clean reload: session persists, hash is gone, portal loads normally
-    window.location.replace('/')
   }
 
   async function signOut() {
     await supabase.auth.signOut()
+    loadedFor.current = null
     setSession(null)
     setTenant(null)
     setInvoices([])
@@ -186,8 +181,10 @@ export default function PortalApp() {
     )
   }
 
-  if (!session)      return <PortalLogin />
-  if (needsPassword) return <SetPasswordScreen onDone={handlePasswordSet} />
+  if (!session) return <PortalLogin />
+
+  // Show set-password screen — after saving, page reloads cleanly into the portal
+  if (needsPassword) return <SetPasswordScreen onDone={() => window.location.replace('/')} />
 
   if (!tenant) {
     return (
