@@ -3,120 +3,291 @@ import { format, parseISO } from 'date-fns'
 import { supabase } from '../lib/supabase.js'
 import SignatureCanvas from './SignatureCanvas.jsx'
 
-const EVENT = {
-  name: 'Hexa Hub Pop-Up',
-  date: 'Sunday, 7 June 2026',
-  hours: '10:00 AM – 10:00 PM',
-  venue: 'The Hub, 18 Logistic Court, Huntingdale VIC 3166',
-  bumpIn: '8:00 AM',
-  bumpOut: '11:00 PM',
-  licensor: 'HexaHub Pty Ltd (ABN 51 234 567 890)',
-  organiser: 'info@hexahub.com.au',
+function fmtDate(d) {
+  if (!d) return '—'
+  try { return format(parseISO(d), 'EEEE, d MMMM yyyy') } catch { return d }
+}
+function fmtTime(t) {
+  if (!t) return '—'
+  const [h, m] = t.split(':').map(Number)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+function fmtMoney(v) {
+  if (!v && v !== 0) return null
+  return `$${Number(v).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD`
 }
 
-// ── Document 1: Vendor Participation Agreement ────────────────────────────────
+// ── Document 1: Event Venue Licence Agreement (verbatim) ──────────────────────
 
-function VendorAgreementDoc({ booking }) {
+function LicenceAgreementDoc({ booking }) {
   const b = booking
+  const vendorDisplay = [b.vendorBusiness, b.vendorName].filter(Boolean).join(' — ')
   const today = format(new Date(), 'd MMMM yyyy')
-  const vendorDisplay = [b.vendorBusiness, b.vendorName, b.vendorAbn ? `ABN ${b.vendorAbn}` : null].filter(Boolean).join(' · ')
 
   return (
-    <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-6">
+    <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-5">
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
-        <h1 className="text-xl font-bold tracking-tight">Vendor Participation Agreement</h1>
-        <h2 className="text-base font-semibold text-gray-600">Hexa Hub Pop-Up — 7 June 2026</h2>
-        <div className="text-xs text-gray-500">This agreement is entered into on {today}</div>
+        <h1 className="text-2xl font-bold tracking-tight">Event Venue Licence Agreement</h1>
+        <div className="text-xs text-gray-500 font-sans">Hexa Hub Pop-Up · 7 June 2026</div>
       </div>
 
       <hr className="border-gray-300" />
 
+      {/* Schedule */}
       <div>
-        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-3">Schedule — Vendor Details</h2>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-3">Schedule — Booking Details</h2>
         <table className="w-full text-xs border-collapse">
           <tbody>
             {[
-              ['Licensor (Event Organiser)', EVENT.licensor],
-              ['Vendor (Licensee)', vendorDisplay || b.vendorName],
-              ['Vendor Contact', b.vendorName],
-              ['Vendor Email', b.vendorEmail],
-              ['Vendor Type', b.vendorType || '—'],
-              ['Goods / Services', b.vendorDescription || '—'],
-              ['Allocated Space', b.allocatedSpace || 'As directed by HexaHub on the day'],
-              ['Event', EVENT.name],
-              ['Event Date', EVENT.date],
-              ['Event Hours', EVENT.hours],
-              ['Venue', EVENT.venue],
-              ['Bump-In Time', EVENT.bumpIn],
-              ['Bump-Out Completion', EVENT.bumpOut],
-              ['Participation Fee', b.participationFee ? `$${Number(b.participationFee).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD` : 'Nil — participating by invitation'],
-              ['Bond', b.bond ? `$${Number(b.bond).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD` : 'Nil'],
-              ['Insurance Requirement', 'Min. AUD $10,000,000 Public Liability Insurance'],
+              ['Licensor', 'HexaHub Pty Ltd (ABN 51 234 567 890)'],
+              ['Licensor Address', '7 Distribution Circuit, Huntingdale VIC 3166'],
+              ['Licensor Contact', 'info@hexahub.com.au'],
+              ['Licensee', vendorDisplay || b.vendorName],
+              ['Licensee Contact', b.vendorName],
+              ['Licensee Email', b.vendorEmail],
+              ['Licensee ABN', b.vendorAbn || '—'],
+              ['Venue', b.allocatedSpace ? `${b.allocatedSpace} — 17 Logistic Court, Huntingdale, Victoria` : '17 Logistic Court, Huntingdale, Victoria'],
+              ['Permitted Use', [b.vendorType, b.vendorDescription].filter(Boolean).join(' — ') || '—'],
+              ['Event', 'Hexa Hub Pop-Up'],
+              ['Event Date', fmtDate(b.eventDate || '2026-06-07')],
+              ['Access / Bump-In Time', fmtTime(b.accessTime || '08:00')],
+              ['Event Commencement', fmtTime(b.eventStartTime || '10:00')],
+              ['Event Finish', fmtTime(b.eventFinishTime || '22:00')],
+              ['Bump-Out Completion', fmtTime(b.bumpOutTime || '23:00')],
+              ['Licence Fee', fmtMoney(b.participationFee) || 'Nil — by invitation'],
+              ['Bond', fmtMoney(b.bond) || 'Nil'],
+              ['Deposit', fmtMoney(b.deposit) || (b.participationFee ? '50% of Licence Fee payable on signing' : 'Nil')],
+              ['Balance Due Date', b.balanceDueDate ? fmtDate(b.balanceDueDate) : '7 days before Event Date'],
+              ['Included Services', b.includedServices || 'As directed by Licensor'],
+              ['Excluded Services', b.excludedServices || 'All items not specified as included'],
+              ['Insurance Requirement', 'Min. AUD $20,000,000 Public Liability Insurance per occurrence'],
+              ['Security Required', b.securityRequired ? 'Yes' : 'No'],
+              ['Alcohol Permitted', b.alcoholPermitted ? 'Yes — subject to all required approvals' : 'No'],
+              ['Food Permitted', b.foodPermitted !== false ? 'Yes — subject to all required registrations' : 'No'],
               ['Special Conditions', b.specialConditions || 'Nil'],
             ].map(([label, value]) => (
               <tr key={label} className="border border-gray-200">
-                <td className="bg-gray-50 px-3 py-2 font-semibold text-gray-700 w-48 align-top">{label}</td>
-                <td className="px-3 py-2 text-gray-900 whitespace-pre-wrap">{value}</td>
+                <td className="bg-gray-50 px-3 py-1.5 font-semibold text-gray-700 w-44 align-top">{label}</td>
+                <td className="px-3 py-1.5 text-gray-900 whitespace-pre-wrap">{value}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="space-y-3 text-xs">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700">Terms and Conditions</h2>
-
-        <div><strong>1. Grant of Licence.</strong> HexaHub Pty Ltd ("HexaHub") grants the Vendor a non-exclusive, revocable licence to occupy and operate from the Allocated Space at the Venue on the Event Date solely for the purpose of selling, displaying, or offering the Goods/Services described in this Agreement. This licence is personal to the Vendor and cannot be transferred or sublicensed.</div>
-
-        <div><strong>2. Participation Fee and Bond.</strong> If a Participation Fee is specified, it is payable in full prior to the Event Date. If a Bond is specified, it is payable upon signing and will be refunded within 14 days of the Event Date, less any deductions for damage, excess cleaning, or failure to comply with these terms.</div>
-
-        <div><strong>3. Setup and Pack-Down.</strong> The Vendor may access the Venue from {EVENT.bumpIn} on {EVENT.date} for setup purposes. The Vendor must complete pack-down and vacate the Allocated Space by {EVENT.bumpOut}. All equipment, fixtures, and unsold goods must be removed by this time. HexaHub is not responsible for any items left after the Bump-Out time.</div>
-
-        <div><strong>4. Permitted Use.</strong> The Vendor may only sell, display, or offer the Goods/Services described in this Agreement from the Allocated Space. The Vendor must not operate from any other area of the Venue without HexaHub's prior written consent. The Allocated Space must not be sublet or shared with another party.</div>
-
-        <div><strong>5. Conduct.</strong> The Vendor and their staff must: (a) conduct themselves in a professional and courteous manner at all times; (b) comply with all directions given by HexaHub staff; (c) not engage in any activity that is unlawful, unsafe, or offensive; and (d) not interfere with or impede other vendors, exhibitors, or event attendees.</div>
-
-        <div><strong>6. Food and Beverage.</strong> Vendors selling or providing food and beverage items must: (a) hold a current Food Business Registration or equivalent; (b) ensure all food handlers hold appropriate food safety qualifications; (c) comply with the Food Act 1984 (Vic) and all relevant food handling regulations; and (d) provide evidence of compliance to HexaHub upon request. HexaHub may require a vendor to cease food service if compliance cannot be evidenced.</div>
-
-        <div><strong>7. Insurance.</strong> Prior to the Event Date, the Vendor must hold and maintain Public Liability Insurance of at least AUD $10,000,000 per occurrence and must provide a current Certificate of Currency to HexaHub. Failure to provide evidence of insurance may result in the Vendor being denied entry to the Venue. HexaHub's insurance does not cover the Vendor's goods, property, or liability.</div>
-
-        <div><strong>8. Damage and Cleanliness.</strong> The Vendor is responsible for: (a) maintaining their Allocated Space in a clean and tidy condition throughout the Event; (b) removing all rubbish and waste from their space by Bump-Out; (c) the cost of repairing or replacing any damage caused by the Vendor or their staff to the Venue, equipment, or other property. HexaHub may deduct repair costs from the Bond or invoice the Vendor accordingly.</div>
-
-        <div><strong>9. Intellectual Property and Marketing.</strong> HexaHub may photograph and film the Event, including the Vendor's stall and products, for marketing and promotional purposes. By participating in the Event, the Vendor grants HexaHub a non-exclusive, royalty-free licence to use such images and footage for marketing purposes. The Vendor may photograph and promote their own participation, provided they do not misrepresent their affiliation with HexaHub.</div>
-
-        <div><strong>10. No Exclusivity.</strong> HexaHub does not guarantee exclusivity to the Vendor in relation to their product or service category. Other vendors at the Event may offer similar goods or services.</div>
-
-        <div><strong>11. Termination.</strong> HexaHub may immediately terminate this Agreement and require the Vendor to vacate the Venue if the Vendor: (a) breaches any term of this Agreement or the Venue Rules; (b) engages in conduct that is unlawful, unsafe, or detrimental to the Event or other participants; (c) fails to provide evidence of insurance before the Event Date; or (d) HexaHub reasonably considers the Vendor poses a risk to persons or property. No refund of the Participation Fee will be payable upon termination for cause.</div>
-
-        <div><strong>12. Cancellation by Vendor.</strong> If the Vendor cancels their participation: (a) more than 14 days before the Event, the Participation Fee is refunded in full; (b) 7–14 days before, 50% of the Participation Fee is forfeited; (c) fewer than 7 days before, the full Participation Fee is forfeited. The Bond will be refunded in full upon cancellation.</div>
-
-        <div><strong>13. Force Majeure.</strong> If the Event is cancelled or postponed due to circumstances beyond HexaHub's reasonable control (including but not limited to extreme weather, government direction, or public emergency), HexaHub will offer the Vendor a full refund of the Participation Fee or the option to transfer to a rescheduled event. HexaHub will not be liable for any other losses incurred by the Vendor as a result of cancellation or postponement.</div>
-
-        <div><strong>14. Indemnity.</strong> The Vendor indemnifies HexaHub and its directors, employees, and agents against all claims, losses, costs, and liabilities arising from: (a) the Vendor's presence at or participation in the Event; (b) the Vendor's goods or services (including any product liability claims); (c) any act or omission of the Vendor or their staff; or (d) any breach of this Agreement.</div>
-
-        <div><strong>15. HexaHub's Liability.</strong> To the extent permitted by law, HexaHub's liability to the Vendor is limited to the Participation Fee paid. HexaHub is not liable for the Vendor's loss of profits, loss of sales, indirect or consequential loss, or any damage to or theft of the Vendor's property at the Event.</div>
-
-        <div><strong>16. Compliance with Laws.</strong> The Vendor must comply with all applicable laws in connection with their participation in the Event, including (without limitation) the Food Act 1984 (Vic), Australian Consumer Law, Liquor Control Reform Act 1998 (Vic) (if applicable), Occupational Health and Safety Act 2004 (Vic), and any relevant licensing requirements.</div>
-
-        <div><strong>17. Entire Agreement.</strong> This Agreement, together with the Venue Rules (Annexure A), constitutes the entire agreement between the parties in respect of the Vendor's participation at the Event.</div>
-
-        <div><strong>18. Governing Law.</strong> This Agreement is governed by the laws of Victoria, Australia.</div>
-      </div>
+      <hr className="border-gray-300" />
 
       <div>
+        <p className="text-xs text-gray-500 italic mb-4">This Agreement is entered into on {today} between the Licensor and Licensee named in the Schedule above.</p>
+
+        {/* Recitals */}
+        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-2">Recitals</h2>
+        <div className="space-y-2 text-xs mb-5">
+          <p><strong>A.</strong> The Licensor controls and operates the premises situated at 17 Logistic Court, Huntingdale, Victoria.</p>
+          <p><strong>B.</strong> The Licensee has requested permission to use part of the Premises for the Event.</p>
+          <p><strong>C.</strong> The Licensor has agreed to grant the Licensee a temporary, revocable and non-exclusive licence to use the Venue on the terms of this Agreement.</p>
+          <p><strong>D.</strong> The parties acknowledge and agree that this Agreement creates a licence only and does not create a lease, tenancy, retail tenancy, periodic tenancy, exclusive possession or any estate or interest in land.</p>
+        </div>
+
+        {/* Clauses */}
+        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-3">Terms and Conditions</h2>
+        <div className="space-y-4 text-xs">
+
+          <div>
+            <strong>1. Recitals</strong>
+            <p className="mt-1">The recitals form part of this Agreement.</p>
+          </div>
+
+          <div>
+            <strong>2. Definitions and Interpretation</strong>
+            <p className="mt-1">In this Agreement, unless the context otherwise requires:</p>
+            <p className="mt-1"><em>Additional Charges</em> means all charges payable in addition to the Licence Fee, including cleaning charges, waste disposal charges, security charges, staff charges, overtime charges, repair costs, reinstatement costs, call-out fees, utility surcharges and any other amount payable under this Agreement.</p>
+            <p className="mt-1"><em>Agreement</em> means this Event Venue Licence Agreement, including the Schedule and any annexures.</p>
+            <p className="mt-1"><em>Bond</em> means the security deposit specified in the Schedule.</p>
+            <p className="mt-1"><em>Business Day</em> means a day other than a Saturday, Sunday or public holiday in Victoria.</p>
+            <p className="mt-1"><em>Event</em> means the event described in the Schedule.</p>
+            <p className="mt-1"><em>Event Personnel</em> means the Licensee's employees, contractors, subcontractors, agents, caterers, performers, suppliers, security personnel, invitees, guests, attendees, volunteers and any other person brought onto the Premises by or on behalf of the Licensee.</p>
+            <p className="mt-1"><em>Licence Fee</em> means the fee payable for the licence granted under this Agreement, as specified in the Schedule.</p>
+            <p className="mt-1"><em>Licence Period</em> means the period commencing at the start of the approved access time, including bump-in, and ending when the Licensee has fully vacated the Venue, completed bump-out, removed all property and complied with its reinstatement obligations.</p>
+            <p className="mt-1"><em>Permitted Use</em> means the use of the Venue approved by the Licensor and stated in the Schedule.</p>
+            <p className="mt-1"><em>Premises</em> means the land and improvements at 17 Logistic Court, Huntingdale, Victoria, including all access points, loading areas, amenities, car parking areas, common areas and external areas made available by the Licensor from time to time.</p>
+            <p className="mt-1"><em>Venue</em> means the area or areas within the Premises described in the Schedule.</p>
+            <p className="mt-1">Unless the contrary intention appears, headings are for convenience only, the singular includes the plural and vice versa, legislation includes amendments and subordinate instruments, and <em>including</em> is not a term of limitation.</p>
+          </div>
+
+          <div>
+            <strong>3. Grant of Licence</strong>
+            <p className="mt-1">Subject to this Agreement, the Licensor grants to the Licensee a personal, non-exclusive, non-transferable, revocable licence to use the Venue during the Licence Period solely for the Permitted Use.</p>
+            <p className="mt-1">The Licensee acknowledges and agrees that the Licence is temporary only, the Licensor retains possession and control of the Venue and Premises at all times, the Licensee has no right to exclusive possession, and the Licensee acquires no tenancy rights, retail leasing rights or other proprietary rights.</p>
+            <p className="mt-1">The Licensor may impose reasonable directions, restrictions and conditions regarding access and circulation, occupancy and crowd control, safety and emergency procedures, bump-in and bump-out, noise and amenity, security arrangements, use of services and equipment, lawful operation of the Premises, and protection of the Venue, neighbouring occupiers and the Licensor's reputation.</p>
+            <p className="mt-1">The Licensor and its representatives may enter the Venue at any time for operational, safety, emergency, security, compliance, cleaning, maintenance, inspection or repair purposes.</p>
+          </div>
+
+          <div>
+            <strong>4. Term</strong>
+            <p className="mt-1">This Agreement commences on the date it is executed by both parties unless an earlier commencement date is stated in the Schedule.</p>
+            <p className="mt-1">The Licensee may access and use the Venue only during the Licence Period and only for the Permitted Use.</p>
+            <p className="mt-1">The Licensee must vacate the Venue and the Premises by the expiry of the Licence Period. Holding over is not permitted and may attract overtime and additional charges if allowed by the Licensor.</p>
+          </div>
+
+          <div>
+            <strong>5. Fees, Bond and Payment</strong>
+            <p className="mt-1">The Licensee must pay the Licence Fee, the Bond, all Additional Charges, all other amounts stated in the Schedule and GST on all taxable supplies.</p>
+            <p className="mt-1">Unless otherwise stated in the Schedule, a non-refundable deposit of 50% of the Licence Fee is payable on signing, the balance of the Licence Fee is payable no later than 7 days before the Event Date, and the Bond is payable no later than 5 Business Days before the Event Date.</p>
+            <p className="mt-1">Time for payment is of the essence. The Licensor is not obliged to provide access to the Venue unless all required monies have been paid in cleared funds.</p>
+            <p className="mt-1">The Licensor may apply the Bond toward any amount due under this Agreement, including unpaid fees, cleaning costs, waste removal costs, damage or repair costs, overtime charges, reinstatement costs and costs arising from breach. The Bond does not limit the Licensee's liability.</p>
+          </div>
+
+          <div>
+            <strong>6. Use of Venue</strong>
+            <p className="mt-1">The Licensee must use the Venue strictly for the Permitted Use, during the Licence Period only, in accordance with this Agreement, all laws and approvals, and all lawful directions of the Licensor.</p>
+            <p className="mt-1">The Licensee must not, and must ensure that Event Personnel do not, use the Venue for any unlawful, dangerous, immoral, offensive or improper purpose; do anything likely to damage the Licensor's reputation or goodwill; permit overcrowding; obstruct exits, accessways, driveways, loading areas, emergency services or common areas; cause nuisance, disturbance or unreasonable interference; damage, mark, penetrate, alter or attach anything to the Venue without prior written approval; use naked flames, fireworks, pyrotechnics, smoke machines, hazardous substances or dangerous goods without written consent and approvals; bring onto the Premises any unlawful item, weapon or prohibited substance; use the Venue for residential or overnight accommodation purposes; or do anything that may invalidate or prejudice the Licensor's insurance.</p>
+            <p className="mt-1">The Licensor may require the immediate cessation of any activity that, in the Licensor's reasonable opinion, is unsafe, unlawful, non-compliant or likely to damage the Venue or interfere with the Premises.</p>
+          </div>
+
+          <div>
+            <strong>7. No Assignment or Sublicensing</strong>
+            <p className="mt-1">The Licensee must not assign, transfer, novate, sublicense, share possession of, or otherwise deal with its rights under this Agreement without the Licensor's prior written consent. Any purported dealing in breach of this clause is void.</p>
+          </div>
+
+          <div>
+            <strong>8. Compliance With Laws and Approvals</strong>
+            <p className="mt-1">The Licensee is solely responsible, at its own cost, for obtaining and maintaining all licences, permits, approvals, registrations and consents required for the Event and the Permitted Use.</p>
+            <p className="mt-1">Without limitation, the Licensee must comply with all legal requirements relating to building and occupancy requirements, places of public entertainment, prescribed temporary structures, liquor licensing, food handling and food registration or notification, public health and sanitation, occupational health and safety, crowd control and security, traffic and parking, electrical safety, noise and amenity, copyright and music licensing, and waste disposal and environmental obligations.</p>
+            <p className="mt-1">The Licensee must provide to the Licensor, on request and before access is granted, copies of all permits, plans, certificates and approvals relevant to the Event. The Licensor may refuse access or terminate this Agreement if the Licensor is not satisfied, acting reasonably, that the Event may lawfully and safely proceed.</p>
+          </div>
+
+          <div>
+            <strong>9. Insurance</strong>
+            <p className="mt-1">The Licensee must, at its own cost, effect and maintain public liability insurance for not less than AUD $20,000,000 for any one occurrence, workers compensation insurance as required by law, insurance for all property and equipment brought onto the Premises, any motor vehicle insurance required by law, and any additional insurance reasonably required by the Licensor having regard to the nature of the Event.</p>
+            <p className="mt-1">The public liability policy should, where reasonably available, note the interest of the Licensor, extend to the use of the Venue and Premises, and not contain exclusions inconsistent with the nature of the approved Event.</p>
+            <p className="mt-1">The Licensee must provide the Licensor with certificates of currency no later than 5 Business Days before the Event Date, or earlier on request. Failure to provide satisfactory evidence of insurance entitles the Licensor to deny access, suspend the booking or terminate this Agreement.</p>
+          </div>
+
+          <div>
+            <strong>10. Safety, Risk Management and Venue Protection</strong>
+            <p className="mt-1">The Licensee must ensure that the Event is planned and conducted in a safe manner. The Licensee must identify and manage foreseeable risks, ensure all Event Personnel are suitably qualified, licensed, trained and supervised, comply with site inductions and emergency procedures, ensure exits and firefighting equipment remain unobstructed, ensure electrical equipment used is safe and compliant, and immediately report incidents, injuries, hazards, complaints and emergencies to the Licensor.</p>
+            <p className="mt-1">The Licensor may require the Licensee to provide an event management plan, risk assessment, bump-in and bump-out plan, security plan, traffic management plan, emergency management plan, first aid plan, contractor registers, supplier details and evidence of inductions and safety briefings before the Event.</p>
+          </div>
+
+          <div>
+            <strong>11. Contractors, Suppliers and Event Personnel</strong>
+            <p className="mt-1">The Licensee is responsible for all Event Personnel and must ensure that all contractors and suppliers engaged by it are appropriately qualified, licensed and insured, comply with all applicable laws and site rules, act safely and professionally, and do not interfere with the operation, access or reputation of the Premises.</p>
+            <p className="mt-1">The Licensor may refuse access to any contractor, supplier, vehicle, structure or equipment that the Licensor reasonably considers unsafe, unsuitable, unlawful or likely to damage the Venue.</p>
+          </div>
+
+          <div>
+            <strong>12. Security and Conduct</strong>
+            <p className="mt-1">The Licensor may require the Licensee to provide licensed security personnel in numbers and on terms acceptable to the Licensor. The Licensee must ensure orderly conduct of all attendees and must immediately comply with any direction of the Licensor concerning safety, intoxication, conduct, noise, access or crowd management.</p>
+            <p className="mt-1">The Licensor may remove, or direct the removal of, any person from the Premises who is intoxicated, disorderly, unsafe, non-compliant or otherwise objectionable.</p>
+          </div>
+
+          <div>
+            <strong>13. Food, Beverage and Alcohol</strong>
+            <p className="mt-1">The Licensee must not sell, supply or permit the service of alcohol unless the Licensor has given prior written consent and all necessary liquor licences, permits and approvals have been obtained and complied with.</p>
+            <p className="mt-1">The Licensee must not prepare, handle, store, sell or distribute food or beverages unless all legal requirements are satisfied. The Licensee is responsible for all food safety, liquor compliance, RSA compliance, spill management, waste removal and associated cleaning.</p>
+            <p className="mt-1">The Licensor may impose special conditions in relation to alcohol service hours, bar service areas, RSA requirements, catering access, glassware restrictions, smoking and vaping restrictions, and cleaning requirements.</p>
+          </div>
+
+          <div>
+            <strong>14. Access, Delivery, Bump-In and Bump-Out</strong>
+            <p className="mt-1">The Licensee may only access the Venue during the times approved by the Licensor. All deliveries, removals, contractor attendance, setup and dismantling must occur only at approved times and via approved access routes.</p>
+            <p className="mt-1">The Licensee must not leave any goods, rubbish, pallets, packaging or equipment in common areas, parking areas, accessways or loading zones. The Licensor may charge overtime, staff or call-out fees where the Licensee exceeds approved access times.</p>
+          </div>
+
+          <div>
+            <strong>15. Cleaning, Waste and Reinstatement</strong>
+            <p className="mt-1">The Licensee must keep the Venue and the Premises clean, safe and orderly throughout the Licence Period.</p>
+            <p className="mt-1">By the expiry of the Licence Period, the Licensee must remove all persons, goods, decorations, staging, equipment and rubbish; restore the Venue to the condition existing at the commencement of the Licence Period, fair wear and tear excepted; remove all adhesives, tape, fixings, signage and temporary structures without damage; clean all affected areas; and lawfully remove and dispose of all waste.</p>
+            <p className="mt-1">The Licensor may carry out cleaning, removal, disposal, reinstatement or repairs required due to the Event, and the Licensee must pay the cost on demand.</p>
+          </div>
+
+          <div>
+            <strong>16. Damage and Repairs</strong>
+            <p className="mt-1">The Licensee occupies and uses the Venue at its own risk and is liable for all loss of or damage to the Venue, Premises and Licensor's property arising from the Event or from the acts or omissions of the Licensee or Event Personnel.</p>
+            <p className="mt-1">The Licensor may elect to repair the damage itself, engage others to do so, or require the Licensee to do so under the Licensor's supervision. The Licensee must pay the full cost of repair, replacement, make-good and associated losses on demand.</p>
+          </div>
+
+          <div>
+            <strong>17. Licensor's Property and Services</strong>
+            <p className="mt-1">Any furniture, fixtures, equipment, services, utilities, internet, AV, lighting, power or other facilities supplied by the Licensor are provided on an <em>as is</em> basis unless expressly agreed otherwise in writing. To the maximum extent permitted by law, the Licensor gives no warranty that any such item or service will be uninterrupted, available, suitable or fit for the Licensee's purpose.</p>
+            <p className="mt-1">The Licensee must not misuse, overload, tamper with or relocate any Licensor property without consent.</p>
+          </div>
+
+          <div>
+            <strong>18. Cancellation by Licensee</strong>
+            <p className="mt-1">If the Licensee cancels the booking more than 30 days before the Event Date, all deposits paid are forfeited; between 30 and 14 days before the Event Date, 50% of the total contracted charges are payable; and within 14 days of the Event Date, 100% of the total contracted charges are payable.</p>
+            <p className="mt-1">The Licensee must also pay all non-recoverable costs incurred by the Licensor in connection with the Event.</p>
+          </div>
+
+          <div>
+            <strong>19. Suspension, Refusal of Access and Termination by Licensor</strong>
+            <p className="mt-1">The Licensor may immediately suspend access, refuse entry, cancel the booking or terminate this Agreement by notice if any amount payable is not paid on time, the Licensee breaches this Agreement, the Licensee fails to provide satisfactory evidence of insurance, permits or plans, the Event is unsafe, unlawful or non-compliant, the Event differs materially from the approved Permitted Use, the conduct of the Licensee or Event Personnel is likely to damage the Venue, interfere with the Premises or adversely affect the Licensor's reputation, or the Venue becomes unavailable due to emergency, damage, government order, essential repair or other cause beyond the Licensor's reasonable control.</p>
+            <p className="mt-1">Where termination arises from the Licensee's default, the Licensor may retain all monies paid and recover its Loss. Where the Venue is unavailable for reasons beyond the Licensor's reasonable control and without default by the Licensee, the Licensor's liability is limited to refunding the Licence Fee actually paid for the affected booking, less any non-recoverable third-party costs reasonably incurred.</p>
+          </div>
+
+          <div>
+            <strong>20. Indemnity</strong>
+            <p className="mt-1">The Licensee indemnifies and must keep indemnified the Licensor and its officers, employees, contractors and agents from and against all Loss arising from or in connection with the Event, the use of the Venue or Premises by the Licensee or Event Personnel, any personal injury, death, loss of property or property damage, any breach of this Agreement, any breach of law, any act or omission of the Licensee or Event Personnel, and any claim by any attendee, contractor, supplier or third party connected with the Event, except to the extent the Loss is caused by the negligence or wilful misconduct of the Licensor.</p>
+            <p className="mt-1">This indemnity survives expiry or termination of this Agreement.</p>
+          </div>
+
+          <div>
+            <strong>21. Exclusion and Limitation of Liability</strong>
+            <p className="mt-1">To the maximum extent permitted by law, the Licensor excludes all implied terms, conditions, warranties and guarantees.</p>
+            <p className="mt-1">The Licensor is not liable for loss, theft or damage to any property of the Licensee or any other person, interruption or failure of utilities, services or equipment, cancellation, disruption or reduced enjoyment of the Event, or any loss of profit, loss of revenue, loss of opportunity, loss of goodwill or consequential loss. Where liability cannot be excluded, it is limited to the maximum extent permitted by law.</p>
+          </div>
+
+          <div>
+            <strong>22. Force Majeure</strong>
+            <p className="mt-1">Neither party is liable for delay or failure to perform caused by events beyond its reasonable control, including fire, flood, storm, pandemic, government order, utility failure, industrial action, civil disturbance or emergency. In such circumstances, the Licensor may cancel, reschedule or suspend the booking, or apply monies paid to a rescheduled date, acting reasonably.</p>
+          </div>
+
+          <div>
+            <strong>23. Privacy, Photography and Recording</strong>
+            <p className="mt-1">The Licensee is responsible for obtaining all consents required for photography, filming, livestreaming, recording and collection or use of personal information in connection with the Event. The Licensor may operate CCTV and security monitoring systems at the Premises for lawful operational and security purposes.</p>
+          </div>
+
+          <div>
+            <strong>24. Default Interest and Recovery Costs</strong>
+            <p className="mt-1">Interest accrues on overdue amounts at the rate of 10% per annum, calculated daily from the due date until payment. The Licensee must pay all reasonable costs incurred by the Licensor in enforcing this Agreement or recovering any debt, including legal costs on a full indemnity basis.</p>
+          </div>
+
+          <div>
+            <strong>25. Notices</strong>
+            <p className="mt-1">A notice under this Agreement must be in writing and sent by hand, prepaid post or email to the recipient's address stated in this Agreement or as later notified. A notice is deemed received if delivered by hand when delivered, if posted in Australia on the second Business Day after posting, and if sent by email when transmitted unless the sender receives an error notice, provided that an email sent after 5.00 pm is deemed received on the next Business Day.</p>
+          </div>
+
+          <div>
+            <strong>26. GST</strong>
+            <p className="mt-1">Unless otherwise stated, all amounts payable under this Agreement are exclusive of GST. If GST is payable on a taxable supply under this Agreement, the recipient must pay the GST in addition to the consideration otherwise payable.</p>
+          </div>
+
+          <div>
+            <strong>27. General</strong>
+            <p className="mt-1">This Agreement constitutes the entire agreement between the parties in relation to its subject matter. No variation is effective unless in writing signed by both parties. A waiver is not effective unless in writing. A failure or delay in exercising a right does not constitute a waiver. Any invalid provision must be read down or severed to the extent necessary without affecting the remainder.</p>
+            <p className="mt-1">This Agreement may be executed in counterparts and by electronic signature. This Agreement is governed by the laws of Victoria, Australia, and the parties submit to the exclusive jurisdiction of the courts of Victoria.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Execution */}
+      <div className="mt-6">
         <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-4">Executed as an Agreement</h2>
         <div className="grid grid-cols-2 gap-8 text-xs">
           <div className="space-y-4">
-            <div className="font-semibold text-gray-700">SIGNED for HexaHub Pty Ltd</div>
+            <div className="font-semibold text-gray-700">SIGNED for and on behalf of</div>
+            <div className="font-bold">HexaHub Pty Ltd (Licensor)</div>
             <div className="border-b border-gray-400 pt-8 w-full" />
-            <div className="text-gray-500">Authorised Signatory · Date: ___________</div>
+            <div className="text-gray-500">Authorised Signatory &nbsp;·&nbsp; Date: ___________</div>
           </div>
           <div className="space-y-4">
-            <div className="font-semibold text-gray-700">SIGNED by the Vendor</div>
-            <div className="font-bold">{b.vendorName}{b.vendorBusiness ? ` — ${b.vendorBusiness}` : ''}</div>
+            <div className="font-semibold text-gray-700">SIGNED by the Licensee</div>
+            <div className="font-bold">{vendorDisplay || b.vendorName}</div>
             <div className="border-b border-gray-400 pt-8 w-full" />
-            <div className="text-gray-500">Signature · Date: ___________</div>
+            <div className="text-gray-500">Signature &nbsp;·&nbsp; Date: ___________</div>
           </div>
         </div>
       </div>
@@ -124,104 +295,176 @@ function VendorAgreementDoc({ booking }) {
   )
 }
 
-// ── Document 2: Liability Waiver ──────────────────────────────────────────────
-
-function LiabilityWaiverDoc({ booking }) {
-  const b = booking
-  return (
-    <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-5">
-      <div className="text-center space-y-1">
-        <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
-        <h1 className="text-xl font-bold tracking-tight">Vendor Liability Waiver and Indemnity</h1>
-        <div className="text-sm text-gray-600 font-sans">Hexa Hub Pop-Up · Sunday 7 June 2026</div>
-      </div>
-
-      <hr className="border-gray-300" />
-
-      <div className="space-y-4 text-xs">
-        <p>This Liability Waiver and Indemnity ("Waiver") is given by the Vendor named in the Vendor Participation Agreement — {b.vendorBusiness || b.vendorName} — ("the Vendor") in favour of HexaHub Pty Ltd ABN 51 234 567 890 ("HexaHub") in connection with the Vendor's participation in the Hexa Hub Pop-Up event held on Sunday 7 June 2026 at The Hub, 18 Logistic Court, Huntingdale VIC 3166 (the "Event").</p>
-
-        <div>
-          <strong>1. Acknowledgement of Risk.</strong>
-          <p className="mt-1">The Vendor acknowledges that participation in the Event as a vendor or stallholder involves inherent risks, including but not limited to personal injury, property damage, theft, and financial loss. The Vendor has conducted its own assessment of those risks and is satisfied that it is appropriate to participate.</p>
-        </div>
-
-        <div>
-          <strong>2. Release and Waiver.</strong>
-          <p className="mt-1">To the fullest extent permitted by law, the Vendor releases, waives, discharges, and covenants not to sue HexaHub, its directors, officers, employees, contractors, and agents ("Released Parties") from any and all claims, demands, and causes of action of any kind arising from the Vendor's participation in the Event, including but not limited to: (a) personal injury or death sustained by the Vendor or the Vendor's staff; (b) damage to or theft of the Vendor's equipment, goods, or property; (c) financial loss arising from reduced attendance, poor weather, or any other cause; and (d) any damage caused by another vendor, attendee, or third party at the Event.</p>
-        </div>
-
-        <div>
-          <strong>3. Indemnity for Vendor's Goods and Services.</strong>
-          <p className="mt-1">The Vendor agrees to indemnify, defend, and hold harmless the Released Parties from any and all claims, actions, losses, and liabilities (including legal costs) brought by any third party (including event attendees) arising from: (a) the Vendor's goods or services (including any defective products or food safety incidents); (b) any act or omission of the Vendor or their staff at the Event; (c) any breach by the Vendor of the Vendor Participation Agreement; or (d) any non-compliance by the Vendor with applicable laws.</p>
-        </div>
-
-        <div>
-          <strong>4. Property.</strong>
-          <p className="mt-1">HexaHub is not responsible for loss, theft, or damage to the Vendor's equipment, stock, cash, or any other property brought to or left at the Venue before, during, or after the Event. The Vendor assumes sole responsibility for the security and safety of their property.</p>
-        </div>
-
-        <div>
-          <strong>5. Insurance Warranty.</strong>
-          <p className="mt-1">The Vendor warrants that it holds, and will maintain in force through the Event Date, Public Liability Insurance of at least AUD $10,000,000 per occurrence. The Vendor agrees to provide a current Certificate of Currency to HexaHub prior to the Event. The Vendor acknowledges that HexaHub's agreement to allow participation does not constitute a representation that this level of insurance is adequate for the Vendor's specific circumstances.</p>
-        </div>
-
-        <div>
-          <strong>6. Consumer Guarantees.</strong>
-          <p className="mt-1">Nothing in this Waiver excludes, restricts, or modifies any right or remedy or guarantee that the Vendor may have under the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010 (Cth)) or any other applicable legislation that cannot by law be excluded, restricted, or modified.</p>
-        </div>
-
-        <p className="italic text-gray-600">By signing the Vendor Participation Agreement, the Vendor confirms they have read, understood, and agreed to this Waiver on behalf of themselves and their staff participating in the Event.</p>
-      </div>
-    </div>
-  )
-}
-
-// ── Document 3: Venue Rules ───────────────────────────────────────────────────
+// ── Document 2: Annexure A — Venue Rules (verbatim) ───────────────────────────
 
 function VenueRulesDoc() {
   return (
     <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-5">
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
-        <h1 className="text-xl font-bold tracking-tight">Vendor Rules & Housekeeping</h1>
-        <div className="text-sm text-gray-600 font-sans">Hexa Hub Pop-Up · 7 June 2026 · The Hub, 18 Logistic Court, Huntingdale</div>
+        <h1 className="text-xl font-bold tracking-tight">Annexure A</h1>
+        <h2 className="text-base font-semibold text-gray-700">Venue Rules and Operating Conditions</h2>
+        <div className="text-xs text-gray-500 font-sans">17 Logistic Court, Huntingdale, Victoria</div>
       </div>
 
       <hr className="border-gray-300" />
 
-      <p className="text-xs text-gray-600 italic">These rules apply to all vendors, their staff, and contractors at the Hexa Hub Pop-Up. Compliance is mandatory. Failure to follow these rules may result in removal from the Event without refund.</p>
+      <p className="text-xs text-gray-600 italic">These Venue Rules are incorporated into the Agreement. In the event of any inconsistency, the Licensor may direct the stricter requirement to apply to the extent permitted by law.</p>
 
       <div className="space-y-4 text-xs">
-        <div><strong>Rule 1 — Access Hours.</strong> Vendors may access the Venue from 8:00 AM for bump-in and setup. The Venue opens to the public at 10:00 AM. All vendors must be set up and ready by 9:45 AM. Pack-down may commence from 10:00 PM and must be completed by 11:00 PM. No vendor may leave the Venue during event hours without informing HexaHub staff.</div>
+        <div><strong>1.</strong> Only the approved areas of the Premises may be used. Any use of loading areas, parking areas, common areas or back-of-house areas requires prior approval.</div>
+        <div><strong>2.</strong> The Licensee must comply with all bump-in and bump-out windows and all directions regarding vehicle movements, deliveries and collections.</div>
+        <div><strong>3.</strong> No nails, screws, hooks, glue, tape, paint, fixings or penetrations may be used on any surface without written approval. Any approved fixing must be removed and made good at the Licensee's cost.</div>
+        <div><strong>4.</strong> All exits, fire doors, fire extinguishers, hose reels, hydrants, switchboards and emergency access paths must remain clear at all times.</div>
+        <div><strong>5.</strong> No unlawful activity is permitted. No dangerous goods, prohibited substances or weapons may be brought onto the Premises.</div>
+        <div><strong>6.</strong> Smoking and vaping are prohibited except in any area specifically designated by the Licensor and legally permitted for that purpose.</div>
+        <div><strong>7.</strong> Alcohol may only be supplied if expressly approved in writing by the Licensor and all required liquor approvals are in place.</div>
+        <div><strong>8.</strong> Food preparation, catering, food trucks, stalls and mobile food operations require prior written approval and compliance with all applicable registration or notification requirements.</div>
+        <div><strong>9.</strong> All electrical equipment brought onto the Premises must be safe, suitable and legally compliant. The Licensor may require test and tag evidence where appropriate.</div>
+        <div><strong>10.</strong> The Licensee must ensure that guests leave the Premises in an orderly manner and without causing nuisance or disturbance to neighbouring occupiers or surrounding properties.</div>
+        <div><strong>11.</strong> The Licensee must remove all rubbish, decorations, packaging, pallets, stock and temporary items by the end of the Licence Period unless otherwise agreed in writing.</div>
+        <div><strong>12.</strong> Any cleaning, waste removal, odour treatment, stain treatment, pest treatment, repair or reinstatement required due to the Event may be charged to the Licensee.</div>
+        <div><strong>13.</strong> The Licensor may vary access arrangements, close off areas, give operational directions, require additional security or direct cessation of any activity where reasonably necessary for safety, compliance or protection of the Venue.</div>
+      </div>
+    </div>
+  )
+}
 
-        <div><strong>Rule 2 — Allocated Space.</strong> Vendors must operate solely from their allocated space as designated by HexaHub. Signage, display items, and equipment must remain within the allocated space boundaries and must not encroach on walkways, emergency exits, or neighbouring spaces. Vendors must not rearrange their space layout without HexaHub's prior approval.</div>
+// ── Document 3: Annexure B + C (verbatim) ─────────────────────────────────────
 
-        <div><strong>Rule 3 — Setup and Equipment.</strong> All vendor equipment, furniture, shelving, and display structures must be stable, secure, and safe for public interaction. HexaHub reserves the right to require the removal of any item considered unsafe. Vendors using electrical equipment must ensure all items are tested and tagged. Power outlets are limited — all electrical requirements must be communicated to HexaHub in advance. Generators are not permitted without prior written approval.</div>
+function ComplianceAndMarketingDoc() {
+  return (
+    <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-8">
+      {/* Annexure B */}
+      <div className="space-y-4">
+        <div className="text-center space-y-1">
+          <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
+          <h1 className="text-xl font-bold tracking-tight">Annexure B</h1>
+          <h2 className="text-base font-semibold text-gray-700">Practical Victorian Compliance Notes</h2>
+        </div>
 
-        <div><strong>Rule 4 — Food and Beverage Vendors.</strong> All food and beverage vendors must: (a) display their Food Business Registration certificate at their stall; (b) ensure all food is stored, handled, and served in accordance with food safety regulations; (c) have appropriate waste disposal for food scraps and packaging; (d) not prepare or cook food in a manner that produces excessive smoke, odour, or open flames without prior approval; (e) not sell alcohol unless in possession of a valid liquor licence and prior written approval from HexaHub.</div>
+        <hr className="border-gray-300" />
 
-        <div><strong>Rule 5 — Presentation.</strong> Vendors are expected to maintain a professional and visually appealing presentation throughout the Event. Displays should be clean, well-presented, and consistent with the premium aesthetic of the Hexa Hub Pop-Up. HexaHub reserves the right to request adjustments to signage or displays that are inconsistent with the event's style guidelines.</div>
+        <p className="text-xs text-gray-600 italic">This annexure is intended as a practical licensor checklist and pre-event compliance guide. It is not a substitute for project-specific legal, building, council, liquor, health or safety advice.</p>
 
-        <div><strong>Rule 6 — Noise.</strong> Vendors must not use amplified music, PA systems, or any audio equipment that creates excessive noise or interferes with neighbouring vendors or the event's ambient sound. Any audio requirements must be communicated to HexaHub in advance. HexaHub's decision regarding noise levels is final.</div>
+        <div className="space-y-3 text-xs">
+          <div><strong>Liquor licensing:</strong> If alcohol will be sold, supplied, served or included in ticketing, packages or other consideration, the organiser should confirm whether a liquor licence or permit is required and provide the relevant approval before the event. No alcohol service should occur without prior written licensor approval and lawful authority.</div>
+          <div><strong>Food businesses and caterers:</strong> If food will be handled, sold or distributed, the organiser should ensure that each caterer, stallholder, food truck or mobile operator is properly registered or notified where required and can provide evidence before bump-in.</div>
+          <div><strong>Occupational health and safety:</strong> The organiser should prepare a risk assessment and event management plan proportionate to the event profile. Larger or more complex events should also have contractor controls, emergency management, first aid, security and traffic management arrangements.</div>
+          <div><strong>Public liability insurance:</strong> A public liability limit of at least AUD $20,000,000 is recommended as the minimum contractual requirement for venue use, together with workers compensation and any event-specific insurance reasonably required by the licensor.</div>
+          <div><strong>Places of public entertainment and temporary structures:</strong> Where the event may amount to public entertainment or involve prescribed temporary structures, building or council advice should be obtained early. Temporary stages, marquees, seating stands and similar installations may trigger approval requirements depending on the structure, area and use case.</div>
+          <div><strong>First aid and emergency response:</strong> The organiser should assess first aid needs having regard to event size, duration, alcohol service, age profile and risk factors. For larger events, the licensor should request details of the first aid provider, emergency contacts and escalation pathways.</div>
+          <div><strong>Smoking and vaping:</strong> The organiser must comply with Victorian smoke-free and vape-free restrictions and any stricter licensor rule applying to the site. As a practical control, smoking and vaping should be prohibited except in any designated area approved by the licensor and legally permitted.</div>
+        </div>
 
-        <div><strong>Rule 7 — Engagement with Attendees.</strong> Vendors and their staff must engage with attendees respectfully and professionally. High-pressure sales tactics are not permitted. Vendors must not approach attendees who have expressed disinterest. Any complaints from attendees about vendor conduct will be taken seriously and may result in the Vendor being asked to leave.</div>
+        <div>
+          <p className="text-xs font-bold text-gray-700 mb-2">Pre-Event Document Checklist</p>
+          <ul className="text-xs space-y-1 list-disc list-inside text-gray-700">
+            <li>full legal name and ABN / ACN of organiser</li>
+            <li>event description and anticipated attendee numbers</li>
+            <li>certificate of currency for public liability insurance</li>
+            <li>liquor approval or confirmation that no liquor approval is required</li>
+            <li>food registration or notification evidence for caterers or food vendors</li>
+            <li>event management plan and risk assessment</li>
+            <li>contractor and supplier register</li>
+            <li>security plan and first aid plan where applicable</li>
+            <li>details of any temporary structures, staging, marquees or amplified sound</li>
+            <li>building or council advice where public entertainment or temporary structure issues may arise</li>
+            <li>waste, cleaning and bump-out plan</li>
+            <li>confirmation that all fees and bond have been paid in cleared funds</li>
+          </ul>
+        </div>
 
-        <div><strong>Rule 8 — Waste and Cleanliness.</strong> Vendors are responsible for managing their own waste throughout the Event. All rubbish must be placed in designated bins. At pack-down, vendors must remove all waste from their space and place it in the appropriate waste disposal areas. Vendors must not leave any rubbish, packaging, or equipment at the Venue after Bump-Out.</div>
-
-        <div><strong>Rule 9 — No Damage to the Venue.</strong> Vendors must not drill, screw, nail, tape, or affix anything to walls, floors, ceilings, roller doors, or any building structure without HexaHub's written approval. Protective matting must be used under any heavy equipment. Any damage caused by the Vendor will be charged to them.</div>
-
-        <div><strong>Rule 10 — Fire Safety.</strong> Fire exits, extinguisher access points, and evacuation routes must be kept clear at all times. Open flames (including gas burners, candles, and heaters) require prior written approval and must be supervised at all times. In the event of a fire alarm, all vendors and staff must evacuate immediately via the nearest exit and assemble at the designated muster point. Do not re-enter until cleared by emergency services.</div>
-
-        <div><strong>Rule 11 — Photography and Social Media.</strong> Vendors are encouraged to document and share their participation on social media. Please tag @hexahub.official and use #HexaHubPopUp. Vendors must obtain consent before photographing or filming other vendors, staff, or attendees in a way that identifies them. Vendors must not photograph or publish any content that portrays the Event or HexaHub negatively.</div>
-
-        <div><strong>Rule 12 — HexaHub Staff Direction.</strong> All HexaHub staff and event managers are authorised to issue directions to vendors in relation to safety, noise, layout, conduct, and compliance with these rules. Vendors must follow all such directions promptly. Disputes should be raised calmly with the event manager — disruptions to the Event will not be tolerated.</div>
-
-        <div><strong>Rule 13 — Pack-Down.</strong> Pack-down must not begin before 10:00 PM. Vendors who begin packing down early without HexaHub's permission may not be invited to future HexaHub events. All vehicle access for pack-down must be coordinated with HexaHub staff to avoid congestion.</div>
+        <p className="text-xs text-gray-500 italic">Reference sources for practical compliance review: Victorian Government liquor licensing guidance; Victorian Department of Health food safety and first aid guidance; WorkSafe Victoria event organiser guidance; and Victorian Building Authority guidance on places of public entertainment and prescribed temporary structures.</p>
       </div>
 
-      <div className="text-xs text-gray-500 italic mt-4">
-        These Rules form part of the Vendor Participation Agreement. By signing the Agreement, the Vendor accepts these Rules. HexaHub Pty Ltd · info@hexahub.com.au · hexahub.com.au
+      <hr className="border-gray-300" />
+
+      {/* Annexure C */}
+      <div className="space-y-4">
+        <div className="text-center space-y-1">
+          <h1 className="text-xl font-bold tracking-tight">Annexure C</h1>
+          <h2 className="text-base font-semibold text-gray-700">Event, Venue Promotion and Digital Marketing Requirements</h2>
+        </div>
+
+        <p className="text-xs text-gray-600 italic">This annexure forms part of the Agreement. The Licensee must comply with these venue promotion requirements unless the Licensor otherwise agrees in writing.</p>
+
+        <div className="space-y-4 text-xs">
+          <div>
+            <strong>1. Mandatory Promotion Obligation</strong>
+            <p className="mt-1">The Licensee must actively promote the Licensor, Event and the Venue, as directed by the Licensor from time to time, in connection with the Event and any related publicity, campaign, invitation, listing, registration page, attendee communication or post-event material.</p>
+          </div>
+
+          <div>
+            <strong>2. Required Promotion Channels</strong>
+            <p className="mt-1">Without limiting the Licensee's obligations, the Licensee must, where reasonably applicable to the Event and to the Licensee's available channels, promote the Licensor, Event and the Venue through one or more of the following:</p>
+            <ul className="list-disc list-inside mt-1 space-y-0.5 ml-2">
+              <li>all social media accounts operated or controlled by the Licensee, including Instagram, Facebook, LinkedIn, Xiaohongshu, WeChat, TikTok, X and any equivalent platform;</li>
+              <li>the Licensee's website, landing pages, event registration pages, ticketing pages and event microsites;</li>
+              <li>electronic direct mail, newsletters, SMS campaigns and attendee or member communications;</li>
+              <li>online listings, directory entries, calendar notices, digital advertisements and sponsored content;</li>
+              <li>media releases, blog posts, digital brochures and other online promotional materials; and</li>
+              <li>any other online, digital or social promotion channel reasonably required by the Licensor having regard to the nature and profile of the Event.</li>
+            </ul>
+          </div>
+
+          <div>
+            <strong>3. Form of Promotion</strong>
+            <p className="mt-1">The Licensee must ensure that all promotional material relating to the Event includes, if required by the Licensor:</p>
+            <ul className="list-disc list-inside mt-1 space-y-0.5 ml-2">
+              <li>the approved name of the Venue and its location at 17 Logistic Court, Huntingdale, Victoria;</li>
+              <li>any venue branding, logo, tag, handle, hashtag, hyperlink, booking contact or descriptive wording specified by the Licensor;</li>
+              <li>any credit line, acknowledgement, venue partner reference or promotional message required by the Licensor;</li>
+              <li>any approved venue imagery, photographs, video, map, website link or brand assets supplied or nominated by the Licensor; and</li>
+              <li>any mandatory venue rules, access instructions or special conditions that the Licensor directs to be communicated to attendees online.</li>
+            </ul>
+          </div>
+
+          <div>
+            <strong>4. Minimum Content and Timing</strong>
+            <p className="mt-1">The Licensor may specify minimum promotional requirements, including the number of posts, publication dates, campaign timing, visibility period, platform mix, wording, tags, links and prominence. The Licensee must comply with those requirements within the timeframes directed by the Licensor.</p>
+          </div>
+
+          <div>
+            <strong>5. Approval Rights</strong>
+            <p className="mt-1">The Licensee must submit promotional copy, artwork, advertisements, listings, captions and digital content referring to the Venue to the Licensor for review if requested by the Licensor. The Licensee must not publish or distribute any material that uses the Venue name, images or branding in a misleading, inaccurate, defamatory, unlawful or reputationally damaging manner.</p>
+          </div>
+
+          <div>
+            <strong>6. Branding and Intellectual Property</strong>
+            <p className="mt-1">The Licensor grants the Licensee a limited, non-exclusive, revocable licence during the Licence Period to use approved Venue names, logos, handles, hashtags, photographs and promotional assets solely for authorised Event promotion. All intellectual property rights in those materials remain with the Licensor. The Licensee must immediately cease use of those materials on request by the Licensor.</p>
+          </div>
+
+          <div>
+            <strong>7. Accuracy and Compliance</strong>
+            <p className="mt-1">The Licensee must ensure that all promotional content relating to the Venue and Event is accurate, current, lawful and compliant with all applicable laws, platform requirements and advertising standards. The Licensee must promptly correct or remove any material if directed by the Licensor.</p>
+          </div>
+
+          <div>
+            <strong>8. Cross-Promotion and Venue Content</strong>
+            <p className="mt-1">If requested by the Licensor, the Licensee must provide the Licensor, without additional charge, with reasonable access to approved event descriptions, logos, still images, promotional artwork and other non-confidential materials so that the Licensor may promote the Event and the Venue on its own channels.</p>
+          </div>
+
+          <div>
+            <strong>9. Evidence of Compliance</strong>
+            <p className="mt-1">Upon request, the Licensee must provide evidence of compliance with this annexure, including copies or screenshots of posts, links to published material, campaign schedules, registration pages and other reasonable proof of publication.</p>
+          </div>
+
+          <div>
+            <strong>10. Removal and Post-Event Retention</strong>
+            <p className="mt-1">The Licensor may require the Licensee to remove, amend or archive promotional content after the Event. Unless otherwise directed, the Licensee must keep at least one reasonable online reference to the Venue's involvement or hosting role live for not less than 30 days after the Event where such retention is within the Licensee's control.</p>
+          </div>
+
+          <div>
+            <strong>11. Costs</strong>
+            <p className="mt-1">Except to the extent otherwise expressly agreed in writing, the Licensee is responsible for all costs of complying with this annexure, including design, media spend, posting, advertising, content creation and distribution costs.</p>
+          </div>
+
+          <div>
+            <strong>12. Breach</strong>
+            <p className="mt-1">Compliance with this annexure is a material obligation of the Licensee. Failure to comply constitutes a breach of the Agreement and entitles the Licensor to require immediate rectification, withhold approvals, refuse future bookings, recover resulting Loss and exercise any other right available under the Agreement.</p>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -246,10 +489,8 @@ export default function EventBookingSignPage({ token }) {
       try {
         const { data, error } = await supabase.from('event_bookings').select('data')
         if (error) { setState('error'); return }
-
         const match = (data ?? []).map(r => r.data).find(b => b?.signingToken === token)
         if (!match) { setState('invalid'); return }
-
         setBooking(match)
         if (match.signedAt) { setState('signed'); return }
         if (match.vendorName) setSignerName(match.vendorName)
@@ -262,7 +503,7 @@ export default function EventBookingSignPage({ token }) {
   }, [token])
 
   async function handleSign() {
-    if (!agreed) { alert('Please confirm you have read and agree to all three documents.'); return }
+    if (!agreed) { alert('Please confirm you have read and agree to all documents.'); return }
     if (!signerName.trim()) { alert('Please enter your full name.'); return }
     if (sigRef.current?.isEmpty()) { alert('Please draw your signature.'); return }
 
@@ -280,17 +521,12 @@ export default function EventBookingSignPage({ token }) {
         signatureData,
         updatedAt: now,
       }
-
-      await supabase.from('event_bookings')
-        .update({ data: updated, updated_at: now })
-        .eq('id', booking.id)
-
+      await supabase.from('event_bookings').update({ data: updated, updated_at: now }).eq('id', booking.id)
       await fetch('/api/event-bookings/send-signing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ booking: updated, mode: 'admin_notify' }),
       }).catch(() => {})
-
       setBooking(updated)
       setState('signed')
     } catch (err) {
@@ -310,11 +546,8 @@ export default function EventBookingSignPage({ token }) {
       insuranceDeferredAt: choice === 'later' ? now : null,
       updatedAt: now,
     }
-    await supabase.from('event_bookings')
-      .update({ data: updated, updated_at: now })
-      .eq('id', booking.id)
+    await supabase.from('event_bookings').update({ data: updated, updated_at: now }).eq('id', booking.id)
     setInsuranceChoice(choice)
-
     if (choice === 'later') {
       await fetch('/api/event-bookings/send-signing', {
         method: 'POST',
@@ -325,48 +558,41 @@ export default function EventBookingSignPage({ token }) {
   }
 
   const TABS = [
-    { key: 'doc1', label: '1. Participation Agreement' },
-    { key: 'doc2', label: '2. Liability Waiver' },
-    { key: 'doc3', label: '3. Venue Rules' },
+    { key: 'doc1', label: '1. Licence Agreement' },
+    { key: 'doc2', label: '2. Venue Rules (Annexure A)' },
+    { key: 'doc3', label: '3. Compliance & Marketing (B & C)' },
     { key: 'sign', label: '✍ Sign' },
   ]
 
   if (state === 'loading') return <Screen title="Loading…" />
-  if (state === 'invalid') return (
-    <Screen icon="🔒" title="Invalid or expired link" subtitle="This signing link is invalid or has already been used. Contact info@hexahub.com.au for assistance." />
-  )
+  if (state === 'invalid') return <Screen icon="🔒" title="Invalid or expired link" subtitle="This signing link is invalid or has already been used. Contact info@hexahub.com.au for assistance." />
   if (state === 'error') return <Screen icon="⚠️" title="Something went wrong" subtitle="Please try again or contact info@hexahub.com.au." />
 
   if (state === 'signed' && insuranceChoice == null) {
     return (
       <div className="min-h-screen bg-gray-100">
-        <Header booking={booking} />
+        <Header />
         <div className="max-w-xl mx-auto my-10 px-4">
           <div className="bg-white border border-gray-200 rounded-md p-8 shadow-sm">
             <div className="text-4xl mb-4 text-center">✅</div>
             <h2 className="text-lg font-bold text-gray-900 mb-2 text-center">Agreement Signed</h2>
             <p className="text-sm text-gray-500 mb-6 text-center">
-              Thank you, {booking?.signerName}. Your vendor agreement is signed. We'll be in touch to confirm your participation in the Hexa Hub Pop-Up.
+              Thank you, {booking?.signerName}. Your agreement is signed. HexaHub will countersign and be in touch to confirm your participation.
             </p>
             <div className="border border-gray-200 rounded-md p-5">
               <h3 className="font-semibold text-sm text-gray-800 mb-2">Public Liability Insurance</h3>
               <p className="text-xs text-gray-500 mb-4">
                 Your participation requires a Certificate of Currency showing at least{' '}
-                <strong>AUD $10,000,000 Public Liability Insurance</strong>.
+                <strong>AUD $20,000,000 Public Liability Insurance</strong> per occurrence (clause 9).
                 Please send this to{' '}
-                <a href="mailto:info@hexahub.com.au" className="text-black underline">info@hexahub.com.au</a>.
+                <a href="mailto:info@hexahub.com.au" className="text-black underline">info@hexahub.com.au</a>{' '}
+                no later than 5 Business Days before the event.
               </p>
               <div className="flex gap-3">
-                <button
-                  onClick={() => submitInsuranceChoice('later')}
-                  className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm hover:bg-gray-50 font-medium"
-                >
+                <button onClick={() => submitInsuranceChoice('later')} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm hover:bg-gray-50 font-medium">
                   I'll email it shortly
                 </button>
-                <button
-                  onClick={() => submitInsuranceChoice('done')}
-                  className="flex-1 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
-                >
+                <button onClick={() => submitInsuranceChoice('done')} className="flex-1 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800">
                   Already sent
                 </button>
               </div>
@@ -393,8 +619,7 @@ export default function EventBookingSignPage({ token }) {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Header booking={booking} />
-
+      <Header />
       <div className="bg-white border-b border-gray-200 px-4 flex overflow-x-auto">
         {TABS.map(tab => (
           <button
@@ -410,64 +635,33 @@ export default function EventBookingSignPage({ token }) {
       </div>
 
       {view === 'doc1' && (
-        <DocFrame>
-          <VendorAgreementDoc booking={booking} />
-          <NavBtn onClick={() => setView('doc2')}>Next: Liability Waiver →</NavBtn>
-        </DocFrame>
+        <DocFrame><LicenceAgreementDoc booking={booking} /><NavBtn onClick={() => setView('doc2')}>Next: Venue Rules →</NavBtn></DocFrame>
       )}
       {view === 'doc2' && (
-        <DocFrame>
-          <LiabilityWaiverDoc booking={booking} />
-          <NavBtn onClick={() => setView('doc3')}>Next: Venue Rules →</NavBtn>
-        </DocFrame>
+        <DocFrame><VenueRulesDoc /><NavBtn onClick={() => setView('doc3')}>Next: Compliance & Marketing →</NavBtn></DocFrame>
       )}
       {view === 'doc3' && (
-        <DocFrame>
-          <VenueRulesDoc />
-          <NavBtn onClick={() => setView('sign')}>Proceed to Sign →</NavBtn>
-        </DocFrame>
+        <DocFrame><ComplianceAndMarketingDoc /><NavBtn onClick={() => setView('sign')}>Proceed to Sign →</NavBtn></DocFrame>
       )}
 
       {view === 'sign' && (
         <div className="max-w-xl mx-auto my-8 px-4">
           <div className="bg-white border border-gray-200 rounded-md p-8 shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Sign as Vendor</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              By signing, you confirm you have read and agree to all three documents above and that you are authorised to sign on behalf of the business.
-            </p>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Sign as Licensee</h2>
+            <p className="text-sm text-gray-500 mb-6">By signing, you confirm you have read and agree to the Licence Agreement, Venue Rules (Annexure A), and Compliance & Marketing Requirements (Annexures B & C).</p>
 
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
-              <input
-                type="text"
-                value={signerName}
-                onChange={e => setSignerName(e.target.value)}
-                placeholder="Your full legal name"
-                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-              />
+              <input type="text" value={signerName} onChange={e => setSignerName(e.target.value)} placeholder="Your full legal name" className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
             </div>
-
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-600 mb-1">Title / Position</label>
-              <input
-                type="text"
-                value={signerTitle}
-                onChange={e => setSignerTitle(e.target.value)}
-                placeholder="e.g. Director, Owner, Manager"
-                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-              />
+              <input type="text" value={signerTitle} onChange={e => setSignerTitle(e.target.value)} placeholder="e.g. Director, Owner, Manager" className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
             </div>
-
             <div className="mb-5">
               <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-              <input
-                type="text"
-                value={signerDate}
-                onChange={e => setSignerDate(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-              />
+              <input type="text" value={signerDate} onChange={e => setSignerDate(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
             </div>
-
             <div className="mb-5">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium text-gray-600">Signature</label>
@@ -480,22 +674,18 @@ export default function EventBookingSignPage({ token }) {
             <label className="flex items-start gap-3 mb-6 cursor-pointer">
               <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 shrink-0" />
               <span className="text-sm text-gray-600">
-                I confirm I have read and agree to the (1) Vendor Participation Agreement, (2) Liability Waiver, and (3) Vendor Rules for the Hexa Hub Pop-Up on 7 June 2026.
+                I confirm I have read and agree to the Event Venue Licence Agreement (including all 27 clauses), Annexure A (Venue Rules and Operating Conditions), Annexure B (Victorian Compliance Notes), and Annexure C (Digital Marketing Requirements), and that I am authorised to sign on behalf of the Licensee.
               </span>
             </label>
 
             <div className="bg-gray-50 rounded-md p-4 text-xs text-gray-500 mb-6 space-y-1">
-              {booking?.vendorBusiness && <div><span className="font-medium text-gray-700">Business:</span> {booking.vendorBusiness}</div>}
-              <div><span className="font-medium text-gray-700">Vendor Type:</span> {booking?.vendorType}</div>
-              {booking?.allocatedSpace && <div><span className="font-medium text-gray-700">Allocated Space:</span> {booking.allocatedSpace}</div>}
+              <div><span className="font-medium text-gray-700">Licensee:</span> {[booking?.vendorBusiness, booking?.vendorName].filter(Boolean).join(' — ')}</div>
+              {booking?.allocatedSpace && <div><span className="font-medium text-gray-700">Venue / Space:</span> {booking.allocatedSpace}</div>}
               <div><span className="font-medium text-gray-700">Event:</span> Hexa Hub Pop-Up · Sunday 7 June 2026</div>
+              <div><span className="font-medium text-gray-700">Licensor:</span> HexaHub Pty Ltd</div>
             </div>
 
-            <button
-              onClick={handleSign}
-              disabled={submitting || !agreed}
-              className="w-full bg-black text-white py-3 rounded-md text-sm font-bold hover:bg-gray-800 disabled:opacity-40 transition-colors"
-            >
+            <button onClick={handleSign} disabled={submitting || !agreed} className="w-full bg-black text-white py-3 rounded-md text-sm font-bold hover:bg-gray-800 disabled:opacity-40 transition-colors">
               {submitting ? 'Submitting…' : 'Sign & Submit'}
             </button>
           </div>
@@ -505,16 +695,16 @@ export default function EventBookingSignPage({ token }) {
   )
 }
 
-function Header({ booking }) {
+function Header() {
   return (
     <div className="bg-black text-white px-6 py-4 flex items-center justify-between sticky top-0 z-10">
       <div>
         <span className="font-black tracking-widest text-lg">HEXAHUB</span>
-        <span className="text-gray-400 text-sm ml-3">Vendor Agreement</span>
+        <span className="text-gray-400 text-sm ml-3">Event Venue Licence Agreement</span>
       </div>
       <div className="text-right hidden sm:block">
         <div className="text-sm font-medium text-white">Hexa Hub Pop-Up</div>
-        <div className="text-xs text-gray-400">Sunday 7 June 2026</div>
+        <div className="text-xs text-gray-400">Sunday 7 June 2026 · 17 Logistic Court, Huntingdale</div>
       </div>
     </div>
   )
@@ -523,9 +713,7 @@ function Header({ booking }) {
 function DocFrame({ children }) {
   return (
     <div className="max-w-4xl mx-auto my-6 px-4">
-      <div className="bg-white shadow-sm rounded-md overflow-hidden px-10 py-10">
-        {children}
-      </div>
+      <div className="bg-white shadow-sm rounded-md overflow-hidden px-10 py-10">{children}</div>
     </div>
   )
 }
@@ -533,9 +721,7 @@ function DocFrame({ children }) {
 function NavBtn({ onClick, children }) {
   return (
     <div className="mt-8 flex justify-end">
-      <button onClick={onClick} className="bg-black text-white px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800">
-        {children}
-      </button>
+      <button onClick={onClick} className="bg-black text-white px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800">{children}</button>
     </div>
   )
 }
