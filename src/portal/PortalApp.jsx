@@ -161,18 +161,9 @@ export default function PortalApp() {
     }
   }
 
-  async function handlePasswordSet() {
-    setNeedsPassword(false)
-    if (session) {
-      setLoading(true)
-      try {
-        await loadData(session.user.email)
-      } catch (e) {
-        console.error('loadData error', e)
-      } finally {
-        setLoading(false)
-      }
-    }
+  function handlePasswordSet() {
+    // Clean reload: session persists, hash is gone, portal loads normally
+    window.location.replace('/')
   }
 
   async function signOut() {
