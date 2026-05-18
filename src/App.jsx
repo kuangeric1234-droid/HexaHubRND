@@ -13,9 +13,11 @@ import Settings from './components/Settings.jsx'
 import Maintenance from './components/Maintenance.jsx'
 import Reports from './components/Reports.jsx'
 import Events from './components/Events.jsx'
+import EventBookings from './components/EventBookings.jsx'
 import AdminMessages from './components/AdminMessages.jsx'
 import Login from './components/Login.jsx'
 import SignPage from './components/SignPage.jsx'
+import EventBookingSignPage from './components/EventBookingSignPage.jsx'
 import PortalApp from './portal/PortalApp.jsx'
 import { useStore } from './store/useStore.js'
 import { supabase } from './lib/supabase.js'
@@ -27,7 +29,10 @@ export default function App() {
     window.location.pathname.startsWith('/portal')
   ) return <PortalApp />
 
-  // Public sign page — no auth needed
+  // Public sign pages — no auth needed
+  const eventSignMatch = window.location.pathname.match(/^\/sign\/event\/([^/]+)/)
+  if (eventSignMatch) return <EventBookingSignPage token={eventSignMatch[1]} />
+
   const signMatch = window.location.pathname.match(/^\/sign\/([^/]+)/)
   if (signMatch) return <SignPage token={signMatch[1]} />
 
@@ -89,6 +94,7 @@ export default function App() {
           <Route path="reports" element={<Reports />} />
           <Route path="messages" element={<AdminMessages />} />
           <Route path="events" element={<Events />} />
+          <Route path="event-bookings" element={<EventBookings />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

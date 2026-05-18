@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Users, Warehouse, FileText,
   RefreshCw, BookOpen, Receipt, Settings, LogOut,
   Wrench, BarChart2, Menu, X, Calendar, MessageSquare,
+  ClipboardList,
 } from 'lucide-react'
 import { logout } from '../lib/auth.js'
 import { supabase } from '../lib/supabase.js'
@@ -19,6 +20,7 @@ const nav = [
   { to: '/reports', icon: BarChart2, label: 'Reports' },
   { to: '/messages', icon: MessageSquare, label: 'Messages' },
   { to: '/events', icon: Calendar, label: 'Events' },
+  { to: '/event-bookings', icon: ClipboardList, label: 'Event Bookings' },
   { to: '/templates', icon: BookOpen, label: 'Templates' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
