@@ -15,20 +15,18 @@ export default function AdminMessages() {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
+  const inputRef = useRef(null)
 
   useEffect(() => {
     load()
-    const channel = supabase
-      .channel('admin_portal_messages')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'portal_messages' }, load)
-      .subscribe()
-    return () => supabase.removeChannel(channel)
+    const timer = setInterval(load, 4000)
+    return () => clearInterval(timer)
   }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    // Mark tenant messages as read when viewing
     if (!selectedTenantId) return
+    // Mark tenant messages as read when viewing
     allMessages
       .filter(m => m.tenantId === selectedTenantId && m.sender === 'tenant' && !m.readByAdmin)
       .forEach(m => {
@@ -43,7 +41,6 @@ export default function AdminMessages() {
     setAllMessages(msgs)
   }
 
-  // Group by tenant — most recently active first
   const tenantThreads = tenants
     .map(t => {
       const msgs = allMessages.filter(m => m.tenantId === t.id)
@@ -61,24 +58,31 @@ export default function AdminMessages() {
   async function sendReply(e) {
     e.preventDefault()
     if (!reply.trim() || !selectedTenantId) return
+    const content = reply.trim()
+    setReply('')
     setSending(true)
+
     const msg = {
       id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       tenantId: selectedTenantId,
       sender: 'admin',
-      content: reply.trim(),
+      content,
       timestamp: new Date().toISOString(),
       readByAdmin: true,
       readByTenant: false,
     }
+
+    // Optimistic update
+    setAllMessages(prev => [...prev, msg])
+
     await supabase.from('portal_messages').insert({ id: msg.id, data: msg })
-    setReply('')
     setSending(false)
+    inputRef.current?.focus()
   }
 
   return (
     <div className="flex h-full bg-gray-50">
-      {/* Sidebar — thread list */}
+      {/* Thread list */}
       <div className="w-72 shrink-0 bg-white border-r border-gray-200 flex flex-col">
         <div className="px-5 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
@@ -103,7 +107,7 @@ export default function AdminMessages() {
                   key={tenant.id}
                   onClick={() => setSelectedTenantId(tenant.id)}
                   className={`w-full text-left px-4 py-3.5 hover:bg-gray-50 transition-colors ${
-                    selectedTenantId === tenant.id ? 'bg-gray-50' : ''
+                    selectedTenantId === tenant.id ? 'bg-gray-50 border-l-2 border-black' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between mb-0.5">
@@ -116,10 +120,12 @@ export default function AdminMessages() {
                           {unread}
                         </span>
                       )}
-                      <span className="text-xs text-gray-400">{fmtTime(lastTs)}</span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-400 truncate">{last?.content}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-400 truncate flex-1">{last?.content}</p>
+                    <span className="text-xs text-gray-300 ml-2 shrink-0">{fmtTime(lastTs)}</span>
+                  </div>
                 </button>
               )
             })
@@ -138,13 +144,11 @@ export default function AdminMessages() {
           </div>
         ) : (
           <>
-            {/* Thread header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
               <div className="font-semibold text-gray-900">{selectedThread.tenant.businessName}</div>
               <div className="text-xs text-gray-400">{selectedThread.tenant.email}</div>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
               {selectedThread.msgs.map(msg => (
                 <div key={msg.id} className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}>
@@ -154,7 +158,7 @@ export default function AdminMessages() {
                       : 'bg-white border border-gray-200 text-gray-900 rounded-bl-sm'
                   }`}>
                     <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                    <p className={`text-xs mt-1 ${msg.sender === 'admin' ? 'text-gray-400' : 'text-gray-400'}`}>
+                    <p className="text-xs mt-1 opacity-50">
                       {msg.sender === 'admin' ? 'You' : selectedThread.tenant.businessName} · {fmtTime(msg.timestamp)}
                     </p>
                   </div>
@@ -163,14 +167,15 @@ export default function AdminMessages() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Reply */}
             <form onSubmit={sendReply} className="border-t border-gray-200 bg-white p-4 flex gap-3 shrink-0">
               <input
+                ref={inputRef}
                 value={reply}
                 onChange={e => setReply(e.target.value)}
                 placeholder={`Reply to ${selectedThread.tenant.businessName}…`}
                 className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
                 disabled={sending}
+                autoFocus
               />
               <button
                 type="submit"

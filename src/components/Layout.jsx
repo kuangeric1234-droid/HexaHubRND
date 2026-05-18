@@ -30,11 +30,8 @@ export default function Layout({ store, onLogout }) {
 
   useEffect(() => {
     loadUnread()
-    const channel = supabase
-      .channel('layout_msgs')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'portal_messages' }, loadUnread)
-      .subscribe()
-    return () => supabase.removeChannel(channel)
+    const timer = setInterval(loadUnread, 10000)
+    return () => clearInterval(timer)
   }, [])
 
   async function loadUnread() {
