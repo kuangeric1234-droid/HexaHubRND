@@ -9,21 +9,16 @@ import PortalMessages from './PortalMessages.jsx'
 import PortalAccount from './PortalAccount.jsx'
 import PortalEvents from './PortalEvents.jsx'
 
-// Detect invite/recovery link before Supabase clears the hash
-const NEEDS_PASSWORD_ON_LOAD =
-  window.location.hash.includes('type=invite') ||
-  window.location.hash.includes('type=recovery')
-
 function SetPasswordScreen({ onDone }) {
   const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [confirm, setConfirm]   = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (password.length < 8) return setError('Password must be at least 8 characters.')
-    if (password !== confirm) return setError('Passwords do not match.')
+    if (password !== confirm)  return setError('Passwords do not match.')
     setLoading(true)
     setError('')
     const { error } = await supabase.auth.updateUser({ password })
@@ -88,31 +83,41 @@ function SetPasswordScreen({ onDone }) {
 }
 
 export default function PortalApp() {
-  const [session, setSession] = useState(null)
-  const [tenant, setTenant] = useState(null)
-  const [invoices, setInvoices] = useState([])
-  const [leases, setLeases] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [needsPassword, setNeedsPassword] = useState(NEEDS_PASSWORD_ON_LOAD)
+  const [session, setSession]       = useState(null)
+  const [tenant, setTenant]         = useState(null)
+  const [invoices, setInvoices]     = useState([])
+  const [leases, setLeases]         = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [needsPassword, setNeedsPassword] = useState(false)
 
   useEffect(() => {
+    // Initial session check
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
-      if (session && !needsPassword) await loadData(session.user.email)
-      setLoading(false)
+      try {
+        if (session) await loadData(session.user.email)
+      } finally {
+        setLoading(false)
+      }
     })
+
+    // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Invite / forgot-password recovery link — show set-password screen
       if (event === 'PASSWORD_RECOVERY') {
         setSession(session)
         setNeedsPassword(true)
         setLoading(false)
         return
       }
+
       setSession(session)
+
       if (session) {
-        if (!needsPassword) {
-          setLoading(true)
+        setLoading(true)
+        try {
           await loadData(session.user.email)
+        } finally {
           setLoading(false)
         }
       } else {
@@ -121,6 +126,7 @@ export default function PortalApp() {
         setLeases([])
       }
     })
+
     return () => subscription.unsubscribe()
   }, [])
 
@@ -143,8 +149,11 @@ export default function PortalApp() {
     setNeedsPassword(false)
     if (session) {
       setLoading(true)
-      await loadData(session.user.email)
-      setLoading(false)
+      try {
+        await loadData(session.user.email)
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -168,8 +177,7 @@ export default function PortalApp() {
     )
   }
 
-  if (!session) return <PortalLogin />
-
+  if (!session)      return <PortalLogin />
   if (needsPassword) return <SetPasswordScreen onDone={handlePasswordSet} />
 
   if (!tenant) {
@@ -182,7 +190,8 @@ export default function PortalApp() {
           <p className="text-sm text-gray-400 mb-8">
             Please contact HexaHub if you believe this is an error.
           </p>
-          <a href="mailto:info@hexahub.com.au" className="block w-full bg-black text-white text-sm font-semibold py-2.5 rounded mb-3 text-center hover:bg-gray-800">
+          <a href="mailto:info@hexahub.com.au"
+             className="block w-full bg-black text-white text-sm font-semibold py-2.5 rounded mb-3 text-center hover:bg-gray-800">
             Contact HexaHub
           </a>
           <button onClick={signOut} className="text-sm text-gray-400 hover:text-gray-600">
@@ -199,12 +208,12 @@ export default function PortalApp() {
     <BrowserRouter basename={basename}>
       <PortalLayout tenant={tenant} onSignOut={signOut}>
         <Routes>
-          <Route path="/" element={<PortalDashboard tenant={tenant} invoices={invoices} leases={leases} />} />
-          <Route path="/billing" element={<PortalBilling tenant={tenant} invoices={invoices} />} />
+          <Route path="/"         element={<PortalDashboard tenant={tenant} invoices={invoices} leases={leases} />} />
+          <Route path="/billing"  element={<PortalBilling  tenant={tenant} invoices={invoices} />} />
           <Route path="/messages" element={<PortalMessages tenant={tenant} />} />
-          <Route path="/account" element={<PortalAccount tenant={tenant} leases={leases} />} />
-          <Route path="/events" element={<PortalEvents />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/account"  element={<PortalAccount  tenant={tenant} leases={leases} />} />
+          <Route path="/events"   element={<PortalEvents />} />
+          <Route path="*"         element={<Navigate to="/" replace />} />
         </Routes>
       </PortalLayout>
     </BrowserRouter>
