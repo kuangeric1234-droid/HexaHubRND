@@ -183,8 +183,14 @@ export default function PortalApp() {
 
   if (!session) return <PortalLogin />
 
-  // Show set-password screen — after saving, page reloads cleanly into the portal
-  if (needsPassword) return <SetPasswordScreen onDone={() => window.location.replace('/')} />
+  async function handlePasswordDone() {
+    // Reset guard so fetchData runs fresh, then load portal data in-place
+    loadedFor.current = null
+    setNeedsPassword(false)
+    if (session) await fetchData(session.user.email)
+  }
+
+  if (needsPassword) return <SetPasswordScreen onDone={handlePasswordDone} />
 
   if (!tenant) {
     return (
