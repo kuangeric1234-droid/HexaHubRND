@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { format, parseISO } from 'date-fns'
 import { supabase } from '../lib/supabase.js'
-import { Plus, Trash2, Edit2, X, Calendar, ExternalLink } from 'lucide-react'
+import { fetchSanityEvents } from '../lib/sanity.js'
+import { Plus, Trash2, Edit2, X, Calendar, ExternalLink, RefreshCw } from 'lucide-react'
 
 function fmt(dateStr) {
   try { return format(parseISO(dateStr), 'dd/MM/yyyy') } catch { return dateStr }
@@ -19,6 +20,7 @@ const EMPTY = {
 
 export default function Events() {
   const [events, setEvents] = useState([])
+  const [sanityEvents, setSanityEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null) // null | { mode: 'add' | 'edit', event }
   const [form, setForm] = useState(EMPTY)
@@ -27,10 +29,14 @@ export default function Events() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase.from('portal_events').select('data')
-    const all = (data ?? []).map(r => r.data)
+    const [localRes, sanity] = await Promise.all([
+      supabase.from('portal_events').select('data'),
+      fetchSanityEvents(),
+    ])
+    const all = (localRes.data ?? []).map(r => r.data)
     all.sort((a, b) => new Date(b.date) - new Date(a.date))
     setEvents(all)
+    setSanityEvents(sanity.sort((a, b) => new Date(b.date) - new Date(a.date)))
     setLoading(false)
   }
 
@@ -76,28 +82,71 @@ export default function Events() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Events</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Manage events shown to members in the portal</p>
+          <p className="text-sm text-gray-400 mt-0.5">Synced from hexahub.com.au + portal-only events</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 bg-black text-white text-sm font-semibold px-4 py-2 rounded-md hover:bg-gray-800"
-        >
-          <Plus size={15} />
-          Add Event
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={load} className="flex items-center gap-1.5 text-sm border border-gray-200 rounded-md px-3 py-2 text-gray-500 hover:bg-gray-50">
+            <RefreshCw size={13} /> Refresh
+          </button>
+          <button onClick={openAdd} className="flex items-center gap-2 bg-black text-white text-sm font-semibold px-4 py-2 rounded-md hover:bg-gray-800">
+            <Plus size={15} /> Add Portal Event
+          </button>
+        </div>
+      </div>
+
+      {/* Sanity events — live from hexahub.com.au */}
+      {sanityEvents.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">From hexahub.com.au</h2>
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Live from Sanity</span>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Event</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-5 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {sanityEvents.map(ev => (
+                  <tr key={ev.id} className="hover:bg-gray-50">
+                    <td className="px-5 py-3">
+                      <div className="font-medium text-gray-900">{ev.title}</div>
+                      {ev.description && <div className="text-xs text-gray-400 truncate max-w-xs">{ev.description}</div>}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600 text-xs">{ev.date ? fmt(ev.date) : '—'}</td>
+                    <td className="px-5 py-3 text-gray-500 text-xs">{ev.location || '—'}</td>
+                    <td className="px-5 py-3 text-right">
+                      <a href={ev.link} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 justify-end">
+                        <ExternalLink size={12} /> View
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Portal-only local events */}
+      <div className="mb-3">
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Portal-Only Events</h2>
       </div>
 
       {loading ? (
         <div className="text-sm text-gray-400 text-center py-12">Loading…</div>
       ) : events.length === 0 ? (
-        <div className="bg-white border border-dashed border-gray-300 rounded-lg py-16 text-center">
-          <Calendar size={32} className="text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm mb-4">No events yet.</p>
-          <button
-            onClick={openAdd}
-            className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-md hover:bg-gray-800"
-          >
-            + Add First Event
+        <div className="bg-white border border-dashed border-gray-300 rounded-lg py-10 text-center">
+          <Calendar size={28} className="text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm mb-3">No portal-only events. Events from hexahub.com.au appear above automatically.</p>
+          <button onClick={openAdd} className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-md hover:bg-gray-800">
+            + Add Portal Event
           </button>
         </div>
       ) : (

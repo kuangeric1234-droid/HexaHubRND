@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react'
 import { format, parseISO, isFuture, isToday } from 'date-fns'
 import { supabase } from '../lib/supabase.js'
+import { fetchSanityEvents } from '../lib/sanity.js'
 import { Calendar, MapPin, ExternalLink } from 'lucide-react'
 
-function fmt(dateStr) {
+function fmtDate(dateStr) {
   try { return format(parseISO(dateStr), 'EEEE, d MMMM yyyy') } catch { return dateStr }
+}
+
+function isUpcoming(dateStr) {
+  try {
+    const d = parseISO(dateStr)
+    return isFuture(d) || isToday(d)
+  } catch { return true }
 }
 
 export default function PortalEvents() {
@@ -13,8 +21,16 @@ export default function PortalEvents() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('portal_events').select('data')
-      const all = (data ?? []).map(r => r.data)
+      // Fetch Sanity (website) events and local portal events in parallel
+      const [sanityEvents, localRes] = await Promise.all([
+        fetchSanityEvents(),
+        supabase.from('portal_events').select('data'),
+      ])
+
+      const localEvents = (localRes.data ?? []).map(r => ({ ...r.data, source: 'local' }))
+
+      // Merge: Sanity events take precedence, local events fill in extras
+      const all = [...sanityEvents, ...localEvents]
       all.sort((a, b) => new Date(a.date) - new Date(b.date))
       setEvents(all)
       setLoading(false)
@@ -22,12 +38,8 @@ export default function PortalEvents() {
     load()
   }, [])
 
-  const upcoming = events.filter(e => {
-    try { return isFuture(parseISO(e.date)) || isToday(parseISO(e.date)) } catch { return true }
-  })
-  const past = events.filter(e => {
-    try { return !isFuture(parseISO(e.date)) && !isToday(parseISO(e.date)) } catch { return false }
-  })
+  const upcoming = events.filter(e => e.date && isUpcoming(e.date))
+  const past     = events.filter(e => e.date && !isUpcoming(e.date))
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -56,29 +68,29 @@ export default function PortalEvents() {
             rel="noopener noreferrer"
             className="text-sm text-gray-600 hover:underline"
           >
-            View hexahub.com.au for the latest updates →
+            Check hexahub.com.au for the latest →
           </a>
         </div>
       ) : (
         <div className="space-y-8">
           {upcoming.length > 0 && (
             <section>
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Upcoming</h2>
+              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                Upcoming
+              </h2>
               <div className="space-y-4">
-                {upcoming.map(event => (
-                  <EventCard key={event.id} event={event} />
-                ))}
+                {upcoming.map(event => <EventCard key={event.id} event={event} />)}
               </div>
             </section>
           )}
 
           {past.length > 0 && (
             <section>
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Past Events</h2>
+              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                Past Events
+              </h2>
               <div className="space-y-4 opacity-60">
-                {past.slice(0, 5).map(event => (
-                  <EventCard key={event.id} event={event} past />
-                ))}
+                {past.slice(0, 5).map(event => <EventCard key={event.id} event={event} past />)}
               </div>
             </section>
           )}
@@ -95,42 +107,39 @@ function EventCard({ event, past }) {
         <img
           src={event.imageUrl}
           alt={event.title}
-          className="w-full h-40 object-cover"
+          className="w-full h-48 object-cover"
           onError={e => { e.target.style.display = 'none' }}
         />
       )}
       <div className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 text-base mb-2">{event.title}</h3>
-            <div className="space-y-1 mb-3">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Calendar size={12} />
-                {fmt(event.date)}{event.time ? ` · ${event.time}` : ''}
-              </div>
-              {event.location && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <MapPin size={12} />
-                  {event.location}
-                </div>
-              )}
+        <h3 className="font-semibold text-gray-900 text-base mb-2">{event.title}</h3>
+        <div className="space-y-1 mb-3">
+          {event.date && (
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Calendar size={12} />
+              {fmtDate(event.date)}
+              {event.time && event.time !== '12:00 am' ? ` · ${event.time}` : ''}
             </div>
-            {event.description && (
-              <p className="text-sm text-gray-600 leading-relaxed">{event.description}</p>
-            )}
-          </div>
+          )}
+          {event.location && (
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <MapPin size={12} />
+              {event.location}
+            </div>
+          )}
         </div>
+        {event.description && (
+          <p className="text-sm text-gray-600 leading-relaxed mb-4">{event.description}</p>
+        )}
         {event.link && !past && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <a
-              href={event.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-900 hover:underline"
-            >
-              Learn more <ExternalLink size={12} />
-            </a>
-          </div>
+          <a
+            href={event.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-900 hover:underline"
+          >
+            Learn more <ExternalLink size={12} />
+          </a>
         )}
       </div>
     </div>
