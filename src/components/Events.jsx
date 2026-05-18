@@ -47,12 +47,22 @@ export default function Events() {
   async function save() {
     if (!form.title || !form.date) return
     setSaving(true)
-    const id = modal.mode === 'edit' ? modal.event.id : `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    const isNew = modal.mode === 'add'
+    const id = isNew ? `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` : modal.event.id
     const payload = { ...form, id }
     await supabase.from('portal_events').upsert({ id, data: payload })
     await load()
     setModal(null)
     setSaving(false)
+
+    // Notify active portal members about new events only (not edits)
+    if (isNew) {
+      fetch('/api/portal/notify-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: payload }),
+      }).catch(() => {})
+    }
   }
 
   async function remove(id) {

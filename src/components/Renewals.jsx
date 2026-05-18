@@ -210,6 +210,10 @@ export default function Renewals() {
                 settings={settings}
                 onSave={(data) => {
                   addLease(data)
+                  // Auto-expire the original lease
+                  if (renewLease.previousContractId) {
+                    updateLease(renewLease.previousContractId, { status: 'expired' })
+                  }
                   setRenewLease(null)
                 }}
                 onDiscard={() => setRenewLease(null)}
