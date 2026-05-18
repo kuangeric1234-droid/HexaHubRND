@@ -182,7 +182,7 @@ export default function Spaces() {
 
       {/* ── Floorplan view ── */}
       {viewMode === 'floorplan' && (
-        <FloorPlan spaces={spaces} leases={leases} tenants={tenants} />
+        <FloorPlan spaces={spaces} leases={leases} tenants={tenants} onNewContract={setContractSpace} />
       )}
 
       {/* ── List / Card view ── */}

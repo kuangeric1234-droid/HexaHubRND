@@ -41,7 +41,7 @@ function DetailRow({ label, children }) {
   )
 }
 
-export default function FloorPlan({ spaces, leases, tenants }) {
+export default function FloorPlan({ spaces, leases, tenants, onNewContract }) {
   const [view, setView] = useState('warehouses')
   const [selected, setSelected] = useState(null)
 
@@ -323,7 +323,16 @@ export default function FloorPlan({ spaces, leases, tenants }) {
           {selected.status === 'vacant' && (
             <div className="pt-3 border-t border-gray-100">
               <p className="text-xs text-green-700 font-semibold">Available now</p>
-              <p className="text-xs text-gray-400 mt-0.5">Go to Leases to assign a tenant</p>
+              {onNewContract ? (
+                <button
+                  onClick={() => onNewContract(selected)}
+                  className="mt-2 w-full bg-black text-white text-xs font-semibold py-2 rounded hover:bg-gray-800"
+                >
+                  + New Contract
+                </button>
+              ) : (
+                <p className="text-xs text-gray-400 mt-0.5">Go to Leases to assign a tenant</p>
+              )}
             </div>
           )}
         </div>
