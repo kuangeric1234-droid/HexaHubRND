@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import PortalLogin from './PortalLogin.jsx'
@@ -8,6 +8,11 @@ import PortalBilling from './PortalBilling.jsx'
 import PortalMessages from './PortalMessages.jsx'
 import PortalAccount from './PortalAccount.jsx'
 import PortalEvents from './PortalEvents.jsx'
+
+// Read the hash that main.jsx saved before Supabase could process it
+const _savedHash = sessionStorage.getItem('_initialHash') ?? ''
+sessionStorage.removeItem('_initialHash')
+const IS_RECOVERY_FLOW = _savedHash.includes('type=recovery') || _savedHash.includes('type=invite')
 
 function SetPasswordScreen({ onDone }) {
   const [password, setPassword] = useState('')
@@ -83,27 +88,34 @@ function SetPasswordScreen({ onDone }) {
 }
 
 export default function PortalApp() {
-  const [session, setSession]       = useState(null)
-  const [tenant, setTenant]         = useState(null)
-  const [invoices, setInvoices]     = useState([])
-  const [leases, setLeases]         = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [needsPassword, setNeedsPassword] = useState(false)
+  const [session, setSession]               = useState(null)
+  const [tenant, setTenant]                 = useState(null)
+  const [invoices, setInvoices]             = useState([])
+  const [leases, setLeases]                 = useState([])
+  const [loading, setLoading]               = useState(true)
+  const [needsPassword, setNeedsPassword]   = useState(IS_RECOVERY_FLOW)
+  const initialised = useRef(false)
 
   useEffect(() => {
-    // Initial session check
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
+      // If this is a recovery/invite link, just show the set-password screen — don't load portal data yet
+      if (IS_RECOVERY_FLOW) {
+        setLoading(false)
+        return
+      }
       try {
         if (session) await loadData(session.user.email)
+      } catch (e) {
+        console.error('loadData error', e)
       } finally {
         setLoading(false)
       }
+      initialised.current = true
     })
 
-    // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Invite / forgot-password recovery link — show set-password screen
+      // PASSWORD_RECOVERY fires if the listener was registered before Supabase processed the hash
       if (event === 'PASSWORD_RECOVERY') {
         setSession(session)
         setNeedsPassword(true)
@@ -111,12 +123,16 @@ export default function PortalApp() {
         return
       }
 
-      setSession(session)
+      // Skip the SIGNED_IN that fires right after the initial getSession() to avoid double-loading
+      if (!initialised.current && event === 'SIGNED_IN') return
 
+      setSession(session)
       if (session) {
         setLoading(true)
         try {
           await loadData(session.user.email)
+        } catch (e) {
+          console.error('loadData error', e)
         } finally {
           setLoading(false)
         }
@@ -151,6 +167,8 @@ export default function PortalApp() {
       setLoading(true)
       try {
         await loadData(session.user.email)
+      } catch (e) {
+        console.error('loadData error', e)
       } finally {
         setLoading(false)
       }
