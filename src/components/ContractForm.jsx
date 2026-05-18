@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Minus, ChevronDown, X, AlertCircle } from 'lucide-react'
 
-const FORM_TABS = [
+const FORM_SECTIONS = [
   { id: 'company', label: 'Company Information' },
   { id: 'duration', label: 'Duration' },
   { id: 'items', label: 'Items' },
@@ -158,9 +158,20 @@ const selectCls = (err) =>
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ContractForm({ editLease, leases, tenants, spaces, templates = [], onSave, onDiscard }) {
-  const [tab, setTab] = useState('company')
   const [form, setForm] = useState(() => initForm(editLease, leases))
   const [errors, setErrors] = useState({})
+
+  const sectionRefs = {
+    company: useRef(null),
+    duration: useRef(null),
+    items: useRef(null),
+    terms: useRef(null),
+    messages: useRef(null),
+  }
+
+  function scrollTo(id) {
+    sectionRefs[id]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const isEdit = !!editLease
 
@@ -297,10 +308,9 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
 
   function handleSubmit() {
     if (!validate()) {
-      // Jump to the first tab with errors
-      if (errors.tenantId) setTab('company')
-      else if (errors.startDate || errors.endDate) setTab('duration')
-      else if (errors.items) setTab('items')
+      if (errors.tenantId) scrollTo('company')
+      else if (errors.startDate || errors.endDate) scrollTo('duration')
+      else if (errors.items) scrollTo('items')
       return
     }
     const firstItem = form.items[0] ?? {}
@@ -340,24 +350,20 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* ── Header with tabs ── */}
+      {/* ── Header with section anchors ── */}
       <div className="bg-white border-b border-gray-200 px-8 pt-6 pb-0 shrink-0">
         <h1 className="text-lg font-semibold text-gray-900 mb-4">
           {isEdit ? `Edit Contract · ${form.contractNumber}` : 'New Contract'}
         </h1>
         <div className="flex">
-          {FORM_TABS.map((t) => (
+          {FORM_SECTIONS.map((s) => (
             <button
-              key={t.id}
+              key={s.id}
               type="button"
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                tab === t.id
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              onClick={() => scrollTo(s.id)}
+              className="px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors whitespace-nowrap"
             >
-              {t.label}
+              {s.label}
             </button>
           ))}
         </div>
@@ -367,7 +373,7 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
       <div className="flex-1 overflow-y-auto px-8 py-6">
 
         {/* ─── Company Information ─── */}
-        {tab === 'company' && (
+        <div ref={sectionRefs.company}>
           <Section title="Company Information">
             <div className="grid grid-cols-2 gap-6">
               <Field label="Company" required error={errors.tenantId}>
@@ -408,10 +414,10 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
               </Field>
             </div>
           </Section>
-        )}
+        </div>
 
         {/* ─── Duration ─── */}
-        {tab === 'duration' && (
+        <div ref={sectionRefs.duration}>
           <Section title="Duration">
             <div className="grid grid-cols-2 gap-6">
               <Field label="Document Type">
@@ -508,10 +514,10 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
               </Field>
             </div>
           </Section>
-        )}
+        </div>
 
         {/* ─── Items ─── */}
-        {tab === 'items' && (
+        <div ref={sectionRefs.items}>
           <Section title="Items">
             {errors.items && (
               <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">
@@ -704,10 +710,10 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
               </p>
             </div>
           </Section>
-        )}
+        </div>
 
         {/* ─── Terms & Conditions ─── */}
-        {tab === 'terms' && (
+        <div ref={sectionRefs.terms}>
           <Section title="Terms & Conditions">
             <Field label="Contract Terms">
               {/* Selected templates as removable tags */}
@@ -810,16 +816,16 @@ export default function ContractForm({ editLease, leases, tenants, spaces, templ
               />
             </div>
           </Section>
-        )}
+        </div>
 
         {/* ─── System Messages ─── */}
-        {tab === 'messages' && (
+        <div ref={sectionRefs.messages}>
           <Section title="System Messages">
             <div className="py-10 text-center text-gray-400 text-sm">
               No system messages for this contract.
             </div>
           </Section>
-        )}
+        </div>
       </div>
 
       {/* ── Footer ── */}

@@ -17,7 +17,9 @@ export default async function handler(req, res) {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email)
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: 'https://members.hexahub.com.au',
+  })
   if (error) return res.status(400).json({ error: error.message })
 
   return res.status(200).json({ success: true, email: data.user?.email })

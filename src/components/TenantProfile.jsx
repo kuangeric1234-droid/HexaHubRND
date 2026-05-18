@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Pencil, Building2, Mail, Phone, Hash, Plus, FileDown } from 'lucide-react'
+import { ArrowLeft, Pencil, Building2, Mail, Phone, Hash, Plus, FileDown, Send, MessageSquare } from 'lucide-react'
 import InvoiceForm from './InvoiceForm.jsx'
 import DocumentsPanel from './DocumentsPanel.jsx'
 import { jsPDF } from 'jspdf'
+import { supabase } from '../lib/supabase.js'
 
 const SIG_BADGE = {
   manually_signed:   { label: 'Signed',       cls: 'bg-green-100 text-green-700' },
@@ -184,6 +185,7 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
             <button onClick={generateStatement} className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600">
               <FileDown size={13} /> Statement PDF
             </button>
+            <InvitePortalButton email={tenant.email} />
             <button onClick={onEdit} className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600">
               <Pencil size={13} /> Edit Details
             </button>
@@ -376,6 +378,9 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
               <DocumentsPanel tenantId={tenant.id} title="Documents" />
             </div>
 
+            {/* ── Portal Messages ── */}
+            <PortalMessagesAdmin tenantId={tenant.id} />
+
           </div>
         </div>
       </div>
@@ -432,6 +437,154 @@ function Row({ label, icon, children }) {
     <div className="flex items-start gap-2">
       {icon ? <span className="text-gray-400 mt-0.5 shrink-0">{icon}</span> : <span className="text-gray-400 uppercase font-semibold w-14 shrink-0 text-[10px] mt-0.5">{label}</span>}
       <span>{children}</span>
+    </div>
+  )
+}
+
+function InvitePortalButton({ email }) {
+  const [status, setStatus] = useState('idle') // idle | sending | sent | error
+
+  async function invite() {
+    if (!email) return
+    setStatus('sending')
+    try {
+      const res = await fetch('/api/auth/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      setStatus(res.ok ? 'sent' : 'error')
+    } catch {
+      setStatus('error')
+    }
+    setTimeout(() => setStatus('idle'), 4000)
+  }
+
+  return (
+    <button
+      onClick={invite}
+      disabled={status === 'sending' || !email}
+      className="flex items-center gap-1.5 text-xs border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 text-gray-600 disabled:opacity-50"
+    >
+      <MessageSquare size={13} />
+      {status === 'sent' ? 'Invite sent!' : status === 'error' ? 'Failed' : 'Invite to Portal'}
+    </button>
+  )
+}
+
+function PortalMessagesAdmin({ tenantId }) {
+  const [messages, setMessages] = useState([])
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [open, setOpen] = useState(false)
+  const bottomRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    load()
+    const channel = supabase
+      .channel(`portal_msgs_admin_${tenantId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'portal_messages' }, load)
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [open, tenantId])
+
+  useEffect(() => {
+    if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, open])
+
+  async function load() {
+    const { data } = await supabase.from('portal_messages').select('data')
+    const all = (data ?? []).map(r => r.data).filter(m => m.tenantId === tenantId)
+    all.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+    setMessages(all)
+    // mark unread (from tenant) as read by admin
+    for (const m of all.filter(m => m.sender === 'tenant' && !m.readByAdmin)) {
+      supabase.from('portal_messages').upsert({ id: m.id, data: { ...m, readByAdmin: true } })
+    }
+  }
+
+  async function sendReply(e) {
+    e.preventDefault()
+    if (!text.trim()) return
+    setSending(true)
+    const msg = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      tenantId,
+      sender: 'admin',
+      content: text.trim(),
+      timestamp: new Date().toISOString(),
+      readByAdmin: true,
+      readByTenant: false,
+    }
+    await supabase.from('portal_messages').insert({ id: msg.id, data: msg })
+    setText('')
+    setSending(false)
+  }
+
+  const unread = messages.filter(m => m.sender === 'tenant' && !m.readByAdmin).length
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 text-left"
+      >
+        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <MessageSquare size={15} className="text-gray-400" />
+          Portal Messages
+          {unread > 0 && !open && (
+            <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{unread}</span>
+          )}
+        </div>
+        <span className="text-xs text-gray-400">{open ? 'Collapse' : 'Expand'}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-100 px-5 py-4">
+          {/* Thread */}
+          <div className="h-64 overflow-y-auto space-y-3 mb-4">
+            {messages.length === 0 && (
+              <div className="flex items-center justify-center h-full text-sm text-gray-400">
+                No messages yet.
+              </div>
+            )}
+            {messages.map(msg => (
+              <div key={msg.id} className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-xs px-3 py-2 rounded-xl text-sm ${
+                  msg.sender === 'admin'
+                    ? 'bg-black text-white rounded-br-sm'
+                    : 'bg-gray-100 text-gray-900 rounded-bl-sm'
+                }`}>
+                  <p className="leading-relaxed whitespace-pre-wrap text-xs">{msg.content}</p>
+                  <p className="text-xs mt-1 opacity-60">
+                    {msg.sender === 'admin' ? 'You' : 'Member'} ·{' '}
+                    {(() => { try { return format(parseISO(msg.timestamp), 'dd/MM h:mm a') } catch { return '' } })()}
+                  </p>
+                </div>
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+          {/* Reply form */}
+          <form onSubmit={sendReply} className="flex gap-2">
+            <input
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder="Reply to member…"
+              className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              disabled={sending}
+            />
+            <button
+              type="submit"
+              disabled={sending || !text.trim()}
+              className="bg-black text-white px-3 py-2 rounded hover:bg-gray-800 disabled:opacity-40"
+            >
+              <Send size={14} />
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

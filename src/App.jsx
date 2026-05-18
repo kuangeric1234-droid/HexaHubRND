@@ -12,12 +12,20 @@ import Billing from './components/Billing.jsx'
 import Settings from './components/Settings.jsx'
 import Maintenance from './components/Maintenance.jsx'
 import Reports from './components/Reports.jsx'
+import Events from './components/Events.jsx'
 import Login from './components/Login.jsx'
 import SignPage from './components/SignPage.jsx'
+import PortalApp from './portal/PortalApp.jsx'
 import { useStore } from './store/useStore.js'
 import { supabase } from './lib/supabase.js'
 
 export default function App() {
+  // Member portal (via subdomain OR direct /portal path)
+  if (
+    window.location.hostname.startsWith('members.') ||
+    window.location.pathname.startsWith('/portal')
+  ) return <PortalApp />
+
   // Public sign page — no auth needed
   const signMatch = window.location.pathname.match(/^\/sign\/([^/]+)/)
   if (signMatch) return <SignPage token={signMatch[1]} />
@@ -79,6 +87,7 @@ export default function App() {
           <Route path="templates" element={<Templates />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="events" element={<Events />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
