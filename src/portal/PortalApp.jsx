@@ -9,25 +9,112 @@ import PortalMessages from './PortalMessages.jsx'
 import PortalAccount from './PortalAccount.jsx'
 import PortalEvents from './PortalEvents.jsx'
 
+// Detect invite/recovery link before Supabase clears the hash
+const NEEDS_PASSWORD_ON_LOAD =
+  window.location.hash.includes('type=invite') ||
+  window.location.hash.includes('type=recovery')
+
+function SetPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (password.length < 8) return setError('Password must be at least 8 characters.')
+    if (password !== confirm) return setError('Passwords do not match.')
+    setLoading(true)
+    setError('')
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) { setError(error.message); setLoading(false); return }
+    onDone()
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
+          <div className="text-3xl font-black tracking-widest text-gray-900">HEXAHUB</div>
+          <p className="text-sm text-gray-400 mt-1">Member Portal</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
+          <h1 className="text-lg font-semibold text-gray-900 mb-2">Set your password</h1>
+          <p className="text-sm text-gray-400 mb-6">Choose a password to secure your account.</p>
+          {error && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+              {error}
+            </div>
+          )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={8}
+                placeholder="At least 8 characters"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
+              <input
+                type="password"
+                value={confirm}
+                onChange={e => setConfirm(e.target.value)}
+                required
+                placeholder="Repeat your password"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-black text-white py-2.5 rounded text-sm font-semibold hover:bg-gray-800 disabled:opacity-50"
+            >
+              {loading ? 'Saving…' : 'Set Password & Enter Portal'}
+            </button>
+          </form>
+        </div>
+        <p className="text-center text-xs text-gray-400 mt-6">
+          hexahub.com.au · build locally, scale sustainably
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function PortalApp() {
   const [session, setSession] = useState(null)
   const [tenant, setTenant] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [leases, setLeases] = useState([])
   const [loading, setLoading] = useState(true)
+  const [needsPassword, setNeedsPassword] = useState(NEEDS_PASSWORD_ON_LOAD)
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
-      if (session) await loadData(session.user.email)
+      if (session && !needsPassword) await loadData(session.user.email)
       setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setSession(session)
+        setNeedsPassword(true)
+        setLoading(false)
+        return
+      }
       setSession(session)
       if (session) {
-        setLoading(true)
-        await loadData(session.user.email)
-        setLoading(false)
+        if (!needsPassword) {
+          setLoading(true)
+          await loadData(session.user.email)
+          setLoading(false)
+        }
       } else {
         setTenant(null)
         setInvoices([])
@@ -52,12 +139,22 @@ export default function PortalApp() {
     }
   }
 
+  async function handlePasswordSet() {
+    setNeedsPassword(false)
+    if (session) {
+      setLoading(true)
+      await loadData(session.user.email)
+      setLoading(false)
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
     setSession(null)
     setTenant(null)
     setInvoices([])
     setLeases([])
+    setNeedsPassword(false)
   }
 
   if (loading) {
@@ -72,6 +169,8 @@ export default function PortalApp() {
   }
 
   if (!session) return <PortalLogin />
+
+  if (needsPassword) return <SetPasswordScreen onDone={handlePasswordSet} />
 
   if (!tenant) {
     return (
@@ -94,7 +193,6 @@ export default function PortalApp() {
     )
   }
 
-  // On members.hexahub.com.au the base is "/"; on the main domain it's "/portal"
   const basename = window.location.hostname.startsWith('members.') ? '/' : '/portal'
 
   return (
