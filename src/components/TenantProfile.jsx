@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ArrowLeft, Pencil, Building2, Mail, Phone, Hash, Plus, FileDown } from 'lucide-react'
 import InvoiceForm from './InvoiceForm.jsx'
+import DocumentsPanel from './DocumentsPanel.jsx'
 import { jsPDF } from 'jspdf'
 
 const SIG_BADGE = {
@@ -369,6 +370,11 @@ export default function TenantProfile({ tenant, leases, invoices, spaces, settin
                 </table>
               )}
             </Section>
+
+            {/* ── Documents ── */}
+            <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+              <DocumentsPanel tenantId={tenant.id} title="Documents" />
+            </div>
 
           </div>
         </div>

@@ -213,6 +213,7 @@ export default function Billing() {
           subject: `Invoice ${inv.number} from ${settings?.company?.name ?? 'HexaHub'}`,
           html: invoiceEmailHtml({ invoice: inv, tenant, settings }),
           settings,
+          tenantId: inv.tenantId, emailType: 'invoice',
         })
         updateInvoice(id, { sentStatus: 'sent' })
         sent++

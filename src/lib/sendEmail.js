@@ -1,7 +1,9 @@
 // Client-side helper — calls the /api/send-email serverless function.
 // Pass settings from useStore to provide from/replyTo/cc/bcc values.
 
-export async function sendEmail({ to, subject, html, settings, attachments }) {
+import { supabase } from './supabase.js'
+
+export async function sendEmail({ to, subject, html, settings, attachments, tenantId, emailType }) {
   const emails = settings?.emails ?? {}
   const billing = settings?.billing ?? {}
   const company = settings?.company ?? {}
@@ -31,7 +33,24 @@ export async function sendEmail({ to, subject, html, settings, attachments }) {
     throw new Error(data.error ?? 'Failed to send email')
   }
 
-  return res.json()
+  const result = await res.json()
+
+  // Log to Supabase (fire-and-forget — never block the email send)
+  const logId = `email_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+  supabase.from('email_log').insert({
+    id: logId,
+    data: {
+      id: logId,
+      tenantId: tenantId ?? null,
+      emailType: emailType ?? 'general',
+      to,
+      subject,
+      sentAt: new Date().toISOString(),
+      hasAttachment: !!(attachments?.length),
+    },
+  }).then(() => {}).catch(() => {})
+
+  return result
 }
 
 // ── Email templates ────────────────────────────────────────────────────────────

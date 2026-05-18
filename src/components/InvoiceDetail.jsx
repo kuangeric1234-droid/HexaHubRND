@@ -203,6 +203,7 @@ export default function InvoiceDetail({
         html: invoiceEmailHtml({ invoice, tenant, settings }),
         settings,
         attachments: [{ filename: `${invoice.number}_${slug}.pdf`, content: pdfBase64 }],
+        tenantId: invoice.tenantId, emailType: 'invoice',
       })
       onUpdate(invoice.id, { sentStatus: 'sent' })
     } catch (err) {
@@ -225,6 +226,7 @@ export default function InvoiceDetail({
       await sendEmail({
         to: email,
         subject: `Payment reminder — ${invoice.number} overdue`,
+        tenantId: invoice.tenantId, emailType: 'reminder',
         html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:0">
 <div style="max-width:560px;margin:32px auto;background:#fff;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden">
   <div style="background:#000;padding:20px 32px"><span style="color:#fff;font-size:18px;font-weight:bold;letter-spacing:2px">${companyName.toUpperCase()}</span></div>
@@ -295,6 +297,7 @@ export default function InvoiceDetail({
 </div></body></html>`,
         settings,
         attachments: [{ filename: `Receipt_${invoice.number}_${slug}.pdf`, content: pdfBase64 }],
+        tenantId: invoice.tenantId, emailType: 'receipt',
       })
       alert('Receipt sent.')
     } catch (err) {

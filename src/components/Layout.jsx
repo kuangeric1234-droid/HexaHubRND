@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   Wrench,
+  BarChart2,
 } from 'lucide-react'
 import { logout } from '../lib/auth.js'
 
@@ -23,6 +24,7 @@ const nav = [
   { to: '/agreements', icon: FilePlus, label: 'Agreements' },
   { to: '/renewals', icon: RefreshCw, label: 'Renewals' },
   { to: '/maintenance', icon: Wrench, label: 'Maintenance' },
+  { to: '/reports', icon: BarChart2, label: 'Reports' },
   { to: '/templates', icon: BookOpen, label: 'Templates' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

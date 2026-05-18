@@ -44,6 +44,7 @@ export default function Renewals() {
       await sendEmail({
         to: tenant.email,
         subject: `Renewal notice — ${contractNum} expires ${expiryDate}`,
+        tenantId: tenant.id, emailType: 'renewal',
         html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:0">
 <div style="max-width:560px;margin:32px auto;background:#fff;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden">
   <div style="background:#000;padding:20px 32px"><span style="color:#fff;font-size:18px;font-weight:bold;letter-spacing:2px">${companyName.toUpperCase()}</span></div>

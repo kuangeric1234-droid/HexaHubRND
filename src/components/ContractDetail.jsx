@@ -7,6 +7,7 @@ import SignatureCanvas from './SignatureCanvas.jsx'
 import { sendEmail, eSignEmailHtml } from '../lib/sendEmail.js'
 import { supabase } from '../lib/supabase.js'
 import { jsPDF } from 'jspdf'
+import DocumentsPanel from './DocumentsPanel.jsx'
 
 const SIG_STATUS = {
   manually_signed: { label: 'Manually Signed', cls: 'bg-green-500 text-white' },
@@ -1019,6 +1020,11 @@ export default function ContractDetail({
                 <p className="text-sm text-gray-600 whitespace-pre-wrap">{lease.notes}</p>
               </div>
             )}
+
+            {/* Documents */}
+            <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+              <DocumentsPanel leaseId={lease.id} tenantId={lease.tenantId} title="Contract Documents" />
+            </div>
           </div>
           )} {/* end grid view */}
         </div>
