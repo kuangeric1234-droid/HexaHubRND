@@ -212,7 +212,7 @@ export default function Renewals() {
                   addLease(data)
                   setRenewLease(null)
                 }}
-                onCancel={() => setRenewLease(null)}
+                onDiscard={() => setRenewLease(null)}
               />
             </div>
           </div>

@@ -207,6 +207,71 @@ export default async function handler(req, res) {
     created.push({ number: invoiceNum, tenant: tenant.businessName })
   }
 
+  // Send admin summary email
+  if (resendKey) {
+    const rows = (items) => items.map(i =>
+      `<tr><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;">${typeof i === 'string' ? i : `${i.number} — ${i.tenant}`}</td></tr>`
+    ).join('')
+
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'HexaHub <info@hexahub.com.au>',
+        to: ['info@hexahub.com.au'],
+        subject: `Auto Bill Run — ${periodStart} → ${periodEnd}`,
+        html: `
+<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#fff;">
+  <div style="background:#000;padding:24px 32px;">
+    <div style="color:#fff;font-size:18px;font-weight:900;letter-spacing:3px;">HEXAHUB</div>
+    <div style="color:#888;font-size:11px;margin-top:2px;">Auto Bill Run Report</div>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;">Billing Period</p>
+    <h2 style="font-size:18px;color:#111;margin:0 0 24px;">${periodStart} → ${periodEnd}</h2>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <tr style="background:#000;">
+        <td style="padding:8px 12px;color:#fff;font-size:12px;font-weight:bold;">
+          ✓ ${created.length} Invoice${created.length !== 1 ? 's' : ''} Created &amp; Emailed
+        </td>
+      </tr>
+      ${created.length ? rows(created) : '<tr><td style="padding:6px 12px;color:#888;font-style:italic;">None</td></tr>'}
+    </table>
+
+    ${skipped.length ? `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <tr style="background:#f5f5f5;">
+        <td style="padding:8px 12px;color:#555;font-size:12px;font-weight:bold;">
+          — ${skipped.length} Skipped (already invoiced)
+        </td>
+      </tr>
+      ${rows(skipped)}
+    </table>` : ''}
+
+    ${errors.length ? `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <tr style="background:#fef2f2;">
+        <td style="padding:8px 12px;color:#dc2626;font-size:12px;font-weight:bold;">
+          ✗ ${errors.length} Error${errors.length !== 1 ? 's' : ''}
+        </td>
+      </tr>
+      ${errors.map(e => `<tr><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;color:#dc2626;">${e.tenant ?? e.leaseId}: ${e.reason}</td></tr>`).join('')}
+    </table>` : ''}
+
+    <a href="https://app.hexahub.com.au/billing"
+       style="display:inline-block;background:#000;color:#fff;text-decoration:none;padding:10px 24px;font-size:13px;font-weight:600;border-radius:6px;">
+      View Billing
+    </a>
+  </div>
+  <div style="background:#f5f5f5;padding:16px 32px;border-top:1px solid #eee;">
+    <p style="color:#999;font-size:11px;margin:0;text-align:center;">HexaHub Pty Ltd · hexahub.com.au</p>
+  </div>
+</div>`,
+      }),
+    }).catch(() => {})
+  }
+
   return res.status(200).json({
     period: `${periodStart} → ${periodEnd}`,
     created,

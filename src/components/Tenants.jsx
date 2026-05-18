@@ -139,12 +139,15 @@ export default function Tenants() {
           <h1 className="text-2xl font-bold text-gray-900">Tenants</h1>
           <p className="text-sm text-gray-500 mt-1">{tenants.length} tenant profiles</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors"
-        >
-          <Plus size={15} /> Add Tenant
-        </button>
+        <div className="flex items-center gap-2">
+          <BulkPortalInviteButton tenants={tenants} />
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors"
+          >
+            <Plus size={15} /> Add Tenant
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -306,5 +309,119 @@ export default function Tenants() {
         </div>
       )}
     </div>
+  )
+}
+
+function BulkPortalInviteButton({ tenants }) {
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState(null)
+
+  async function run() {
+    const withEmail = tenants.filter(t => t.email)
+    if (!withEmail.length) return alert('No tenants have email addresses.')
+    if (!window.confirm(
+      `Check all ${withEmail.length} tenants and invite any who haven't been invited to the portal yet?`
+    )) return
+
+    setRunning(true)
+    setResult(null)
+
+    // Check portal status for all tenants in parallel
+    const statuses = await Promise.all(
+      withEmail.map(async t => {
+        try {
+          const res = await fetch(`/api/portal/status?email=${encodeURIComponent(t.email)}`)
+          const data = await res.json()
+          return { tenant: t, status: data.status }
+        } catch {
+          return { tenant: t, status: 'error' }
+        }
+      })
+    )
+
+    const toInvite = statuses.filter(s => s.status === 'not_invited')
+    const invited = [], failed = []
+
+    // Send invites sequentially to avoid rate limiting
+    for (const { tenant } of toInvite) {
+      try {
+        const res = await fetch('/api/auth/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: tenant.email }),
+        })
+        if (res.ok) invited.push(tenant.businessName)
+        else failed.push(tenant.businessName)
+      } catch {
+        failed.push(tenant.businessName)
+      }
+    }
+
+    const alreadyActive = statuses.filter(s => s.status === 'active').length
+    const alreadyInvited = statuses.filter(s => s.status === 'invited').length
+
+    setResult({ invited, failed, alreadyActive, alreadyInvited })
+    setRunning(false)
+  }
+
+  return (
+    <>
+      <button
+        onClick={run}
+        disabled={running}
+        className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+      >
+        {running ? 'Checking…' : '✉ Bulk Portal Invite'}
+      </button>
+
+      {result && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="font-bold text-gray-900 mb-4">Bulk Portal Invite — Done</h3>
+            <div className="space-y-3 text-sm">
+              {result.invited.length > 0 && (
+                <div>
+                  <div className="font-medium text-green-700 mb-1">
+                    ✓ {result.invited.length} invite{result.invited.length !== 1 ? 's' : ''} sent
+                  </div>
+                  {result.invited.map(n => (
+                    <div key={n} className="text-gray-600 pl-3">{n}</div>
+                  ))}
+                </div>
+              )}
+              {result.invited.length === 0 && result.failed.length === 0 && (
+                <p className="text-gray-500">No new tenants to invite.</p>
+              )}
+              {result.alreadyActive > 0 && (
+                <div className="text-gray-400">
+                  — {result.alreadyActive} already active in portal
+                </div>
+              )}
+              {result.alreadyInvited > 0 && (
+                <div className="text-gray-400">
+                  — {result.alreadyInvited} already invited (pending)
+                </div>
+              )}
+              {result.failed.length > 0 && (
+                <div>
+                  <div className="font-medium text-red-600 mb-1">
+                    ✗ {result.failed.length} failed
+                  </div>
+                  {result.failed.map(n => (
+                    <div key={n} className="text-red-500 pl-3">{n}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setResult(null)}
+              className="mt-5 w-full bg-black text-white text-sm font-semibold py-2 rounded hover:bg-gray-800"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
