@@ -9,7 +9,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY
 const EVENT = {
   name: 'Hexa Hub Pop-Up',
   date: 'Sunday 7 June 2026',
-  hours: '10:00 AM – 10:00 PM',
+  hours: '3:00 PM – 9:00 PM',
   venue: 'The Hub, 18 Logistic Court, Huntingdale VIC 3166',
 }
 
@@ -108,7 +108,7 @@ function buildSpaceAssignedEmail({ booking }) {
       <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0;color:#111">${EVENT.date}</td></tr>
       <tr><td style="padding:8px 0;color:#888">Hours</td><td style="padding:8px 0;color:#111">${EVENT.hours}</td></tr>
       <tr><td style="padding:8px 0;color:#888">Venue</td><td style="padding:8px 0;color:#111">${EVENT.venue}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Bump-In From</td><td style="padding:8px 0;color:#111">8:00 AM</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Bump-In From</td><td style="padding:8px 0;color:#111">11:00 AM</td></tr>
       ${booking.vendorType ? `<tr><td style="padding:8px 0;color:#888">You are</td><td style="padding:8px 0;color:#111">${booking.vendorType}</td></tr>` : ''}
     </table>
     <p style="font-size:13px;color:#555;margin:0 0 8px">

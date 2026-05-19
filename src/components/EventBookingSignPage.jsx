@@ -52,10 +52,10 @@ function LicenceAgreementDoc({ booking }) {
               ['Permitted Use', [b.vendorType, b.vendorDescription].filter(Boolean).join(' — ') || '—'],
               ['Event', 'Hexa Hub Pop-Up'],
               ['Event Date', fmtDate(b.eventDate || '2026-06-07')],
-              ['Access / Bump-In Time', fmtTime(b.accessTime || '08:00')],
-              ['Event Commencement', fmtTime(b.eventStartTime || '10:00')],
-              ['Event Finish', fmtTime(b.eventFinishTime || '22:00')],
-              ['Bump-Out Completion', fmtTime(b.bumpOutTime || '23:00')],
+              ['Access / Bump-In Time', fmtTime(b.accessTime || '11:00')],
+              ['Event Commencement', fmtTime(b.eventStartTime || '15:00')],
+              ['Event Finish', fmtTime(b.eventFinishTime || '21:00')],
+              ['Bump-Out Completion', fmtTime(b.bumpOutTime || '22:00')],
               ['Licence Fee', fmtMoney(b.participationFee) || 'Nil — by invitation'],
               ['Bond', fmtMoney(b.bond) || 'Nil'],
               ['Deposit', fmtMoney(b.deposit) || (b.participationFee ? '50% of Licence Fee payable on signing' : 'Nil')],
@@ -849,7 +849,7 @@ function VendorDetailsForm({ booking, onComplete }) {
           <div className="bg-black text-white px-8 py-6">
             <div className="text-xs tracking-widest text-gray-400 uppercase mb-1">You're invited</div>
             <h2 className="text-xl font-bold">Hexa Hub Pop-Up</h2>
-            <p className="text-sm text-gray-300 mt-1">Sunday 7 June 2026 · 10:00 AM – 10:00 PM</p>
+            <p className="text-sm text-gray-300 mt-1">Sunday 7 June 2026 · 3:00 PM – 9:00 PM</p>
             <p className="text-xs text-gray-400 mt-0.5">17 Logistic Court, Huntingdale, Victoria</p>
           </div>
 

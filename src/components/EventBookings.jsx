@@ -11,10 +11,10 @@ const EVENT = {
   name: 'Hexa Hub Pop-Up',
   date: '2026-06-07',
   venue: 'The Hub, 18 Logistic Court, Huntingdale VIC 3166',
-  bumpInTime: '08:00',
-  startTime: '10:00',
-  finishTime: '22:00',
-  bumpOutTime: '23:00',
+  bumpInTime: '11:00',
+  startTime: '15:00',
+  finishTime: '21:00',
+  bumpOutTime: '22:00',
 }
 
 const STATUS = {
@@ -582,7 +582,7 @@ export default function EventBookings() {
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Event Vendor Agreements</div>
               <h1 className="text-lg font-bold tracking-tight">Hexa Hub Pop-Up</h1>
-              <p className="text-xs text-gray-400 mt-0.5">Sunday 7 June 2026 · 10:00 AM – 10:00 PM · 18 Logistic Court, Huntingdale</p>
+              <p className="text-xs text-gray-400 mt-0.5">Sunday 7 June 2026 · 3:00 PM – 9:00 PM · Bump-in from 11:00 AM · 18 Logistic Court, Huntingdale</p>
             </div>
             <button
               onClick={() => { setEditData(null); setShowForm(true) }}
