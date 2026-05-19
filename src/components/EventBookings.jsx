@@ -57,7 +57,6 @@ function SpaceEditor({ booking, onUpdate }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(booking.allocatedSpace || '')
   const [saving, setSaving] = useState(false)
-  const [notified, setNotified] = useState(false)
 
   const current = booking.allocatedSpace || null
 
@@ -68,18 +67,6 @@ function SpaceEditor({ booking, onUpdate }) {
       const now = new Date().toISOString()
       const updated = { ...booking, allocatedSpace: value.trim(), spaceAssignedAt: now, updatedAt: now }
       await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
-
-      // Notify vendor whenever they have an email
-      if (booking.vendorEmail) {
-        await fetch('/api/event-bookings/send-signing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ booking: updated, mode: 'space_assigned' }),
-        }).catch(() => {})
-        setNotified(true)
-        setTimeout(() => setNotified(false), 3000)
-      }
-
       onUpdate(updated)
       setEditing(false)
     } finally {
@@ -98,8 +85,8 @@ function SpaceEditor({ booking, onUpdate }) {
           className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
           placeholder="e.g. Stall 3, Space B, Zone A"
         />
-        <button onClick={handleSave} disabled={saving || !value.trim()} className="bg-black text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-gray-800 disabled:opacity-40 flex items-center gap-1">
-          {saving ? '…' : <><Bell size={11} /> Save & Notify</>}
+        <button onClick={handleSave} disabled={saving || !value.trim()} className="bg-black text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-gray-800 disabled:opacity-40">
+          {saving ? '…' : 'Save'}
         </button>
         <button onClick={() => { setEditing(false); setValue(booking.allocatedSpace || '') }} className="text-gray-400 hover:text-gray-700 p-1">
           <X size={14} />
@@ -114,7 +101,6 @@ function SpaceEditor({ booking, onUpdate }) {
         <MapPin size={12} className="shrink-0 text-gray-400" />
         {current || 'TBA — not yet assigned'}
       </div>
-      {notified && <span className="text-xs text-green-600 font-medium">Vendor notified ✓</span>}
       <button onClick={() => setEditing(true)} className="text-xs text-gray-400 hover:text-gray-700 underline shrink-0">
         {current ? 'Change' : 'Assign'}
       </button>
@@ -129,6 +115,23 @@ function VendorDetail({
   onSendForSigning, onMarkInsuranceReceived, onCopyLink,
   sending, copied, onUpdate,
 }) {
+  const [notifying, setNotifying] = useState(false)
+  const [notified, setNotified] = useState(false)
+
+  async function notifySpace() {
+    setNotifying(true)
+    try {
+      await fetch('/api/event-bookings/send-signing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking, mode: 'space_assigned' }),
+      })
+      setNotified(true)
+      setTimeout(() => setNotified(false), 3000)
+    } finally {
+      setNotifying(false)
+    }
+  }
   async function markCancelled() {
     if (!confirm('Cancel this vendor? This cannot be undone.')) return
     const now = new Date().toISOString()
@@ -218,6 +221,20 @@ function VendorDetail({
             <div className="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded px-3 py-2">
               Add vendor email to send documents.
             </div>
+          )}
+
+          {/* Notify vendor of their space once allocated */}
+          {booking.allocatedSpace && booking.vendorEmail && !isCancelled && (
+            <button
+              onClick={notifySpace}
+              disabled={notifying}
+              className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-40"
+            >
+              {notified
+                ? <><Check size={14} className="text-green-500" /> Vendor Notified!</>
+                : <><Bell size={14} /> {notifying ? 'Sending…' : `Notify Vendor — ${booking.allocatedSpace}`}</>
+              }
+            </button>
           )}
           {isSent && (
             <div className="bg-blue-50 border border-blue-100 rounded-md px-3 py-2.5 text-xs text-blue-700">
