@@ -561,7 +561,7 @@ function ComplianceAndMarketingDoc() {
 // ── Main sign page ────────────────────────────────────────────────────────────
 
 export default function EventBookingSignPage({ token }) {
-  const [state, setState] = useState('loading')
+  const [state, setState] = useState('loading') // loading|details|ready|signed|invalid|error
   const [booking, setBooking] = useState(null)
   const [view, setView] = useState('doc1')
   const [signerName, setSignerName] = useState('')
@@ -582,7 +582,9 @@ export default function EventBookingSignPage({ token }) {
         setBooking(match)
         if (match.signedAt) { setState('signed'); return }
         if (match.vendorName) setSignerName(match.vendorName)
-        setState('ready')
+        // If vendor hasn't filled in their details yet, show details form first
+        const hasDetails = match.detailsCompleted || (match.vendorBusiness && match.vendorType)
+        setState(hasDetails ? 'ready' : 'details')
       } catch {
         setState('error')
       }
@@ -643,6 +645,19 @@ export default function EventBookingSignPage({ token }) {
         body: JSON.stringify({ booking: updated, mode: 'insurance_deferred' }),
       }).catch(() => {})
     }
+  }
+
+  if (state === 'details') {
+    return (
+      <VendorDetailsForm
+        booking={booking}
+        onComplete={(updated) => {
+          setBooking(updated)
+          if (updated.vendorName) setSignerName(updated.vendorName)
+          setState('ready')
+        }}
+      />
+    )
   }
 
   const TABS = [
@@ -766,6 +781,150 @@ export default function EventBookingSignPage({ token }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Vendor details form (step 1 before documents) ────────────────────────────
+
+const VENDOR_TYPES = [
+  'Food & Beverage',
+  'Products / Retail',
+  'Brand Activation',
+  'Car Display',
+  'Services',
+  'Sponsor',
+  'Other',
+]
+
+function VendorDetailsForm({ booking, onComplete }) {
+  const [form, setForm] = useState({
+    vendorBusiness: booking.vendorBusiness || '',
+    vendorAbn: booking.vendorAbn || '',
+    vendorPhone: booking.vendorPhone || '',
+    vendorType: booking.vendorType || '',
+    vendorDescription: booking.vendorDescription || '',
+    instagramHandle: booking.instagramHandle || '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  function set(k, v) { setForm(prev => ({ ...prev, [k]: v })) }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.vendorType) { setError('Please select a vendor / participation type.'); return }
+    if (!form.vendorDescription.trim()) { setError('Please tell us what you\'re bringing or offering.'); return }
+    setSaving(true)
+    setError(null)
+    try {
+      const now = new Date().toISOString()
+      const updated = {
+        ...booking,
+        ...form,
+        detailsCompleted: true,
+        updatedAt: now,
+      }
+      await supabase.from('event_bookings')
+        .update({ data: updated, updated_at: now })
+        .eq('id', booking.id)
+      onComplete(updated)
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inp = 'w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900'
+  const lab = 'block text-xs font-medium text-gray-700 mb-1'
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <Header />
+      <div className="max-w-lg mx-auto my-8 px-4">
+        <div className="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden">
+          {/* Welcome header */}
+          <div className="bg-black text-white px-8 py-6">
+            <div className="text-xs tracking-widest text-gray-400 uppercase mb-1">You're invited</div>
+            <h2 className="text-xl font-bold">Hexa Hub Pop-Up</h2>
+            <p className="text-sm text-gray-300 mt-1">Sunday 7 June 2026 · 10:00 AM – 10:00 PM</p>
+            <p className="text-xs text-gray-400 mt-0.5">17 Logistic Court, Huntingdale, Victoria</p>
+          </div>
+
+          <div className="px-8 py-6">
+            <p className="text-sm text-gray-600 mb-6">
+              Hi <strong>{booking.vendorName}</strong> — before you review and sign your vendor agreement, please confirm your participation details below.
+            </p>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className={lab}>Business / Trading Name <span className="text-gray-400">(if applicable)</span></label>
+                <input className={inp} value={form.vendorBusiness} onChange={e => set('vendorBusiness', e.target.value)} placeholder="e.g. Carted Crema" />
+              </div>
+
+              <div>
+                <label className={lab}>ABN <span className="text-gray-400">(if applicable)</span></label>
+                <input className={inp} value={form.vendorAbn} onChange={e => set('vendorAbn', e.target.value)} placeholder="00 000 000 000" />
+              </div>
+
+              <div>
+                <label className={lab}>Mobile Number</label>
+                <input type="tel" className={inp} value={form.vendorPhone} onChange={e => set('vendorPhone', e.target.value)} placeholder="04XX XXX XXX" />
+              </div>
+
+              <div>
+                <label className={lab}>Instagram Handle <span className="text-gray-400">(optional)</span></label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm select-none">@</span>
+                  <input
+                    className={inp + ' pl-7'}
+                    value={form.instagramHandle.replace(/^@/, '')}
+                    onChange={e => set('instagramHandle', e.target.value.replace(/^@/, ''))}
+                    placeholder="yourhandle"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={lab}>Participation Type *</label>
+                <select className={inp} value={form.vendorType} onChange={e => set('vendorType', e.target.value)} required>
+                  <option value="">Select your category…</option>
+                  {VENDOR_TYPES.map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className={lab}>What are you bringing / offering? *</label>
+                <textarea
+                  className={inp}
+                  rows={3}
+                  value={form.vendorDescription}
+                  onChange={e => set('vendorDescription', e.target.value)}
+                  placeholder={
+                    form.vendorType === 'Car Display'
+                      ? 'e.g. 1993 Toyota Supra — JDM RZ, full body kit, engine bay on display'
+                      : form.vendorType === 'Food & Beverage'
+                      ? 'e.g. Specialty single-origin espresso, cold brew, and pastries'
+                      : 'Describe what you\'ll be selling, showcasing, or doing at the event'
+                  }
+                  required
+                />
+              </div>
+
+              {error && <p className="text-xs text-red-500">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full bg-black text-white py-3 rounded-md text-sm font-bold hover:bg-gray-800 disabled:opacity-40 mt-2"
+              >
+                {saving ? 'Saving…' : 'Continue to Documents →'}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

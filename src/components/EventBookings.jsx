@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js'
 import { format, parseISO } from 'date-fns'
 import {
   Plus, ChevronRight, X, Send, Copy, Check,
-  Pencil, Trash2, CheckCircle, ClipboardList,
+  Pencil, Trash2, CheckCircle, ClipboardList, MapPin, Bell,
 } from 'lucide-react'
 
 // ── June 7 event constants ────────────────────────────────────────────────────
@@ -47,6 +47,77 @@ function Field({ label, value }) {
     <div>
       <dt className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">{label}</dt>
       <dd className="text-sm text-gray-900">{value}</dd>
+    </div>
+  )
+}
+
+// ── Inline space editor ───────────────────────────────────────────────────────
+
+function SpaceEditor({ booking, onUpdate }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(booking.allocatedSpace || '')
+  const [saving, setSaving] = useState(false)
+  const [notified, setNotified] = useState(false)
+
+  const current = booking.allocatedSpace || null
+
+  async function handleSave() {
+    if (!value.trim()) return
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      const updated = { ...booking, allocatedSpace: value.trim(), spaceAssignedAt: now, updatedAt: now }
+      await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
+
+      // Notify vendor if they've signed or submitted details
+      if (booking.vendorEmail && booking.detailsCompleted) {
+        await fetch('/api/event-bookings/send-signing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking: updated, mode: 'space_assigned' }),
+        }).catch(() => {})
+        setNotified(true)
+        setTimeout(() => setNotified(false), 3000)
+      }
+
+      onUpdate(updated)
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          autoFocus
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false) }}
+          className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+          placeholder="e.g. Stall 3, Space B, Zone A"
+        />
+        <button onClick={handleSave} disabled={saving || !value.trim()} className="bg-black text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-gray-800 disabled:opacity-40 flex items-center gap-1">
+          {saving ? '…' : <><Bell size={11} /> Save & Notify</>}
+        </button>
+        <button onClick={() => { setEditing(false); setValue(booking.allocatedSpace || '') }} className="text-gray-400 hover:text-gray-700 p-1">
+          <X size={14} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`flex-1 flex items-center gap-1.5 text-sm ${current ? 'text-gray-900' : 'text-gray-400 italic'}`}>
+        <MapPin size={12} className="shrink-0 text-gray-400" />
+        {current || 'TBA — not yet assigned'}
+      </div>
+      {notified && <span className="text-xs text-green-600 font-medium">Vendor notified ✓</span>}
+      <button onClick={() => setEditing(true)} className="text-xs text-gray-400 hover:text-gray-700 underline shrink-0">
+        {current ? 'Change' : 'Assign'}
+      </button>
     </div>
   )
 }
@@ -121,6 +192,12 @@ function VendorDetail({
             )
           })}
         </div>
+      </div>
+
+      {/* Allocated space — always visible, inline editable */}
+      <div className="px-5 py-3 border-b border-gray-100 shrink-0">
+        <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Allocated Space</div>
+        <SpaceEditor booking={booking} onUpdate={onUpdate} />
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -223,9 +300,18 @@ function VendorDetail({
             <Field label="ABN" value={booking.vendorAbn} />
             <Field label="Email" value={booking.vendorEmail} />
             <Field label="Phone" value={booking.vendorPhone} />
+            {booking.instagramHandle && (
+              <div>
+                <dt className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Instagram</dt>
+                <dd className="text-sm text-gray-900">
+                  <a href={`https://instagram.com/${booking.instagramHandle.replace(/^@/, '')}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    @{booking.instagramHandle.replace(/^@/, '')}
+                  </a>
+                </dd>
+              </div>
+            )}
             <Field label="Vendor Type" value={booking.vendorType} />
             <Field label="Description" value={booking.vendorDescription} />
-            <Field label="Allocated Space" value={booking.allocatedSpace} />
           </dl>
         </div>
 
@@ -289,8 +375,8 @@ function VendorForm({ booking, onSave, onClose }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.vendorEmail) { alert('Vendor email is required.'); return }
-    if (!form.vendorName) { alert('Vendor contact name is required.'); return }
+    if (!form.vendorEmail) { alert('Email is required.'); return }
+    if (!form.vendorName) { alert('Name is required.'); return }
     setSaving(true)
     try { await onSave(form) } finally { setSaving(false) }
   }
@@ -300,7 +386,7 @@ function VendorForm({ booking, onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-end">
-      <div className="w-full max-w-lg bg-white h-full flex flex-col shadow-xl">
+      <div className="w-full max-w-md bg-white h-full flex flex-col shadow-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
           <div>
             <h2 className="font-bold text-gray-900">{booking?.id ? 'Edit Vendor' : 'Add Vendor'}</h2>
@@ -311,58 +397,44 @@ function VendorForm({ booking, onSave, onClose }) {
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
+          {/* Required — admin fills these */}
           <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Vendor Contact</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Contact Details</h3>
+            <p className="text-xs text-gray-400 mb-3">Only name and email are required. The vendor will fill in their business details when they open the signing link.</p>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={lab}>Contact Name *</label><input className={inp} value={form.vendorName} onChange={e => set('vendorName', e.target.value)} required /></div>
-                <div><label className={lab}>Business Name</label><input className={inp} value={form.vendorBusiness} onChange={e => set('vendorBusiness', e.target.value)} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={lab}>Email *</label><input type="email" className={inp} value={form.vendorEmail} onChange={e => set('vendorEmail', e.target.value)} required /></div>
-                <div><label className={lab}>Phone</label><input className={inp} value={form.vendorPhone} onChange={e => set('vendorPhone', e.target.value)} /></div>
-              </div>
-              <div><label className={lab}>ABN</label><input className={inp} value={form.vendorAbn} onChange={e => set('vendorAbn', e.target.value)} placeholder="00 000 000 000" /></div>
+              <div><label className={lab}>Name *</label><input className={inp} value={form.vendorName} onChange={e => set('vendorName', e.target.value)} placeholder="First and last name" required /></div>
+              <div><label className={lab}>Email *</label><input type="email" className={inp} value={form.vendorEmail} onChange={e => set('vendorEmail', e.target.value)} required /></div>
+              <div><label className={lab}>Phone <span className="text-gray-300">(optional)</span></label><input className={inp} value={form.vendorPhone} onChange={e => set('vendorPhone', e.target.value)} /></div>
             </div>
           </section>
 
+          {/* Optional — admin can pre-fill if known */}
           <section>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Vendor Participation</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Pre-fill (optional)</h3>
+            <p className="text-xs text-gray-400 mb-3">If you already know these, add them. Otherwise the vendor fills them in themselves.</p>
             <div className="space-y-3">
+              <div><label className={lab}>Business / Trading Name</label><input className={inp} value={form.vendorBusiness} onChange={e => set('vendorBusiness', e.target.value)} /></div>
+              <div><label className={lab}>ABN</label><input className={inp} value={form.vendorAbn} onChange={e => set('vendorAbn', e.target.value)} placeholder="00 000 000 000" /></div>
               <div>
                 <label className={lab}>Vendor Type</label>
                 <select className={inp} value={form.vendorType} onChange={e => set('vendorType', e.target.value)}>
+                  <option value="">— vendor will select —</option>
                   {VENDOR_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
-              <div>
-                <label className={lab}>Description of Goods / Services</label>
-                <textarea className={inp} rows={2} value={form.vendorDescription} onChange={e => set('vendorDescription', e.target.value)} placeholder="e.g. Specialty coffee and pastries" />
-              </div>
-              <div>
-                <label className={lab}>Allocated Space / Stall</label>
-                <input className={inp} value={form.allocatedSpace} onChange={e => set('allocatedSpace', e.target.value)} placeholder="e.g. Stall 3, Space B, Zone A" />
-              </div>
+              <div><label className={lab}>Allocated Space / Stall</label><input className={inp} value={form.allocatedSpace} onChange={e => set('allocatedSpace', e.target.value)} placeholder="e.g. Stall 3, Space B" /></div>
             </div>
           </section>
 
+          {/* Internal notes */}
           <section>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Terms (optional)</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={lab}>Participation Fee $</label>
-                  <input type="number" className={inp} value={form.participationFee} onChange={e => set('participationFee', e.target.value)} min={0} step={50} placeholder="Leave blank if nil" />
-                </div>
-                <div>
-                  <label className={lab}>Bond $</label>
-                  <input type="number" className={inp} value={form.bond} onChange={e => set('bond', e.target.value)} min={0} step={50} placeholder="Leave blank if nil" />
-                </div>
+                <div><label className={lab}>Fee $</label><input type="number" className={inp} value={form.participationFee} onChange={e => set('participationFee', e.target.value)} min={0} step={50} placeholder="Nil" /></div>
+                <div><label className={lab}>Bond $</label><input type="number" className={inp} value={form.bond} onChange={e => set('bond', e.target.value)} min={0} step={50} placeholder="Nil" /></div>
               </div>
-              <div>
-                <label className={lab}>Special Conditions</label>
-                <textarea className={inp} rows={3} value={form.specialConditions} onChange={e => set('specialConditions', e.target.value)} />
-              </div>
+              <div><label className={lab}>Special Conditions</label><textarea className={inp} rows={2} value={form.specialConditions} onChange={e => set('specialConditions', e.target.value)} /></div>
             </div>
           </section>
         </form>
@@ -550,7 +622,10 @@ export default function EventBookings() {
                     <td className="px-6 py-3.5 font-mono text-xs text-gray-500">{b.ref}</td>
                     <td className="px-4 py-3.5">
                       <div className="font-medium text-gray-900">{b.vendorName || '—'}</div>
-                      {b.vendorBusiness && <div className="text-xs text-gray-400">{b.vendorBusiness}</div>}
+                      <div className="text-xs text-gray-400">
+                        {b.vendorBusiness || ''}
+                        {b.instagramHandle && <span className="ml-1 text-gray-300">· @{b.instagramHandle.replace(/^@/, '')}</span>}
+                      </div>
                     </td>
                     <td className="px-4 py-3.5 text-gray-500 text-xs hidden lg:table-cell">{b.vendorType || '—'}</td>
                     <td className="px-4 py-3.5 text-gray-500 text-xs hidden lg:table-cell">{b.allocatedSpace || '—'}</td>

@@ -90,6 +90,35 @@ function buildAdminNotifyEmail({ booking }) {
   return frame(body)
 }
 
+function buildSpaceAssignedEmail({ booking }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
+  const space = booking.allocatedSpace
+  const body = `
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Hexa Hub Pop-Up · Space Confirmed</p>
+    <h2 style="font-size:20px;color:#111;margin:0 0 20px">Your space has been assigned, ${booking.vendorName}!</h2>
+    <p style="font-size:14px;color:#555;margin:0 0 24px">
+      Great news — your vendor space at the Hexa Hub Pop-Up has been confirmed. Here are your details:
+    </p>
+    <div style="background:#f5f5f5;border-radius:6px;padding:20px 24px;margin-bottom:28px">
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Your Allocated Space</div>
+      <div style="font-size:28px;font-weight:900;color:#111;letter-spacing:-0.5px">${space}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:28px;font-size:13px">
+      <tr><td style="padding:8px 0;color:#888;width:130px">Event</td><td style="padding:8px 0;font-weight:600;color:#111">${EVENT.name}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0;color:#111">${EVENT.date}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Hours</td><td style="padding:8px 0;color:#111">${EVENT.hours}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Venue</td><td style="padding:8px 0;color:#111">${EVENT.venue}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Bump-In From</td><td style="padding:8px 0;color:#111">8:00 AM</td></tr>
+      ${booking.vendorType ? `<tr><td style="padding:8px 0;color:#888">You are</td><td style="padding:8px 0;color:#111">${booking.vendorType}</td></tr>` : ''}
+    </table>
+    <p style="font-size:13px;color:#555;margin:0 0 8px">
+      If you have any questions about your space or the event, reply to this email or contact us at
+      <a href="mailto:info@hexahub.com.au" style="color:#111">info@hexahub.com.au</a>.
+    </p>
+    <p style="font-size:13px;color:#555;margin:0">See you on June 7! 🏁</p>`
+  return frame(body)
+}
+
 function buildInsuranceUploadedEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
@@ -171,6 +200,17 @@ export default async function handler(req, res) {
         to: 'info@hexahub.com.au',
         subject: `Vendor signed: ${vendor} — Hexa Hub Pop-Up`,
         html: buildAdminNotifyEmail({ booking }),
+      })
+      return res.status(200).json({ sent: ok })
+    }
+
+    if (mode === 'space_assigned') {
+      if (!booking.vendorEmail) return res.status(400).json({ error: 'No vendor email.' })
+      const vendor = booking.vendorBusiness || booking.vendorName
+      const ok = await sendMail({
+        to: booking.vendorEmail,
+        subject: `Your space is confirmed — ${booking.allocatedSpace} · Hexa Hub Pop-Up`,
+        html: buildSpaceAssignedEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
     }
