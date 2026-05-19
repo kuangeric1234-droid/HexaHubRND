@@ -805,6 +805,7 @@ function VendorDetailsForm({ booking, onComplete }) {
     vendorType: booking.vendorType || '',
     vendorDescription: booking.vendorDescription || '',
     instagramHandle: booking.instagramHandle || '',
+    carDetails: booking.carDetails || '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -903,12 +904,26 @@ function VendorDetailsForm({ booking, onComplete }) {
                   onChange={e => set('vendorDescription', e.target.value)}
                   placeholder={
                     form.vendorType === 'Car Display'
-                      ? 'e.g. 1993 Toyota Supra — JDM RZ, full body kit, engine bay on display'
+                      ? 'e.g. Full details of your build, brand, modifications'
                       : form.vendorType === 'Food & Beverage'
                       ? 'e.g. Specialty single-origin espresso, cold brew, and pastries'
                       : 'Describe what you\'ll be selling, showcasing, or doing at the event'
                   }
                   required
+                />
+              </div>
+
+              <div>
+                <label className={lab}>
+                  What car(s) are you bringing?{' '}
+                  <span className="text-gray-400">(optional — leave blank if not applicable)</span>
+                </label>
+                <textarea
+                  className={inp}
+                  rows={3}
+                  value={form.carDetails}
+                  onChange={e => set('carDetails', e.target.value)}
+                  placeholder="e.g. 1993 Toyota Supra — JDM RZ, full body kit, engine bay on display&#10;e.g. 2002 Subaru WRX STi — Stage 3 build, widebody"
                 />
               </div>
 
@@ -1002,11 +1017,16 @@ function InsuranceUploadStep({ booking, onDone }) {
   return (
     <div className="border border-gray-200 rounded-md p-5">
       <h3 className="font-semibold text-sm text-gray-800 mb-1">Public Liability Insurance Required</h3>
-      <p className="text-xs text-gray-500 mb-4">
+      <p className="text-xs text-gray-500 mb-3">
         Clause 9 of your agreement requires a Certificate of Currency showing at least{' '}
         <strong>AUD $20,000,000 Public Liability Insurance</strong> per occurrence,
         provided no later than 5 Business Days before the event.
       </p>
+      <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2.5 text-xs text-amber-800 mb-4">
+        <strong>Don't have public liability insurance?</strong> Contact Jitesh on{' '}
+        <a href="tel:0404339815" className="font-semibold underline">0404 339 815</a>{' '}
+        and he'll organise a one-day policy for you.
+      </div>
 
       {/* Upload area */}
       <div

@@ -312,6 +312,7 @@ function VendorDetail({
             )}
             <Field label="Vendor Type" value={booking.vendorType} />
             <Field label="Description" value={booking.vendorDescription} />
+            <Field label="Car(s) Bringing" value={booking.carDetails} />
           </dl>
         </div>
 
