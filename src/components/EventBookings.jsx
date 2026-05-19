@@ -69,8 +69,8 @@ function SpaceEditor({ booking, onUpdate }) {
       const updated = { ...booking, allocatedSpace: value.trim(), spaceAssignedAt: now, updatedAt: now }
       await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
 
-      // Notify vendor if they've signed or submitted details
-      if (booking.vendorEmail && booking.detailsCompleted) {
+      // Notify vendor whenever they have an email
+      if (booking.vendorEmail) {
         await fetch('/api/event-bookings/send-signing', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
