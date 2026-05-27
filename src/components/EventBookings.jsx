@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js'
 import { format, parseISO } from 'date-fns'
 import {
   Plus, ChevronRight, X, Send, Copy, Check,
-  Pencil, Trash2, CheckCircle, ClipboardList, MapPin, Bell,
+  Pencil, Trash2, CheckCircle, ClipboardList, MapPin, Bell, Mail,
 } from 'lucide-react'
 
 // ── June 7 event constants ────────────────────────────────────────────────────
@@ -113,23 +113,56 @@ function SpaceEditor({ booking, onUpdate }) {
 function VendorDetail({
   booking, onClose, onEdit, onDelete,
   onSendForSigning, onMarkInsuranceReceived, onCopyLink,
+  onSendReminder, onSendInsuranceReminder,
   sending, copied, onUpdate,
 }) {
   const [notifying, setNotifying] = useState(false)
   const [notified, setNotified] = useState(false)
+  const [reminding, setReminding] = useState(false)
+  const [reminded, setReminded] = useState(false)
+  const [insuranceReminding, setInsuranceReminding] = useState(false)
+  const [insuranceReminded, setInsuranceReminded] = useState(false)
 
   async function notifySpace() {
     setNotifying(true)
     try {
+      const now = new Date().toISOString()
+      const logEntry = { type: 'space_assigned', label: `Space notification sent — ${booking.allocatedSpace}`, sentAt: now }
+      const emailLog = [...(booking.emailLog || []), logEntry]
+      const updated = { ...booking, updatedAt: now, emailLog }
+      await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
       await fetch('/api/event-bookings/send-signing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ booking, mode: 'space_assigned' }),
+        body: JSON.stringify({ booking: updated, mode: 'space_assigned' }),
       })
+      onUpdate(updated)
       setNotified(true)
       setTimeout(() => setNotified(false), 3000)
     } finally {
       setNotifying(false)
+    }
+  }
+
+  async function handleReminder() {
+    setReminding(true)
+    try {
+      await onSendReminder(booking)
+      setReminded(true)
+      setTimeout(() => setReminded(false), 3000)
+    } finally {
+      setReminding(false)
+    }
+  }
+
+  async function handleInsuranceReminder() {
+    setInsuranceReminding(true)
+    try {
+      await onSendInsuranceReminder(booking)
+      setInsuranceReminded(true)
+      setTimeout(() => setInsuranceReminded(false), 3000)
+    } finally {
+      setInsuranceReminding(false)
     }
   }
   async function markCancelled() {
@@ -237,8 +270,20 @@ function VendorDetail({
             </button>
           )}
           {isSent && (
-            <div className="bg-blue-50 border border-blue-100 rounded-md px-3 py-2.5 text-xs text-blue-700">
-              Agreement sent {booking.sentAt ? format(parseISO(booking.sentAt), 'dd MMM, h:mm a') : ''}. Awaiting vendor signature.
+            <div className="space-y-2">
+              <div className="bg-blue-50 border border-blue-100 rounded-md px-3 py-2.5 text-xs text-blue-700">
+                Agreement sent {booking.sentAt ? format(parseISO(booking.sentAt), 'dd MMM, h:mm a') : ''}. Awaiting vendor signature.
+              </div>
+              <button
+                onClick={handleReminder}
+                disabled={reminding}
+                className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-40"
+              >
+                {reminded
+                  ? <><Check size={14} className="text-green-500" /> Reminder Sent!</>
+                  : <><Mail size={14} /> {reminding ? 'Sending…' : 'Resend Agreement Reminder'}</>
+                }
+              </button>
             </div>
           )}
           {isSigned && (
@@ -267,8 +312,22 @@ function VendorDetail({
                   View Certificate — {booking.insuranceFileName || 'Certificate of Currency'}
                 </a>
               ) : (
-                <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-2">
-                  No certificate uploaded yet. Vendor will email to info@hexahub.com.au.
+                <div className="space-y-2">
+                  <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-2">
+                    No certificate uploaded yet. Vendor will email to info@hexahub.com.au.
+                  </div>
+                  {booking.vendorEmail && (
+                    <button
+                      onClick={handleInsuranceReminder}
+                      disabled={insuranceReminding}
+                      className="w-full flex items-center justify-center gap-2 border border-orange-200 text-orange-700 py-2.5 rounded-md text-sm font-medium hover:bg-orange-50 disabled:opacity-40"
+                    >
+                      {insuranceReminded
+                        ? <><Check size={14} className="text-green-500" /> Reminder Sent!</>
+                        : <><Bell size={14} /> {insuranceReminding ? 'Sending…' : 'Send Insurance Reminder'}</>
+                      }
+                    </button>
+                  )}
                 </div>
               )}
               <button
@@ -354,6 +413,45 @@ function VendorDetail({
                 <Field label="Bond" value={booking.bond ? `$${Number(booking.bond).toLocaleString()}` : null} />
                 <Field label="Special Conditions" value={booking.specialConditions} />
               </dl>
+            </div>
+          </>
+        )}
+
+        {/* Activity Log */}
+        {(booking.emailLog?.length > 0 || booking.sentAt) && (
+          <>
+            <hr className="border-gray-100" />
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Activity Log</h3>
+              <div className="space-y-2.5">
+                {/* Show initial sentAt as first entry if emailLog is empty (legacy bookings) */}
+                {(!booking.emailLog || booking.emailLog.length === 0) && booking.sentAt && (
+                  <div className="flex items-start gap-2.5 text-xs">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                    <div>
+                      <span className="text-gray-700 font-medium">Agreement sent</span>
+                      <span className="text-gray-400 ml-1.5">{format(parseISO(booking.sentAt), 'dd MMM yyyy, h:mm a')}</span>
+                    </div>
+                  </div>
+                )}
+                {(booking.emailLog || []).map((entry, i) => {
+                  const dotColor =
+                    entry.type === 'signing_sent' ? 'bg-blue-400' :
+                    entry.type === 'signing_reminder' ? 'bg-blue-300' :
+                    entry.type === 'space_assigned' ? 'bg-purple-400' :
+                    entry.type === 'insurance_reminder' ? 'bg-orange-400' :
+                    'bg-gray-300'
+                  return (
+                    <div key={i} className="flex items-start gap-2.5 text-xs">
+                      <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${dotColor}`} />
+                      <div>
+                        <span className="text-gray-700 font-medium">{entry.label}</span>
+                        <span className="text-gray-400 ml-1.5">{format(parseISO(entry.sentAt), 'dd MMM yyyy, h:mm a')}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </>
         )}
@@ -529,7 +627,8 @@ export default function EventBookings() {
       const token = crypto.randomUUID()
       const now = new Date().toISOString()
       const signingUrl = `${window.location.origin}/sign/event/${token}`
-      const updated = { ...booking, status: 'sent', signingToken: token, sentAt: now, updatedAt: now }
+      const emailLog = [...(booking.emailLog || []), { type: 'signing_sent', label: 'Agreement sent', sentAt: now }]
+      const updated = { ...booking, status: 'sent', signingToken: token, sentAt: now, updatedAt: now, emailLog }
 
       await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
 
@@ -547,6 +646,36 @@ export default function EventBookings() {
     } finally {
       setSending(false)
     }
+  }
+
+  async function sendSigningReminder(booking) {
+    const now = new Date().toISOString()
+    const signingUrl = `${window.location.origin}/sign/event/${booking.signingToken}`
+    const emailLog = [...(booking.emailLog || []), { type: 'signing_reminder', label: 'Agreement reminder sent', sentAt: now }]
+    const updated = { ...booking, updatedAt: now, emailLog }
+    await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
+    await fetch('/api/event-bookings/send-signing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking: updated, signingUrl, mode: 'signing_reminder' }),
+    })
+    setBookings(prev => prev.map(b => b.id === booking.id ? updated : b))
+    setSelected(updated)
+  }
+
+  async function sendInsuranceReminder(booking) {
+    const now = new Date().toISOString()
+    const signingUrl = booking.signingToken ? `${window.location.origin}/sign/event/${booking.signingToken}` : null
+    const emailLog = [...(booking.emailLog || []), { type: 'insurance_reminder', label: 'Insurance reminder sent', sentAt: now }]
+    const updated = { ...booking, updatedAt: now, emailLog }
+    await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
+    await fetch('/api/event-bookings/send-signing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking: updated, signingUrl, mode: 'insurance_reminder' }),
+    })
+    setBookings(prev => prev.map(b => b.id === booking.id ? updated : b))
+    setSelected(updated)
   }
 
   async function markInsuranceReceived(booking) {
@@ -667,6 +796,8 @@ export default function EventBookings() {
           onSendForSigning={() => sendForSigning(selected)}
           onMarkInsuranceReceived={() => markInsuranceReceived(selected)}
           onCopyLink={() => copySigningLink(selected)}
+          onSendReminder={sendSigningReminder}
+          onSendInsuranceReminder={sendInsuranceReminder}
           sending={sending}
           copied={copied}
           onUpdate={updated => {

@@ -136,6 +136,73 @@ function buildInsuranceUploadedEmail({ booking }) {
   return frame(body)
 }
 
+function buildSigningReminderEmail({ booking, signingUrl }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
+  const body = `
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Friendly Reminder · Vendor Participation Agreement</p>
+    <h2 style="font-size:20px;color:#111;margin:0 0 20px">Hi ${booking.vendorName} — just a reminder to sign your vendor agreement</h2>
+    <p style="font-size:14px;color:#555;margin:0 0 20px">
+      We noticed you haven't had a chance to sign yet. Here's your link — it only takes a few minutes.
+      Please review and sign the Vendor Participation Agreement, Liability Waiver, and Venue Rules using the button below.
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:28px;font-size:13px">
+      <tr><td style="padding:8px 0;color:#888;width:130px">Event</td><td style="padding:8px 0;font-weight:600;color:#111">${EVENT.name}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0;color:#111">${EVENT.date}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Hours</td><td style="padding:8px 0;color:#111">${EVENT.hours}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Venue</td><td style="padding:8px 0;color:#111">${EVENT.venue}</td></tr>
+      ${booking.vendorType ? `<tr><td style="padding:8px 0;color:#888">Vendor Type</td><td style="padding:8px 0;color:#111">${booking.vendorType}</td></tr>` : ''}
+      ${booking.allocatedSpace ? `<tr><td style="padding:8px 0;color:#888">Allocated Space</td><td style="padding:8px 0;color:#111">${booking.allocatedSpace}</td></tr>` : ''}
+    </table>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${signingUrl}"
+         style="display:inline-block;background:#000;color:#fff;text-decoration:none;padding:14px 36px;font-size:14px;font-weight:700;border-radius:6px">
+        Review &amp; Sign Documents
+      </a>
+    </div>
+    <p style="font-size:12px;color:#999;margin:0 0 12px">
+      If the button doesn't work, copy this link:<br>
+      <a href="${signingUrl}" style="color:#888;word-break:break-all">${signingUrl}</a>
+    </p>
+    <p style="font-size:12px;color:#bbb;margin:0">
+      After signing, you'll be asked to submit a Certificate of Currency for Public Liability Insurance (min. AUD $10,000,000).
+      Any questions? Reply to this email or contact <a href="mailto:info@hexahub.com.au" style="color:#888">info@hexahub.com.au</a>.
+    </p>`
+  return frame(body)
+}
+
+function buildInsuranceReminderEmail({ booking, signingUrl }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
+  const body = `
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Action Required · Insurance Certificate</p>
+    <h2 style="font-size:20px;color:#111;margin:0 0 20px">Hi ${booking.vendorName} — please upload your insurance certificate</h2>
+    <p style="font-size:14px;color:#555;margin:0 0 20px">
+      Thanks for signing your Vendor Participation Agreement for the <strong>Hexa Hub Pop-Up on 7 June 2026</strong>.
+      We're following up to request your <strong>Certificate of Currency for Public Liability Insurance</strong> (minimum AUD $10,000,000).
+    </p>
+    ${signingUrl ? `
+    <div style="text-align:center;margin:28px 0">
+      <a href="${signingUrl}"
+         style="display:inline-block;background:#000;color:#fff;text-decoration:none;padding:14px 36px;font-size:14px;font-weight:700;border-radius:6px">
+        Upload Insurance Certificate
+      </a>
+    </div>
+    <p style="font-size:12px;color:#999;margin:0 0 20px">
+      If the button doesn't work, copy this link:<br>
+      <a href="${signingUrl}" style="color:#888;word-break:break-all">${signingUrl}</a>
+    </p>` : ''}
+    <div style="background:#fff8ed;border:1px solid #ffe4b2;border-radius:6px;padding:16px 20px;margin:0 0 20px">
+      <p style="font-size:13px;color:#92600a;margin:0;font-weight:600">Don't have Public Liability Insurance?</p>
+      <p style="font-size:13px;color:#92600a;margin:8px 0 0">
+        Contact <strong>Jitesh on 0404 339 815</strong> and he'll organise a one-day policy for you.
+      </p>
+    </div>
+    <p style="font-size:12px;color:#bbb;margin:0">
+      Alternatively, you can email your certificate directly to <a href="mailto:info@hexahub.com.au" style="color:#888">info@hexahub.com.au</a>.
+      Please reference your business name in the subject line.
+    </p>`
+  return frame(body)
+}
+
 function buildInsuranceDeferredEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
@@ -221,6 +288,29 @@ export default async function handler(req, res) {
         to: 'info@hexahub.com.au',
         subject: `Insurance uploaded: ${vendor} — Hexa Hub Pop-Up`,
         html: buildInsuranceUploadedEmail({ booking }),
+      })
+      return res.status(200).json({ sent: ok })
+    }
+
+    if (mode === 'signing_reminder') {
+      if (!booking.vendorEmail) return res.status(400).json({ error: 'No vendor email.' })
+      if (!signingUrl) return res.status(400).json({ error: 'Missing signingUrl.' })
+      const vendor = booking.vendorBusiness || booking.vendorName
+      const ok = await sendMail({
+        to: booking.vendorEmail,
+        subject: `Reminder: Please sign your vendor agreement — Hexa Hub Pop-Up · ${vendor}`,
+        html: buildSigningReminderEmail({ booking, signingUrl }),
+      })
+      return res.status(200).json({ sent: ok })
+    }
+
+    if (mode === 'insurance_reminder') {
+      if (!booking.vendorEmail) return res.status(400).json({ error: 'No vendor email.' })
+      const vendor = booking.vendorBusiness || booking.vendorName
+      const ok = await sendMail({
+        to: booking.vendorEmail,
+        subject: `Insurance required: Please upload your certificate — Hexa Hub Pop-Up · ${vendor}`,
+        html: buildInsuranceReminderEmail({ booking, signingUrl }),
       })
       return res.status(200).json({ sent: ok })
     }
