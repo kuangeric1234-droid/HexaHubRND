@@ -191,11 +191,133 @@ function LicensorSignatureModal({ current, onSave, onClose }) {
   )
 }
 
+// ── Countersign modal ─────────────────────────────────────────────────────────
+
+function CountersignModal({ booking, adminSigDefault, onDone, onClose }) {
+  const sigRef = useRef(null)
+  const [name, setName] = useState(adminSigDefault?.signerName || '')
+  const [title, setTitle] = useState(adminSigDefault?.signerTitle || '')
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState('') // '', 'generating', 'uploading', 'emailing'
+
+  async function handleComplete() {
+    if (!name.trim()) { alert('Enter your name.'); return }
+    if (sigRef.current?.isEmpty()) { alert('Please draw your signature.'); return }
+    setSaving(true)
+    try {
+      const signatureData = sigRef.current.toDataURL()
+      const now = new Date().toISOString()
+      const licensorSig = { signatureData, signerName: name.trim(), signerTitle: title.trim() }
+
+      let updated = {
+        ...booking,
+        status: 'insurance_received',
+        insuranceReceivedAt: now,
+        licensorSignatureData: signatureData,
+        licensorSignerName: name.trim(),
+        licensorSignerTitle: title.trim(),
+        licensorSignedAt: now,
+        updatedAt: now,
+      }
+
+      // Generate + upload PDF
+      setStatus('generating')
+      const pdfBlob = generateAgreementPdf(updated, licensorSig)
+      const pdfPath = `agreements/${booking.id}.pdf`
+      setStatus('uploading')
+      const { error: uploadError } = await supabase.storage
+        .from('event-insurance')
+        .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true })
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage.from('event-insurance').getPublicUrl(pdfPath)
+        updated = { ...updated, agreementPdfUrl: publicUrl }
+      } else {
+        alert(`PDF upload failed: ${uploadError.message}`)
+      }
+
+      await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
+
+      // Email vendor the fully executed agreement
+      if (updated.agreementPdfUrl && updated.vendorEmail) {
+        setStatus('emailing')
+        await fetch('/api/event-bookings/send-signing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking: updated, mode: 'executed_agreement' }),
+        }).catch(() => {})
+      }
+
+      onDone(updated)
+    } catch (err) {
+      console.error(err)
+      alert('Something went wrong. Please try again.')
+    } finally {
+      setSaving(false)
+      setStatus('')
+    }
+  }
+
+  const inp = 'w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900'
+  const lab = 'block text-xs font-medium text-gray-600 mb-1'
+
+  const statusLabel = status === 'generating' ? 'Generating PDF…'
+    : status === 'uploading' ? 'Uploading PDF…'
+    : status === 'emailing' ? 'Emailing vendor…'
+    : 'Countersigning…'
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+          <div>
+            <h2 className="font-bold text-gray-900">Countersign &amp; Complete</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{booking.vendorBusiness || booking.vendorName} · {booking.ref}</p>
+          </div>
+          <button onClick={onClose} disabled={saving} className="text-gray-400 hover:text-gray-700 disabled:opacity-40"><X size={18} /></button>
+        </div>
+
+        {saving ? (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 gap-4">
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+            <p className="text-sm text-gray-600 font-medium">{statusLabel}</p>
+            <p className="text-xs text-gray-400">Generating PDF &amp; emailing vendor their executed copy</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <div className="bg-green-50 border border-green-100 rounded-md px-4 py-3 text-xs text-green-800">
+                <strong>Ready to finalise.</strong> Your countersignature will be added to the agreement,
+                a fully executed PDF will be generated, and {booking.vendorName} will be emailed their copy automatically.
+              </div>
+              <div><label className={lab}>Your Name *</label><input className={inp} value={name} onChange={e => setName(e.target.value)} placeholder="Full name" /></div>
+              <div><label className={lab}>Title</label><input className={inp} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Director, HexaHub Pty Ltd" /></div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className={lab} style={{ marginBottom: 0 }}>Signature *</label>
+                  <button onClick={() => sigRef.current?.clear()} className="text-xs text-gray-400 hover:text-gray-700 underline">Clear</button>
+                </div>
+                <SignatureCanvas ref={sigRef} height={110} />
+                <p className="text-xs text-gray-400 mt-1">Draw using mouse or finger</p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 shrink-0 flex gap-3">
+              <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm font-medium hover:bg-gray-50">Cancel</button>
+              <button onClick={handleComplete} className="flex-1 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800">
+                Countersign &amp; Send
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
 function VendorDetail({
   booking, onClose, onEdit, onDelete,
-  onSendForSigning, onMarkInsuranceReceived, onCopyLink,
+  onSendForSigning, onCountersignAndComplete, onMarkCompleteDirectly, onCopyLink,
   onSendReminder, onSendInsuranceReminder, onRegeneratePdf,
   sending, copied, onUpdate,
 }) {
@@ -415,10 +537,16 @@ function VendorDetail({
                 </div>
               )}
               <button
-                onClick={onMarkInsuranceReceived}
+                onClick={onCountersignAndComplete}
                 className="w-full flex items-center justify-center gap-2 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
               >
-                <CheckCircle size={14} /> Mark Insurance Confirmed
+                <Pencil size={14} /> Countersign &amp; Send Agreement
+              </button>
+              <button
+                onClick={onMarkCompleteDirectly}
+                className="w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1"
+              >
+                Mark complete without signing →
               </button>
             </>
           )}
@@ -693,6 +821,7 @@ export default function EventBookings() {
   const [copied, setCopied] = useState(false)
   const [licensorSig, setLicensorSig] = useState(null)
   const [showSigModal, setShowSigModal] = useState(false)
+  const [countersignBooking, setCountersignBooking] = useState(null)
 
   useEffect(() => { loadBookings(); loadLicensorSig() }, [])
 
@@ -950,7 +1079,8 @@ export default function EventBookings() {
           onEdit={() => { setEditData(selected); setShowForm(true) }}
           onDelete={() => deleteBooking(selected.id)}
           onSendForSigning={() => sendForSigning(selected)}
-          onMarkInsuranceReceived={() => markInsuranceReceived(selected)}
+          onCountersignAndComplete={() => setCountersignBooking(selected)}
+          onMarkCompleteDirectly={() => markInsuranceReceived(selected)}
           onCopyLink={() => copySigningLink(selected)}
           onSendReminder={sendSigningReminder}
           onSendInsuranceReminder={sendInsuranceReminder}
@@ -979,6 +1109,20 @@ export default function EventBookings() {
           current={licensorSig}
           onSave={sig => { setLicensorSig(sig); setShowSigModal(false) }}
           onClose={() => setShowSigModal(false)}
+        />
+      )}
+
+      {/* Countersign modal */}
+      {countersignBooking && (
+        <CountersignModal
+          booking={countersignBooking}
+          adminSigDefault={licensorSig}
+          onDone={updated => {
+            setBookings(prev => prev.map(b => b.id === updated.id ? updated : b))
+            setSelected(updated)
+            setCountersignBooking(null)
+          }}
+          onClose={() => setCountersignBooking(null)}
         />
       )}
     </div>

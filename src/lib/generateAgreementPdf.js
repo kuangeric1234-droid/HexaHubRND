@@ -8,6 +8,14 @@ import { jsPDF } from 'jspdf'
  * @returns {Blob} PDF blob
  */
 export function generateAgreementPdf(booking, adminSig) {
+  // Prefer per-booking countersignature if it exists (set during countersign flow)
+  const effectiveAdminSig = (booking.licensorSignatureData)
+    ? {
+        signatureData: booking.licensorSignatureData,
+        signerName: booking.licensorSignerName,
+        signerTitle: booking.licensorSignerTitle,
+      }
+    : adminSig
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
 
   const W = 210
@@ -191,8 +199,8 @@ export function generateAgreementPdf(booking, adminSig) {
   if (booking.signatureData) {
     try { doc.addImage(booking.signatureData, 'PNG', colL + 2, y + 2, sigW - 4, sigH - 4) } catch (_) {}
   }
-  if (adminSig?.signatureData) {
-    try { doc.addImage(adminSig.signatureData, 'PNG', colR + 2, y + 2, sigW - 4, sigH - 4) } catch (_) {}
+  if (effectiveAdminSig?.signatureData) {
+    try { doc.addImage(effectiveAdminSig.signatureData, 'PNG', colR + 2, y + 2, sigW - 4, sigH - 4) } catch (_) {}
   } else {
     // Placeholder text when no admin sig yet
     doc.setFont('helvetica', 'italic')
@@ -214,7 +222,7 @@ export function generateAgreementPdf(booking, adminSig) {
   doc.setFontSize(9)
   doc.setTextColor(20, 20, 20)
   doc.text(booking.signerName || '—', colL, y)
-  doc.text(adminSig?.signerName || 'HexaHub Pty Ltd', colR, y)
+  doc.text(effectiveAdminSig?.signerName || 'HexaHub Pty Ltd', colR, y)
   y += 5
 
   // Titles
@@ -222,7 +230,7 @@ export function generateAgreementPdf(booking, adminSig) {
   doc.setFontSize(8.5)
   doc.setTextColor(80, 80, 80)
   doc.text(booking.signerTitle || 'Authorised Representative', colL, y)
-  doc.text(adminSig?.signerTitle || 'Licensor', colR, y)
+  doc.text(effectiveAdminSig?.signerTitle || 'Licensor', colR, y)
   y += 5
 
   // Dates
