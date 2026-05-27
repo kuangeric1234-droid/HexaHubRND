@@ -328,6 +328,16 @@ function VendorDetail({
   const [insuranceReminding, setInsuranceReminding] = useState(false)
   const [insuranceReminded, setInsuranceReminded] = useState(false)
   const [regenPdf, setRegenPdf] = useState(false)
+  const [pdfOk, setPdfOk] = useState(null) // null=checking, true=exists, false=missing
+
+  // Verify the stored PDF URL actually resolves (could be stale if bucket wasn't ready)
+  useEffect(() => {
+    if (!booking.agreementPdfUrl) { setPdfOk(false); return }
+    setPdfOk(null)
+    fetch(booking.agreementPdfUrl, { method: 'HEAD' })
+      .then(r => setPdfOk(r.ok))
+      .catch(() => setPdfOk(false))
+  }, [booking.agreementPdfUrl])
 
   async function notifySpace() {
     setNotifying(true)
@@ -606,7 +616,7 @@ function VendorDetail({
           {/* Signed agreement PDF */}
           {(isSigned || isComplete) && (
             <div className="space-y-1.5">
-              {booking.agreementPdfUrl ? (
+              {pdfOk === true && (
                 <a
                   href={booking.agreementPdfUrl}
                   target="_blank"
@@ -615,21 +625,17 @@ function VendorDetail({
                 >
                   <Download size={14} /> Download Signed Agreement
                 </a>
-              ) : (
-                <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-2">
-                  No signed PDF yet.
-                </div>
               )}
               <button
                 onClick={async () => {
                   setRegenPdf(true)
-                  try { await onRegeneratePdf(booking) } finally { setRegenPdf(false) }
+                  try { await onRegeneratePdf(booking); setPdfOk(true) } finally { setRegenPdf(false) }
                 }}
                 disabled={regenPdf}
                 className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-500 py-2 rounded-md text-xs hover:bg-gray-50 disabled:opacity-40"
               >
                 <FileText size={12} />
-                {regenPdf ? 'Generating…' : booking.agreementPdfUrl ? 'Regenerate PDF' : 'Generate Signed PDF'}
+                {regenPdf ? 'Generating…' : pdfOk ? 'Regenerate PDF' : 'Generate Signed PDF'}
               </button>
             </div>
           )}
