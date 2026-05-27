@@ -508,53 +508,89 @@ function VendorDetail({
           {isSigned && (
             <>
               {booking.insuranceUrl ? (
-                <a
-                  href={booking.insuranceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm hover:bg-gray-50 font-medium"
-                >
-                  <CheckCircle size={14} className="text-green-500" />
-                  View Certificate — {booking.insuranceFileName || 'Certificate of Currency'}
-                </a>
+                <>
+                  <a
+                    href={booking.insuranceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm hover:bg-gray-50 font-medium"
+                  >
+                    <CheckCircle size={14} className="text-green-500" />
+                    View Certificate — {booking.insuranceFileName || 'Certificate of Currency'}
+                  </a>
+                  {/* Insurance is in — countersign is now the right action */}
+                  <button
+                    onClick={onCountersignAndComplete}
+                    className="w-full flex items-center justify-center gap-2 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
+                  >
+                    <Pencil size={14} /> Countersign &amp; Send Agreement
+                  </button>
+                  <button
+                    onClick={onMarkCompleteDirectly}
+                    className="w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1"
+                  >
+                    Mark complete without signing →
+                  </button>
+                </>
               ) : (
-                <div className="space-y-2">
-                  <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-2">
-                    No certificate uploaded yet. Vendor will email to info@hexahub.com.au.
+                <>
+                  <div className="space-y-2">
+                    <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-2">
+                      Waiting for insurance certificate (upload or email).
+                    </div>
+                    {booking.vendorEmail && (
+                      <button
+                        onClick={handleInsuranceReminder}
+                        disabled={insuranceReminding}
+                        className="w-full flex items-center justify-center gap-2 border border-orange-200 text-orange-700 py-2.5 rounded-md text-sm font-medium hover:bg-orange-50 disabled:opacity-40"
+                      >
+                        {insuranceReminded
+                          ? <><Check size={14} className="text-green-500" /> Reminder Sent!</>
+                          : <><Bell size={14} /> {insuranceReminding ? 'Sending…' : 'Send Insurance Reminder'}</>
+                        }
+                      </button>
+                    )}
                   </div>
-                  {booking.vendorEmail && (
-                    <button
-                      onClick={handleInsuranceReminder}
-                      disabled={insuranceReminding}
-                      className="w-full flex items-center justify-center gap-2 border border-orange-200 text-orange-700 py-2.5 rounded-md text-sm font-medium hover:bg-orange-50 disabled:opacity-40"
-                    >
-                      {insuranceReminded
-                        ? <><Check size={14} className="text-green-500" /> Reminder Sent!</>
-                        : <><Bell size={14} /> {insuranceReminding ? 'Sending…' : 'Send Insurance Reminder'}</>
-                      }
-                    </button>
-                  )}
-                </div>
+                  {/* Allow countersign even before insurance if needed */}
+                  <button
+                    onClick={onCountersignAndComplete}
+                    className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 py-2.5 rounded-md text-sm font-medium hover:bg-gray-50"
+                  >
+                    <Pencil size={14} /> Countersign &amp; Send Agreement
+                  </button>
+                  <button
+                    onClick={onMarkCompleteDirectly}
+                    className="w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1"
+                  >
+                    Mark complete without signing →
+                  </button>
+                </>
               )}
-              <button
-                onClick={onCountersignAndComplete}
-                className="w-full flex items-center justify-center gap-2 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
-              >
-                <Pencil size={14} /> Countersign &amp; Send Agreement
-              </button>
-              <button
-                onClick={onMarkCompleteDirectly}
-                className="w-full text-center text-xs text-gray-400 hover:text-gray-600 py-1"
-              >
-                Mark complete without signing →
-              </button>
             </>
           )}
           {isComplete && (
             <div className="space-y-2">
-              <div className="bg-green-50 border border-green-100 rounded-md px-3 py-2.5 text-xs text-green-700 font-medium">
-                ✓ Agreement signed and insurance confirmed. Vendor confirmed for June 7.
-              </div>
+              {booking.licensorSignatureData ? (
+                <div className="bg-green-50 border border-green-100 rounded-md px-3 py-2.5 space-y-0.5">
+                  <div className="text-xs font-semibold text-green-800">✓ Fully executed</div>
+                  <div className="text-xs text-green-700">
+                    Countersigned by {booking.licensorSignerName}{booking.licensorSignerTitle ? ` — ${booking.licensorSignerTitle}` : ''}
+                    {booking.licensorSignedAt ? ` · ${format(parseISO(booking.licensorSignedAt), 'dd MMM yyyy')}` : ''}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-yellow-50 border border-yellow-100 rounded-md px-3 py-2.5 text-xs text-yellow-800">
+                    Insurance confirmed — ready for your countersignature.
+                  </div>
+                  <button
+                    onClick={onCountersignAndComplete}
+                    className="w-full flex items-center justify-center gap-2 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800"
+                  >
+                    <Pencil size={14} /> Countersign &amp; Send Agreement
+                  </button>
+                </>
+              )}
               {booking.insuranceUrl && (
                 <a
                   href={booking.insuranceUrl}
