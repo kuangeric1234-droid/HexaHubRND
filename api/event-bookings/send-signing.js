@@ -203,6 +203,39 @@ function buildInsuranceReminderEmail({ booking, signingUrl }) {
   return frame(body)
 }
 
+function buildAgreementCopyEmail({ booking }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
+  const body = `
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Hexa Hub Pop-Up · Signed Agreement</p>
+    <h2 style="font-size:20px;color:#111;margin:0 0 20px">Your signed agreement is ready, ${booking.vendorName}</h2>
+    <p style="font-size:14px;color:#555;margin:0 0 20px">
+      Thank you for signing your Vendor Participation Agreement for the <strong>Hexa Hub Pop-Up on 7 June 2026</strong>.
+      Your countersigned copy is ready to download and keep for your records.
+    </p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${booking.agreementPdfUrl}"
+         style="display:inline-block;background:#000;color:#fff;text-decoration:none;padding:14px 36px;font-size:14px;font-weight:700;border-radius:6px">
+        Download Signed Agreement (PDF)
+      </a>
+    </div>
+    <p style="font-size:12px;color:#999;margin:0 0 20px">
+      If the button doesn't work, copy this link:<br>
+      <a href="${booking.agreementPdfUrl}" style="color:#888;word-break:break-all">${booking.agreementPdfUrl}</a>
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:28px;font-size:13px">
+      <tr><td style="padding:8px 0;color:#888;width:130px">Ref</td><td style="padding:8px 0;font-weight:600;color:#111">${booking.ref}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Business</td><td style="padding:8px 0;color:#111">${vendor}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Signed by</td><td style="padding:8px 0;color:#111">${booking.signerName}${booking.signerTitle ? ` — ${booking.signerTitle}` : ''}</td></tr>
+      ${booking.allocatedSpace ? `<tr><td style="padding:8px 0;color:#888">Allocated Space</td><td style="padding:8px 0;color:#111">${booking.allocatedSpace}</td></tr>` : ''}
+    </table>
+    <p style="font-size:13px;color:#555;margin:0 0 8px">
+      Next step: please upload your <strong>Certificate of Currency for Public Liability Insurance</strong> (minimum AUD $10,000,000)
+      if you haven't already. Don't have PLI? Contact Jitesh on <strong>0404 339 815</strong>.
+    </p>
+    <p style="font-size:13px;color:#555;margin:0">See you on June 7! 🏁</p>`
+  return frame(body)
+}
+
 function buildInsuranceDeferredEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
@@ -288,6 +321,18 @@ export default async function handler(req, res) {
         to: 'info@hexahub.com.au',
         subject: `Insurance uploaded: ${vendor} — Hexa Hub Pop-Up`,
         html: buildInsuranceUploadedEmail({ booking }),
+      })
+      return res.status(200).json({ sent: ok })
+    }
+
+    if (mode === 'agreement_copy') {
+      if (!booking.vendorEmail) return res.status(400).json({ error: 'No vendor email.' })
+      if (!booking.agreementPdfUrl) return res.status(400).json({ error: 'No PDF URL.' })
+      const vendor = booking.vendorBusiness || booking.vendorName
+      const ok = await sendMail({
+        to: booking.vendorEmail,
+        subject: `Your signed agreement — Hexa Hub Pop-Up · ${vendor}`,
+        html: buildAgreementCopyEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
     }

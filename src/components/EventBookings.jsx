@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { format, parseISO } from 'date-fns'
 import {
   Plus, ChevronRight, X, Send, Copy, Check,
   Pencil, Trash2, CheckCircle, ClipboardList, MapPin, Bell, Mail,
+  Download, FileText, Settings,
 } from 'lucide-react'
+import SignatureCanvas from './SignatureCanvas.jsx'
+import { generateAgreementPdf } from '../lib/generateAgreementPdf.js'
 
 // ── June 7 event constants ────────────────────────────────────────────────────
 const EVENT = {
@@ -108,12 +111,92 @@ function SpaceEditor({ booking, onUpdate }) {
   )
 }
 
+// ── Licensor signature modal ─────────────────────────────────────────────────
+
+function LicensorSignatureModal({ current, onSave, onClose }) {
+  const sigRef = useRef(null)
+  const [name, setName] = useState(current?.signerName || '')
+  const [title, setTitle] = useState(current?.signerTitle || '')
+  const [saving, setSaving] = useState(false)
+  const [cleared, setCleared] = useState(false)
+
+  async function handleSave() {
+    if (!name.trim()) { alert('Enter the licensor name.'); return }
+    const isNew = !current?.signatureData || !sigRef.current?.isEmpty() || cleared
+    const signatureData = !sigRef.current?.isEmpty()
+      ? sigRef.current.toDataURL()
+      : (current?.signatureData ?? null)
+    if (!signatureData) { alert('Please draw the licensor signature.'); return }
+
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      const data = {
+        id: 'hexahub_licensor_sig',
+        type: 'admin_config',
+        signatureData,
+        signerName: name.trim(),
+        signerTitle: title.trim(),
+        updatedAt: now,
+      }
+      await supabase.from('event_bookings').upsert({ id: 'hexahub_licensor_sig', data, updated_at: now })
+      onSave(data)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inp = 'w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900'
+  const lab = 'block text-xs font-medium text-gray-600 mb-1'
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div>
+            <h2 className="font-bold text-gray-900">Licensor Signature</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Applied to all vendor signing certificates</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div><label className={lab}>Name *</label><input className={inp} value={name} onChange={e => setName(e.target.value)} placeholder="Full name" /></div>
+          <div><label className={lab}>Title</label><input className={inp} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Director, HexaHub Pty Ltd" /></div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className={lab} style={{ marginBottom: 0 }}>Signature</label>
+              <button
+                onClick={() => { sigRef.current?.clear(); setCleared(true) }}
+                className="text-xs text-gray-400 hover:text-gray-700 underline"
+              >Clear</button>
+            </div>
+            {current?.signatureData && !cleared && (
+              <div className="mb-2 border border-gray-200 rounded-md p-2 bg-gray-50">
+                <p className="text-xs text-gray-400 mb-1">Current signature — draw below to replace</p>
+                <img src={current.signatureData} alt="Current signature" className="h-12 object-contain" />
+              </div>
+            )}
+            <SignatureCanvas ref={sigRef} height={100} />
+            <p className="text-xs text-gray-400 mt-1">Draw using mouse or finger. Leave blank to keep existing.</p>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm font-medium hover:bg-gray-50">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="flex-1 bg-black text-white py-2.5 rounded-md text-sm font-semibold hover:bg-gray-800 disabled:opacity-40">
+            {saving ? 'Saving…' : 'Save Signature'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
 function VendorDetail({
   booking, onClose, onEdit, onDelete,
   onSendForSigning, onMarkInsuranceReceived, onCopyLink,
-  onSendReminder, onSendInsuranceReminder,
+  onSendReminder, onSendInsuranceReminder, onRegeneratePdf,
   sending, copied, onUpdate,
 }) {
   const [notifying, setNotifying] = useState(false)
@@ -122,6 +205,7 @@ function VendorDetail({
   const [reminded, setReminded] = useState(false)
   const [insuranceReminding, setInsuranceReminding] = useState(false)
   const [insuranceReminded, setInsuranceReminded] = useState(false)
+  const [regenPdf, setRegenPdf] = useState(false)
 
   async function notifySpace() {
     setNotifying(true)
@@ -355,6 +439,37 @@ function VendorDetail({
               )}
             </div>
           )}
+          {/* Signed agreement PDF */}
+          {(isSigned || isComplete) && (
+            <div className="space-y-1.5">
+              {booking.agreementPdfUrl ? (
+                <a
+                  href={booking.agreementPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 py-2.5 rounded-md text-sm hover:bg-gray-50 font-medium"
+                >
+                  <Download size={14} /> Download Signed Agreement
+                </a>
+              ) : (
+                <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-2">
+                  No signed PDF yet.
+                </div>
+              )}
+              <button
+                onClick={async () => {
+                  setRegenPdf(true)
+                  try { await onRegeneratePdf(booking) } finally { setRegenPdf(false) }
+                }}
+                disabled={regenPdf}
+                className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-500 py-2 rounded-md text-xs hover:bg-gray-50 disabled:opacity-40"
+              >
+                <FileText size={12} />
+                {regenPdf ? 'Generating…' : booking.agreementPdfUrl ? 'Regenerate PDF' : 'Generate Signed PDF'}
+              </button>
+            </div>
+          )}
+
           {booking.signingToken && !isCancelled && (
             <button
               onClick={onCopyLink}
@@ -576,16 +691,43 @@ export default function EventBookings() {
   const [editData, setEditData] = useState(null)
   const [sending, setSending] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [licensorSig, setLicensorSig] = useState(null)
+  const [showSigModal, setShowSigModal] = useState(false)
 
-  useEffect(() => { loadBookings() }, [])
+  useEffect(() => { loadBookings(); loadLicensorSig() }, [])
 
   async function loadBookings() {
     const { data } = await supabase
       .from('event_bookings')
       .select('data')
       .order('updated_at', { ascending: false })
-    setBookings((data ?? []).map(r => r.data).filter(Boolean))
+    // Filter out admin config records (licensor signature, etc.)
+    setBookings((data ?? []).map(r => r.data).filter(b => b && b.type !== 'admin_config'))
     setLoading(false)
+  }
+
+  async function loadLicensorSig() {
+    const { data } = await supabase
+      .from('event_bookings')
+      .select('data')
+      .eq('id', 'hexahub_licensor_sig')
+      .single()
+    if (data?.data) setLicensorSig(data.data)
+  }
+
+  async function regeneratePdf(booking) {
+    const pdfBlob = generateAgreementPdf(booking, licensorSig)
+    const pdfPath = `agreements/${booking.id}.pdf`
+    await supabase.storage.from('event-insurance').upload(pdfPath, pdfBlob, {
+      contentType: 'application/pdf',
+      upsert: true,
+    })
+    const { data: { publicUrl } } = supabase.storage.from('event-insurance').getPublicUrl(pdfPath)
+    const now = new Date().toISOString()
+    const updated = { ...booking, agreementPdfUrl: publicUrl, updatedAt: now }
+    await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
+    setBookings(prev => prev.map(b => b.id === booking.id ? updated : b))
+    setSelected(updated)
   }
 
   async function saveBooking(formData) {
@@ -713,12 +855,22 @@ export default function EventBookings() {
               <h1 className="text-lg font-bold tracking-tight">Hexa Hub Pop-Up</h1>
               <p className="text-xs text-gray-400 mt-0.5">Sunday 7 June 2026 · 3:00 PM – 9:00 PM · Bump-in from 11:00 AM · 18 Logistic Court, Huntingdale</p>
             </div>
-            <button
-              onClick={() => { setEditData(null); setShowForm(true) }}
-              className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-100 shrink-0"
-            >
-              <Plus size={15} /> Add Vendor
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowSigModal(true)}
+                title={licensorSig ? 'Licensor signature set ✓' : 'Set licensor signature'}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border ${licensorSig ? 'border-green-500/50 bg-green-900/20 text-green-400' : 'border-gray-600 text-gray-400 hover:text-white hover:border-gray-400'}`}
+              >
+                <Settings size={13} />
+                {licensorSig ? 'Sig Set ✓' : 'Set Sig'}
+              </button>
+              <button
+                onClick={() => { setEditData(null); setShowForm(true) }}
+                className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-100"
+              >
+                <Plus size={15} /> Add Vendor
+              </button>
+            </div>
           </div>
         </div>
 
@@ -798,6 +950,7 @@ export default function EventBookings() {
           onCopyLink={() => copySigningLink(selected)}
           onSendReminder={sendSigningReminder}
           onSendInsuranceReminder={sendInsuranceReminder}
+          onRegeneratePdf={regeneratePdf}
           sending={sending}
           copied={copied}
           onUpdate={updated => {
@@ -813,6 +966,15 @@ export default function EventBookings() {
           booking={editData}
           onSave={saveBooking}
           onClose={() => { setShowForm(false); setEditData(null) }}
+        />
+      )}
+
+      {/* Licensor signature modal */}
+      {showSigModal && (
+        <LicensorSignatureModal
+          current={licensorSig}
+          onSave={sig => { setLicensorSig(sig); setShowSigModal(false) }}
+          onClose={() => setShowSigModal(false)}
         />
       )}
     </div>

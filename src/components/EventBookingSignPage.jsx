@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { supabase } from '../lib/supabase.js'
 import SignatureCanvas from './SignatureCanvas.jsx'
+import { generateAgreementPdf } from '../lib/generateAgreementPdf.js'
 
 function fmtDate(d) {
   if (!d) return '—'
@@ -601,7 +602,7 @@ export default function EventBookingSignPage({ token }) {
     try {
       const signatureData = sigRef.current.toDataURL()
       const now = new Date().toISOString()
-      const updated = {
+      let updated = {
         ...booking,
         status: 'signed',
         signedAt: now,
@@ -611,12 +612,54 @@ export default function EventBookingSignPage({ token }) {
         signatureData,
         updatedAt: now,
       }
+
+      // Fetch admin/licensor signature for countersigning
+      let adminSig = null
+      try {
+        const { data: sigRows } = await supabase
+          .from('event_bookings')
+          .select('data')
+          .eq('id', 'hexahub_licensor_sig')
+          .single()
+        if (sigRows?.data) adminSig = sigRows.data
+      } catch (_) {}
+
+      // Generate and upload the signed PDF
+      try {
+        const pdfBlob = generateAgreementPdf(updated, adminSig)
+        const pdfPath = `agreements/${booking.id}.pdf`
+        // Always compute the public URL (works even if upload fails due to existing file)
+        const { data: { publicUrl } } = supabase.storage.from('event-insurance').getPublicUrl(pdfPath)
+        await supabase.storage.from('event-insurance').upload(pdfPath, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false,
+        })
+        updated = { ...updated, agreementPdfUrl: publicUrl }
+      } catch (_) {
+        // If upload fails, still save the expected URL so admin can regenerate
+        const pdfPath = `agreements/${booking.id}.pdf`
+        const { data: { publicUrl } } = supabase.storage.from('event-insurance').getPublicUrl(pdfPath)
+        updated = { ...updated, agreementPdfUrl: publicUrl }
+      }
+
       await supabase.from('event_bookings').update({ data: updated, updated_at: now }).eq('id', booking.id)
-      await fetch('/api/event-bookings/send-signing', {
+
+      // Notify admin
+      fetch('/api/event-bookings/send-signing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ booking: updated, mode: 'admin_notify' }),
       }).catch(() => {})
+
+      // Send vendor their signed copy
+      if (updated.agreementPdfUrl) {
+        fetch('/api/event-bookings/send-signing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking: updated, mode: 'agreement_copy' }),
+        }).catch(() => {})
+      }
+
       setBooking(updated)
       setState('signed')
     } catch (err) {
