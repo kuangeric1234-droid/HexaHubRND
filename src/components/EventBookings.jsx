@@ -718,10 +718,14 @@ export default function EventBookings() {
   async function regeneratePdf(booking) {
     const pdfBlob = generateAgreementPdf(booking, licensorSig)
     const pdfPath = `agreements/${booking.id}.pdf`
-    await supabase.storage.from('event-insurance').upload(pdfPath, pdfBlob, {
+    const { error: uploadError } = await supabase.storage.from('event-insurance').upload(pdfPath, pdfBlob, {
       contentType: 'application/pdf',
       upsert: true,
     })
+    if (uploadError) {
+      alert(`PDF upload failed: ${uploadError.message}\n\nMake sure the "event-insurance" Storage bucket exists in Supabase (Dashboard → Storage → New Bucket, public = ON).`)
+      return
+    }
     const { data: { publicUrl } } = supabase.storage.from('event-insurance').getPublicUrl(pdfPath)
     const now = new Date().toISOString()
     const updated = { ...booking, agreementPdfUrl: publicUrl, updatedAt: now }

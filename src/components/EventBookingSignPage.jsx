@@ -624,23 +624,20 @@ export default function EventBookingSignPage({ token }) {
         if (sigRows?.data) adminSig = sigRows.data
       } catch (_) {}
 
-      // Generate and upload the signed PDF
+      // Generate and upload the signed PDF (best-effort — signing succeeds regardless)
       try {
         const pdfBlob = generateAgreementPdf(updated, adminSig)
         const pdfPath = `agreements/${booking.id}.pdf`
-        // Always compute the public URL (works even if upload fails due to existing file)
-        const { data: { publicUrl } } = supabase.storage.from('event-insurance').getPublicUrl(pdfPath)
-        await supabase.storage.from('event-insurance').upload(pdfPath, pdfBlob, {
+        const { error: uploadError } = await supabase.storage.from('event-insurance').upload(pdfPath, pdfBlob, {
           contentType: 'application/pdf',
           upsert: false,
         })
-        updated = { ...updated, agreementPdfUrl: publicUrl }
-      } catch (_) {
-        // If upload fails, still save the expected URL so admin can regenerate
-        const pdfPath = `agreements/${booking.id}.pdf`
-        const { data: { publicUrl } } = supabase.storage.from('event-insurance').getPublicUrl(pdfPath)
-        updated = { ...updated, agreementPdfUrl: publicUrl }
-      }
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from('event-insurance').getPublicUrl(pdfPath)
+          updated = { ...updated, agreementPdfUrl: publicUrl }
+        }
+        // If upload fails (bucket not set up yet), admin can regenerate from portal later
+      } catch (_) {}
 
       await supabase.from('event_bookings').update({ data: updated, updated_at: now }).eq('id', booking.id)
 
