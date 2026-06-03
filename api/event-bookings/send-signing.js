@@ -236,6 +236,54 @@ function buildAgreementCopyEmail({ booking }) {
   return frame(body)
 }
 
+const EVENT_DOCS = {
+  rundown: {
+    label: 'Event Rundown',
+    url: 'https://yitkqjlytlyyflrsnfwc.supabase.co/storage/v1/object/public/event-insurance/event-docs/rundown.docx',
+  },
+  map: {
+    label: 'Vendor Map',
+    url: 'https://yitkqjlytlyyflrsnfwc.supabase.co/storage/v1/object/public/event-insurance/event-docs/vendor-map.pdf',
+  },
+}
+
+function buildEventDocsEmail({ booking }) {
+  const vendor = booking.vendorBusiness || booking.vendorName
+  const body = `
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Hexa Hub Pop-Up · Event Documents</p>
+    <h2 style="font-size:20px;color:#111;margin:0 0 16px">Hi ${booking.vendorName} — your event documents are ready</h2>
+    <p style="font-size:14px;color:#555;margin:0 0 24px">
+      We're getting excited for <strong>Sunday 7 June 2026</strong>! Please find your event documents below.
+      Review these carefully before the day.
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">
+      <tr><td style="padding:8px 0;color:#888;width:130px">Event</td><td style="padding:8px 0;font-weight:600;color:#111">${EVENT.name}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Date</td><td style="padding:8px 0;color:#111">${EVENT.date}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Hours</td><td style="padding:8px 0;color:#111">${EVENT.hours}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Venue</td><td style="padding:8px 0;color:#111">${EVENT.venue}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Bump-In From</td><td style="padding:8px 0;color:#111">11:00 AM</td></tr>
+      ${booking.allocatedSpace ? `<tr><td style="padding:8px 0;color:#888">Your Space</td><td style="padding:8px 0;font-weight:600;color:#111">${booking.allocatedSpace}</td></tr>` : ''}
+    </table>
+    <div style="display:flex;flex-direction:column;gap:12px;margin:0 0 28px">
+      <a href="${EVENT_DOCS.rundown.url}"
+         style="display:block;border:1px solid #e5e5e5;border-radius:6px;padding:16px 20px;text-decoration:none;color:#111">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Event Rundown</div>
+        <div style="font-size:14px;font-weight:700;color:#111">Download Rundown →</div>
+      </a>
+      <a href="${EVENT_DOCS.map.url}"
+         style="display:block;border:1px solid #e5e5e5;border-radius:6px;padding:16px 20px;text-decoration:none;color:#111">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Vendor Map</div>
+        <div style="font-size:14px;font-weight:700;color:#111">Download Map →</div>
+      </a>
+    </div>
+    <p style="font-size:13px;color:#555;margin:0 0 8px">
+      If you have any questions, reply to this email or contact us at
+      <a href="mailto:info@hexahub.com.au" style="color:#111">info@hexahub.com.au</a>.
+    </p>
+    <p style="font-size:13px;color:#555;margin:0">See you on June 7! 🏁</p>`
+  return frame(body)
+}
+
 function buildExecutedAgreementEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const licensorName = booking.licensorSignerName || 'HexaHub Pty Ltd'
@@ -405,6 +453,17 @@ export default async function handler(req, res) {
         to: booking.vendorEmail,
         subject: `Insurance required: Please upload your certificate — Hexa Hub Pop-Up · ${vendor}`,
         html: buildInsuranceReminderEmail({ booking, signingUrl }),
+      })
+      return res.status(200).json({ sent: ok })
+    }
+
+    if (mode === 'event_docs') {
+      if (!booking.vendorEmail) return res.status(400).json({ error: 'No vendor email.' })
+      const vendor = booking.vendorBusiness || booking.vendorName
+      const ok = await sendMail({
+        to: booking.vendorEmail,
+        subject: `Event documents — Hexa Hub Pop-Up · ${vendor}`,
+        html: buildEventDocsEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
     }
