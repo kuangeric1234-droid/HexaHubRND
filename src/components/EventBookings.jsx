@@ -1280,7 +1280,7 @@ export default function EventBookings() {
   async function sendSigningReminder(booking) {
     const now = new Date().toISOString()
     const signingUrl = `${window.location.origin}/sign/event/${booking.signingToken}`
-    const emailLog = [...(booking.emailLog || []), { type: 'signing_reminder', label: 'Agreement reminder sent', sentAt: now }]
+    const emailLog = [...(booking.emailLog || []), { type: 'signing_reminder', label: `Agreement reminder sent — ${format(parseISO(now), 'dd MMM yyyy, h:mm a')}`, sentAt: now }]
     const updated = { ...booking, updatedAt: now, emailLog }
     await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
     await fetch('/api/event-bookings/send-signing', {
@@ -1295,7 +1295,7 @@ export default function EventBookings() {
   async function sendInsuranceReminder(booking) {
     const now = new Date().toISOString()
     const signingUrl = booking.signingToken ? `${window.location.origin}/sign/event/${booking.signingToken}` : null
-    const emailLog = [...(booking.emailLog || []), { type: 'insurance_reminder', label: 'Insurance reminder sent', sentAt: now }]
+    const emailLog = [...(booking.emailLog || []), { type: 'insurance_reminder', label: `Insurance reminder sent — ${format(parseISO(now), 'dd MMM yyyy, h:mm a')}`, sentAt: now }]
     const updated = { ...booking, updatedAt: now, emailLog }
     await supabase.from('event_bookings').upsert({ id: booking.id, data: updated, updated_at: now })
     await fetch('/api/event-bookings/send-signing', {
