@@ -11,7 +11,7 @@ import { generateAgreementPdf } from '../lib/generateAgreementPdf.js'
 
 // ── June 7 event constants ────────────────────────────────────────────────────
 const EVENT = {
-  name: 'Hexa Hub Pop-Up',
+  name: 'Found Underground',
   date: '2026-06-07',
   venue: 'The Hub, 18 Logistic Court, Huntingdale VIC 3166',
   bumpInTime: '11:00',
@@ -791,7 +791,7 @@ function VendorForm({ booking, onSave, onClose }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
           <div>
             <h2 className="font-bold text-gray-900">{booking?.id ? 'Edit Vendor' : 'Add Vendor'}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Hexa Hub Pop-Up · 7 June 2026</p>
+            <p className="text-xs text-gray-400 mt-0.5">Found Underground · 7 June 2026</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
         </div>
@@ -1015,9 +1015,9 @@ const SEND_ALL_STATUSES = [
 function SendAllModal({ bookings, onClose }) {
   const defaultEnabled = new Set(['sent', 'signed', 'insurance_pending', 'insurance_received'])
   const [enabled, setEnabled] = useState(defaultEnabled)
-  const [subject, setSubject] = useState(`Hexa Hub Pop-Up — Sunday 7 June 2026`)
+  const [subject, setSubject] = useState(`Found Underground — Sunday 7 June 2026`)
   const [body, setBody] = useState(
-    `Hi everyone,\n\nThank you for being part of the Hexa Hub Pop-Up on Sunday 7 June 2026.\n\nThe event runs from 3:00 PM – 9:00 PM at 18 Logistic Court, Huntingdale. Bump-in is from 11:00 AM.\n\nPlease don't hesitate to reach out if you have any questions.\n\nSee you there!\n\nThe HexaHub Team`
+    `Hi everyone,\n\nThank you for being part of the Found Underground on Sunday 7 June 2026.\n\nThe event runs from 3:00 PM – 9:00 PM at 18 Logistic Court, Huntingdale. Bump-in is from 11:00 AM.\n\nPlease don't hesitate to reach out if you have any questions.\n\nSee you there!\n\nThe HexaHub Team`
   )
   const [copied, setCopied] = useState(false)
 
@@ -1339,7 +1339,7 @@ export default function EventBookings() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Event Vendor Agreements</div>
-              <h1 className="text-lg font-bold tracking-tight">Hexa Hub Pop-Up</h1>
+              <h1 className="text-lg font-bold tracking-tight">Found Underground</h1>
               <p className="text-xs text-gray-400 mt-0.5">Sunday 7 June 2026 · 3:00 PM – 9:00 PM · Bump-in from 11:00 AM · 18 Logistic Court, Huntingdale</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 
 /**
- * Generate a fully executed agreement PDF for the Hexa Hub Pop-Up vendor.
+ * Generate a fully executed agreement PDF for the Found Underground vendor.
  *
  * Structure:
  *   Page 1      — Signing certificate (parties + both signatures)
@@ -49,7 +49,7 @@ export function generateAgreementPdf(booking, adminSig) {
     doc.text('HEXAHUB', M, 7)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(160, 160, 160)
-    doc.text('Event Vendor Agreement · Hexa Hub Pop-Up 7 June 2026', W - M, 7, { align: 'right' })
+    doc.text('Event Vendor Agreement · Found Underground 7 June 2026', W - M, 7, { align: 'right' })
     doc.setTextColor(200, 200, 200)
     doc.text(`${pageNum}`, W / 2, 7, { align: 'center' })
     y = 18
@@ -201,7 +201,7 @@ export function generateAgreementPdf(booking, adminSig) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(100, 100, 100)
-  doc.text('Hexa Hub Pop-Up · Sunday 7 June 2026 · 3:00 PM – 9:00 PM', M, y); y += 6
+  doc.text('Found Underground · Sunday 7 June 2026 · 3:00 PM – 9:00 PM', M, y); y += 6
   doc.setFontSize(8.5)
   doc.setTextColor(80, 80, 80)
   doc.text(`Reference: ${b.ref || '—'}`, M, y)
@@ -277,7 +277,7 @@ export function generateAgreementPdf(booking, adminSig) {
   // Document header
   para('HexaHub Pty Ltd', { sz: 8, bold: true, color: [100,100,100], before: 0, after: 1 })
   para('Event Venue Licence Agreement', { sz: 14, bold: true, before: 0, after: 2 })
-  para('Hexa Hub Pop-Up · 7 June 2026', { sz: 9, color: [100,100,100], before: 0, after: 4 })
+  para('Found Underground · 7 June 2026', { sz: 9, color: [100,100,100], before: 0, after: 4 })
 
   rule()
 
@@ -292,7 +292,7 @@ export function generateAgreementPdf(booking, adminSig) {
   scheduleRow('Licensee ABN', b.vendorAbn || '—')
   scheduleRow('Venue', b.allocatedSpace ? `${b.allocatedSpace} — 17 Logistic Court, Huntingdale, Victoria` : '17 Logistic Court, Huntingdale, Victoria')
   scheduleRow('Permitted Use', [b.vendorType, b.vendorDescription].filter(Boolean).join(' — ') || '—')
-  scheduleRow('Event', 'Hexa Hub Pop-Up')
+  scheduleRow('Event', 'Found Underground')
   scheduleRow('Event Date', fmtDate(b.eventDate || '2026-06-07'))
   scheduleRow('Access / Bump-In Time', fmtTime(b.accessTime || '11:00'))
   scheduleRow('Event Commencement', fmtTime(b.eventStartTime || '15:00'))
@@ -451,7 +451,7 @@ export function generateAgreementPdf(booking, adminSig) {
 
   para('HexaHub Pty Ltd', { sz: 8, bold: true, color: [100,100,100], before: 0, after: 1 })
   para('Vendor Liability Waiver and Acknowledgement', { sz: 14, bold: true, before: 0, after: 2 })
-  para('Hexa Hub Pop-Up · Sunday 7 June 2026 · 17 Logistic Court, Huntingdale, Victoria', { sz: 9, color: [100,100,100], before: 0, after: 4 })
+  para('Found Underground · Sunday 7 June 2026 · 17 Logistic Court, Huntingdale, Victoria', { sz: 9, color: [100,100,100], before: 0, after: 4 })
   para(`This Waiver is given by the Vendor named below in favour of HexaHub Pty Ltd ABN 51 234 567 890 (HexaHub) and is to be read together with and forms part of the Event Venue Licence Agreement between the parties dated ${today}.`, { sz: 8, italic: true, color: [100,100,100] })
 
   clauseTitle('1.  Defined Terms')

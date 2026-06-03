@@ -7,7 +7,7 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 
 const EVENT = {
-  name: 'Hexa Hub Pop-Up',
+  name: 'Found Underground',
   date: 'Sunday 7 June 2026',
   hours: '3:00 PM – 9:00 PM',
   venue: 'The Hub, 18 Logistic Court, Huntingdale VIC 3166',
@@ -18,7 +18,7 @@ function frame(bodyHtml) {
 <div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden">
   <div style="background:#000;padding:24px 32px">
     <span style="color:#fff;font-size:20px;font-weight:900;letter-spacing:3px">HEXAHUB</span>
-    <span style="color:#666;font-size:12px;margin-left:12px">Hexa Hub Pop-Up · 7 June 2026</span>
+    <span style="color:#666;font-size:12px;margin-left:12px">Found Underground · 7 June 2026</span>
   </div>
   <div style="padding:32px">${bodyHtml}</div>
   <div style="background:#f5f5f5;padding:16px 32px;border-top:1px solid #eee">
@@ -37,7 +37,7 @@ function buildVendorSigningEmail({ booking, signingUrl }) {
     <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Vendor Participation Agreement</p>
     <h2 style="font-size:20px;color:#111;margin:0 0 20px">Hi ${booking.vendorName} — please review &amp; sign your vendor agreement</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      We're excited to have <strong>${vendor}</strong> joining us at the <strong>Hexa Hub Pop-Up on 7 June 2026</strong>.
+      We're excited to have <strong>${vendor}</strong> joining us at the <strong>Found Underground on 7 June 2026</strong>.
       Before the event, please review and sign the Vendor Participation Agreement, Liability Waiver, and Venue Rules using the button below.
     </p>
     <table style="width:100%;border-collapse:collapse;margin-bottom:28px;font-size:13px">
@@ -70,7 +70,7 @@ function buildAdminNotifyEmail({ booking }) {
   const body = `
     <h2 style="font-size:18px;color:#111;margin:0 0 16px">Vendor Agreement Signed ✅</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      <strong>${vendor}</strong> has signed their vendor agreement for the <strong>Hexa Hub Pop-Up</strong>.
+      <strong>${vendor}</strong> has signed their vendor agreement for the <strong>Found Underground</strong>.
     </p>
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">
       <tr><td style="padding:8px 0;color:#888;width:130px">Ref</td><td style="padding:8px 0;font-weight:600;color:#111">${booking.ref}</td></tr>
@@ -94,10 +94,10 @@ function buildSpaceAssignedEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const space = booking.allocatedSpace
   const body = `
-    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Hexa Hub Pop-Up · Space Confirmed</p>
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Found Underground · Space Confirmed</p>
     <h2 style="font-size:20px;color:#111;margin:0 0 20px">Your space has been assigned, ${booking.vendorName}!</h2>
     <p style="font-size:14px;color:#555;margin:0 0 24px">
-      Great news — your vendor space at the Hexa Hub Pop-Up has been confirmed. Here are your details:
+      Great news — your vendor space at the Found Underground has been confirmed. Here are your details:
     </p>
     <div style="background:#f5f5f5;border-radius:6px;padding:20px 24px;margin-bottom:28px">
       <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Your Allocated Space</div>
@@ -124,7 +124,7 @@ function buildInsuranceUploadedEmail({ booking }) {
   const body = `
     <h2 style="font-size:18px;color:#111;margin:0 0 16px">Insurance Certificate Uploaded ✅</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      <strong>${vendor}</strong> has uploaded their Certificate of Currency for the Hexa Hub Pop-Up.
+      <strong>${vendor}</strong> has uploaded their Certificate of Currency for the Found Underground.
     </p>
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px">
       <tr><td style="padding:8px 0;color:#888;width:130px">Vendor</td><td style="padding:8px 0;color:#111">${vendor}</td></tr>
@@ -176,7 +176,7 @@ function buildInsuranceReminderEmail({ booking, signingUrl }) {
     <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Action Required · Insurance Certificate</p>
     <h2 style="font-size:20px;color:#111;margin:0 0 20px">Hi ${booking.vendorName} — please upload your insurance certificate</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      Thanks for signing your Vendor Participation Agreement for the <strong>Hexa Hub Pop-Up on 7 June 2026</strong>.
+      Thanks for signing your Vendor Participation Agreement for the <strong>Found Underground on 7 June 2026</strong>.
       We're following up to request your <strong>Certificate of Currency for Public Liability Insurance</strong> (minimum AUD $10,000,000).
     </p>
     ${signingUrl ? `
@@ -206,10 +206,10 @@ function buildInsuranceReminderEmail({ booking, signingUrl }) {
 function buildAgreementCopyEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
-    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Hexa Hub Pop-Up · Signed Agreement</p>
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Found Underground · Signed Agreement</p>
     <h2 style="font-size:20px;color:#111;margin:0 0 20px">Your signed agreement is ready, ${booking.vendorName}</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      Thank you for signing your Vendor Participation Agreement for the <strong>Hexa Hub Pop-Up on 7 June 2026</strong>.
+      Thank you for signing your Vendor Participation Agreement for the <strong>Found Underground on 7 June 2026</strong>.
       Your countersigned copy is ready to download and keep for your records.
     </p>
     <div style="text-align:center;margin:28px 0">
@@ -250,7 +250,7 @@ const EVENT_DOCS = {
 function buildEventDocsEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const body = `
-    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Hexa Hub Pop-Up · Event Documents</p>
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Found Underground · Event Documents</p>
     <h2 style="font-size:20px;color:#111;margin:0 0 16px">Hi ${booking.vendorName} — your event documents are ready</h2>
     <p style="font-size:14px;color:#555;margin:0 0 24px">
       We're getting excited for <strong>Sunday 7 June 2026</strong>! Please find your event documents below.
@@ -288,10 +288,10 @@ function buildExecutedAgreementEmail({ booking }) {
   const vendor = booking.vendorBusiness || booking.vendorName
   const licensorName = booking.licensorSignerName || 'HexaHub Pty Ltd'
   const body = `
-    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Hexa Hub Pop-Up · Fully Executed Agreement</p>
+    <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px">Found Underground · Fully Executed Agreement</p>
     <h2 style="font-size:20px;color:#111;margin:0 0 20px">Your agreement is fully executed, ${booking.vendorName}!</h2>
     <p style="font-size:14px;color:#555;margin:0 0 20px">
-      Your Vendor Participation Agreement for the <strong>Hexa Hub Pop-Up on 7 June 2026</strong> has been
+      Your Vendor Participation Agreement for the <strong>Found Underground on 7 June 2026</strong> has been
       countersigned by <strong>${licensorName}</strong> on behalf of HexaHub. The agreement is now fully executed.
       Please download your copy for your records.
     </p>
@@ -373,7 +373,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: booking.vendorEmail,
-        subject: `Vendor Agreement — Hexa Hub Pop-Up · ${vendor}`,
+        subject: `Vendor Agreement — Found Underground · ${vendor}`,
         html: buildVendorSigningEmail({ booking, signingUrl }),
       })
       return res.status(ok ? 200 : 500).json({ sent: ok })
@@ -383,7 +383,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: 'info@hexahub.com.au',
-        subject: `Vendor signed: ${vendor} — Hexa Hub Pop-Up`,
+        subject: `Vendor signed: ${vendor} — Found Underground`,
         html: buildAdminNotifyEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
@@ -394,7 +394,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: booking.vendorEmail,
-        subject: `Your space is confirmed — ${booking.allocatedSpace} · Hexa Hub Pop-Up`,
+        subject: `Your space is confirmed — ${booking.allocatedSpace} · Found Underground`,
         html: buildSpaceAssignedEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
@@ -404,7 +404,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: 'info@hexahub.com.au',
-        subject: `Insurance uploaded: ${vendor} — Hexa Hub Pop-Up`,
+        subject: `Insurance uploaded: ${vendor} — Found Underground`,
         html: buildInsuranceUploadedEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
@@ -416,7 +416,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: booking.vendorEmail,
-        subject: `Fully executed agreement — Hexa Hub Pop-Up · ${vendor}`,
+        subject: `Fully executed agreement — Found Underground · ${vendor}`,
         html: buildExecutedAgreementEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
@@ -428,7 +428,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: booking.vendorEmail,
-        subject: `Your signed agreement — Hexa Hub Pop-Up · ${vendor}`,
+        subject: `Your signed agreement — Found Underground · ${vendor}`,
         html: buildAgreementCopyEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
@@ -440,7 +440,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: booking.vendorEmail,
-        subject: `Reminder: Please sign your vendor agreement — Hexa Hub Pop-Up · ${vendor}`,
+        subject: `Reminder: Please sign your vendor agreement — Found Underground · ${vendor}`,
         html: buildSigningReminderEmail({ booking, signingUrl }),
       })
       return res.status(200).json({ sent: ok })
@@ -451,7 +451,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: booking.vendorEmail,
-        subject: `Insurance required: Please upload your certificate — Hexa Hub Pop-Up · ${vendor}`,
+        subject: `Insurance required: Please upload your certificate — Found Underground · ${vendor}`,
         html: buildInsuranceReminderEmail({ booking, signingUrl }),
       })
       return res.status(200).json({ sent: ok })
@@ -462,7 +462,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: booking.vendorEmail,
-        subject: `Event documents — Hexa Hub Pop-Up · ${vendor}`,
+        subject: `Event documents — Found Underground · ${vendor}`,
         html: buildEventDocsEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })
@@ -472,7 +472,7 @@ export default async function handler(req, res) {
       const vendor = booking.vendorBusiness || booking.vendorName
       const ok = await sendMail({
         to: 'info@hexahub.com.au',
-        subject: `Insurance pending: ${vendor} — Hexa Hub Pop-Up`,
+        subject: `Insurance pending: ${vendor} — Found Underground`,
         html: buildInsuranceDeferredEmail({ booking }),
       })
       return res.status(200).json({ sent: ok })

@@ -31,7 +31,7 @@ function LicenceAgreementDoc({ booking }) {
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
         <h1 className="text-2xl font-bold tracking-tight">Event Venue Licence Agreement</h1>
-        <div className="text-xs text-gray-500 font-sans">Hexa Hub Pop-Up · 7 June 2026</div>
+        <div className="text-xs text-gray-500 font-sans">Found Underground · 7 June 2026</div>
       </div>
 
       <hr className="border-gray-300" />
@@ -51,7 +51,7 @@ function LicenceAgreementDoc({ booking }) {
               ['Licensee ABN', b.vendorAbn || '—'],
               ['Venue', b.allocatedSpace ? `${b.allocatedSpace} — 17 Logistic Court, Huntingdale, Victoria` : '17 Logistic Court, Huntingdale, Victoria'],
               ['Permitted Use', [b.vendorType, b.vendorDescription].filter(Boolean).join(' — ') || '—'],
-              ['Event', 'Hexa Hub Pop-Up'],
+              ['Event', 'Found Underground'],
               ['Event Date', fmtDate(b.eventDate || '2026-06-07')],
               ['Access / Bump-In Time', fmtTime(b.accessTime || '11:00')],
               ['Event Commencement', fmtTime(b.eventStartTime || '15:00')],
@@ -307,7 +307,7 @@ function LiabilityWaiverDoc({ booking }) {
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
         <h1 className="text-xl font-bold tracking-tight">Vendor Liability Waiver and Acknowledgement</h1>
-        <div className="text-xs text-gray-500 font-sans">Hexa Hub Pop-Up · Sunday 7 June 2026 · 17 Logistic Court, Huntingdale, Victoria</div>
+        <div className="text-xs text-gray-500 font-sans">Found Underground · Sunday 7 June 2026 · 17 Logistic Court, Huntingdale, Victoria</div>
       </div>
 
       <hr className="border-gray-300" />
@@ -811,7 +811,7 @@ export default function EventBookingSignPage({ token }) {
             <div className="bg-gray-50 rounded-md p-4 text-xs text-gray-500 mb-6 space-y-1">
               <div><span className="font-medium text-gray-700">Licensee:</span> {[booking?.vendorBusiness, booking?.vendorName].filter(Boolean).join(' — ')}</div>
               {booking?.allocatedSpace && <div><span className="font-medium text-gray-700">Venue / Space:</span> {booking.allocatedSpace}</div>}
-              <div><span className="font-medium text-gray-700">Event:</span> Hexa Hub Pop-Up · Sunday 7 June 2026</div>
+              <div><span className="font-medium text-gray-700">Event:</span> Found Underground · Sunday 7 June 2026</div>
               <div><span className="font-medium text-gray-700">Licensor:</span> HexaHub Pty Ltd</div>
             </div>
 
@@ -888,7 +888,7 @@ function VendorDetailsForm({ booking, onComplete }) {
           {/* Welcome header */}
           <div className="bg-black text-white px-8 py-6">
             <div className="text-xs tracking-widest text-gray-400 uppercase mb-1">You're invited</div>
-            <h2 className="text-xl font-bold">Hexa Hub Pop-Up</h2>
+            <h2 className="text-xl font-bold">Found Underground</h2>
             <p className="text-sm text-gray-300 mt-1">Sunday 7 June 2026 · 3:00 PM – 9:00 PM</p>
             <p className="text-xs text-gray-400 mt-0.5">17 Logistic Court, Huntingdale, Victoria</p>
           </div>
@@ -1118,7 +1118,7 @@ function Header() {
         <span className="text-gray-400 text-sm ml-3">Event Venue Licence Agreement</span>
       </div>
       <div className="text-right hidden sm:block">
-        <div className="text-sm font-medium text-white">Hexa Hub Pop-Up</div>
+        <div className="text-sm font-medium text-white">Found Underground</div>
         <div className="text-xs text-gray-400">Sunday 7 June 2026 · 17 Logistic Court, Huntingdale</div>
       </div>
     </div>
