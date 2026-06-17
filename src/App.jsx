@@ -13,6 +13,7 @@ import Settings from './components/Settings.jsx'
 import Maintenance from './components/Maintenance.jsx'
 import Reports from './components/Reports.jsx'
 import Events from './components/Events.jsx'
+import Marketing from './components/Marketing.jsx'
 import EventBookings from './components/EventBookings.jsx'
 import AdminMessages from './components/AdminMessages.jsx'
 import Login from './components/Login.jsx'
@@ -92,6 +93,7 @@ export default function App() {
           <Route path="templates" element={<Templates />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="marketing" element={<Marketing />} />
           <Route path="messages" element={<AdminMessages />} />
           <Route path="events" element={<Events />} />
           <Route path="event-bookings" element={<EventBookings />} />

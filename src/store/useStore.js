@@ -504,6 +504,51 @@ const SAMPLE_LEASES = [
   },
 ]
 
+// ── Lead pipeline ─────────────────────────────────────────────────────────────
+// Default stages mirror Reuvi's pipeline categories (new|engaged|won|lost) so
+// reporting keeps machine meaning whatever the labels say.
+
+const DEFAULT_STAGES = [
+  { id: 'stage_new',    name: 'New',    tone: 'gray',   sortOrder: 0, category: 'new' },
+  { id: 'stage_toured', name: 'Toured', tone: 'blue',   sortOrder: 1, category: 'engaged' },
+  { id: 'stage_quoted', name: 'Quoted', tone: 'orange', sortOrder: 2, category: 'engaged' },
+  { id: 'stage_won',    name: 'Won',    tone: 'green',  sortOrder: 3, category: 'won' },
+  { id: 'stage_lost',   name: 'Lost',   tone: 'red',    sortOrder: 4, category: 'lost' },
+]
+
+const SAMPLE_LEADS = [
+  {
+    id: 'lead001',
+    name: 'Priya Nair',
+    businessName: 'Nair Imports Pty Ltd',
+    email: 'priya@nairimports.com.au',
+    phone: '0421 998 112',
+    spaceId: 'so7',   // O7 — vacant warehouse
+    source: 'website',
+    stageId: 'stage_toured',
+    value: 4708,
+    notes: 'Toured O7 on site, wants rear tilt-door access confirmed.',
+    tenantId: null,
+    createdAt: '2026-06-02',
+    stageEnteredAt: '2026-06-10',
+  },
+  {
+    id: 'lead002',
+    name: 'Daniel Roszak',
+    businessName: 'Forge & Co',
+    email: 'dan@forgeandco.com.au',
+    phone: '0438 221 760',
+    spaceId: 'so11',  // O11 — vacant warehouse
+    source: 'referral',
+    stageId: 'stage_new',
+    value: 3333,
+    notes: 'Referred by Meridian. Needs first-floor office for ~3 staff.',
+    tenantId: null,
+    createdAt: '2026-06-14',
+    stageEnteredAt: '2026-06-14',
+  },
+]
+
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 
 function syncRow(table, id, data) {
@@ -537,6 +582,8 @@ export function useStore() {
   const [invoices, setInvoices] = useState([])
   const [discounts, setDiscounts] = useState([])
   const [maintenance, setMaintenance] = useState([])
+  const [leads, setLeads] = useState([])
+  const [pipelineStages, setPipelineStages] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   // Always-current settings ref for callbacks
@@ -551,6 +598,7 @@ export function useStore() {
           { data: tData }, { data: sData }, { data: lData },
           { data: tmData }, { data: invData }, { data: discData },
           { data: maintData }, { data: settData }, { data: metaData },
+          { data: leadData }, { data: stageData },
         ] = await Promise.all([
           supabase.from('tenants').select('data'),
           supabase.from('spaces').select('data'),
@@ -561,6 +609,8 @@ export function useStore() {
           supabase.from('maintenance').select('data'),
           supabase.from('settings').select('data').eq('id', 'global'),
           supabase.from('meta').select('*'),
+          supabase.from('leads').select('data'),
+          supabase.from('lead_pipeline_stages').select('data'),
         ])
 
         // 'seeded' flag — once set, we NEVER fall back to sample data again
@@ -573,6 +623,8 @@ export function useStore() {
         const loadedInvoices  = invData?.length  ? extractRows(invData)  : (isSeeded ? [] : SAMPLE_INVOICES)
         const loadedDiscounts   = discData?.length  ? extractRows(discData)  : (isSeeded ? [] : SAMPLE_DISCOUNTS)
         const loadedMaintenance = maintData?.length ? extractRows(maintData) : []
+        const loadedLeads       = leadData?.length  ? extractRows(leadData)  : (isSeeded ? [] : SAMPLE_LEADS)
+        const loadedStages      = stageData?.length ? extractRows(stageData) : DEFAULT_STAGES
         const loadedSettings    = settData?.[0]?.data ?? DEFAULT_SETTINGS
         const lastBillRun     = metaData?.find((m) => m.key === 'last_bill_run')?.value ?? null
 
@@ -584,9 +636,14 @@ export function useStore() {
           if (!tmData?.length)   await seedTable('templates', SAMPLE_TEMPLATES)
           if (!invData?.length)  await seedTable('invoices',  SAMPLE_INVOICES)
           if (!discData?.length) await seedTable('discounts', SAMPLE_DISCOUNTS)
+          if (!leadData?.length) await seedTable('leads',     SAMPLE_LEADS)
           if (!settData?.length) await supabase.from('settings').upsert({ id: 'global', data: loadedSettings })
           await supabase.from('meta').upsert({ key: 'seeded', value: 'true' })
         }
+
+        // Pipeline stages are config (not sample data) — seed the defaults whenever
+        // the table is empty, even on an already-seeded install.
+        if (!stageData?.length) await seedTable('lead_pipeline_stages', DEFAULT_STAGES)
 
         setTenants(loadedTenants)
         setSpaces(loadedSpaces)
@@ -594,6 +651,8 @@ export function useStore() {
         setTemplates(loadedTemplates)
         setDiscounts(loadedDiscounts)
         setMaintenance(loadedMaintenance)
+        setLeads(loadedLeads)
+        setPipelineStages([...loadedStages].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)))
         setSettings(loadedSettings)
         settingsRef.current = loadedSettings
 
@@ -957,6 +1016,94 @@ export function useStore() {
     deleteRow('maintenance', id)
   }, [])
 
+  // ── Leads (CRM pipeline) ────────────────────────────────────────────────────
+  const addLead = useCallback((lead) => {
+    const today = new Date().toISOString().split('T')[0]
+    const item = {
+      tenantId: null, value: 0, notes: '', source: 'website',
+      ...lead,
+      id: `lead${Date.now()}`,
+      createdAt: today,
+      stageEnteredAt: today,
+    }
+    setLeads((prev) => [item, ...prev])
+    syncRow('leads', item.id, item)
+    logAudit('create', 'lead', item.id, item.name ?? item.businessName ?? item.id)
+    return item
+  }, [])
+
+  const updateLead = useCallback((id, updates) => {
+    setLeads((prev) => {
+      const next = prev.map((l) => (l.id === id ? { ...l, ...updates } : l))
+      const updated = next.find((l) => l.id === id)
+      if (updated) syncRow('leads', id, updated)
+      return next
+    })
+  }, [])
+
+  const moveLeadToStage = useCallback((id, stageId) => {
+    const stageEnteredAt = new Date().toISOString().split('T')[0]
+    setLeads((prev) => {
+      const next = prev.map((l) => (l.id === id ? { ...l, stageId, stageEnteredAt } : l))
+      const updated = next.find((l) => l.id === id)
+      if (updated) syncRow('leads', id, updated)
+      return next
+    })
+  }, [])
+
+  const deleteLead = useCallback((id) => {
+    setLeads((prev) => { const l = prev.find((x) => x.id === id); logAudit('delete', 'lead', id, l?.name ?? id); return prev.filter((x) => x.id !== id) })
+    deleteRow('leads', id)
+  }, [])
+
+  const convertLeadToTenant = useCallback((leadId) => {
+    let createdTenant = null
+    setLeads((prev) => {
+      const lead = prev.find((l) => l.id === leadId)
+      if (!lead) return prev
+      // Reuse addTenant so the tenant lands in Supabase + audit log identically.
+      createdTenant = addTenant({
+        businessName: lead.businessName ?? lead.name ?? 'New tenant',
+        contactName: lead.name ?? '',
+        email: lead.email ?? '',
+        phone: lead.phone ?? '',
+        abn: '',
+        industry: '',
+        country: 'Australia',
+      })
+      const wonStage = DEFAULT_STAGES.find((s) => s.category === 'won')
+      const next = prev.map((l) => l.id === leadId
+        ? { ...l, tenantId: createdTenant.id, stageId: wonStage?.id ?? l.stageId, stageEnteredAt: new Date().toISOString().split('T')[0] }
+        : l)
+      const updated = next.find((l) => l.id === leadId)
+      if (updated) syncRow('leads', leadId, updated)
+      return next
+    })
+    return createdTenant
+  }, [addTenant])
+
+  // ── Pipeline stages ─────────────────────────────────────────────────────────
+  const addStage = useCallback((stage) => {
+    const item = { tone: 'gray', category: 'engaged', sortOrder: 99, ...stage, id: `stage${Date.now()}` }
+    setPipelineStages((prev) => [...prev, item].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)))
+    syncRow('lead_pipeline_stages', item.id, item)
+    return item
+  }, [])
+
+  const updateStage = useCallback((id, updates) => {
+    setPipelineStages((prev) => {
+      const next = prev.map((s) => (s.id === id ? { ...s, ...updates } : s)).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      const updated = next.find((s) => s.id === id)
+      if (updated) syncRow('lead_pipeline_stages', id, updated)
+      return next
+    })
+  }, [])
+
+  const deleteStage = useCallback((id) => {
+    setPipelineStages((prev) => prev.filter((s) => s.id !== id))
+    deleteRow('lead_pipeline_stages', id)
+  }, [])
+
   // ── Settings ──────────────────────────────────────────────────────────────
   const updateSettings = useCallback((patch) => {
     logAudit('update', 'settings', 'global', 'Settings', Object.keys(patch).join(', '))
@@ -1016,6 +1163,8 @@ export function useStore() {
     invoices, addInvoice, updateInvoice, voidInvoice, deleteInvoice, addPaymentToInvoice, addCommentToInvoice, runAutoBillRun,
     discounts, addDiscount, updateDiscount, deleteDiscount,
     maintenance, addMaintenanceIssue, updateMaintenanceIssue, deleteMaintenanceIssue,
+    leads, addLead, updateLead, moveLeadToStage, deleteLead, convertLeadToTenant,
+    pipelineStages, addStage, updateStage, deleteStage,
     settings, updateSettings,
     currentUserRole, currentUserEmail,
     resetSampleData,
