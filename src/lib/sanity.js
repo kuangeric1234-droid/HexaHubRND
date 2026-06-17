@@ -23,6 +23,35 @@ export function ptToText(blocks) {
     .trim()
 }
 
+// ── Listing sync (App → Sanity) ───────────────────────────────────────────────
+// Pushes a space to the website's `unit` doc via the /api/sanity-sync serverless
+// function (which holds the write token). Fire-and-forget friendly: callers can
+// .catch() to avoid blocking the UI.
+
+async function listingSync(action, space) {
+  const res = await fetch('/api/sanity-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, space }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error ?? 'Listing sync failed')
+  }
+  return res.json()
+}
+
+// Create/refresh the unit on the website (status mirrors space.status:
+// vacant→available, occupied→leased, reserved→under-offer).
+export function publishListing(space) {
+  return listingSync('sync', space)
+}
+
+// Hard-remove the unit document from the website.
+export function deleteListing(space) {
+  return listingSync('delete', space)
+}
+
 export async function fetchSanityEvents() {
   const query = encodeURIComponent(
     '*[_type == "event"] | order(date asc) {_id, title, date, endDate, summary, tagline, location, locationAddress, slug, coverImage, rsvpEnabled, rsvpClosingDate}'

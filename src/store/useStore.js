@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { logAudit } from '../lib/audit.js'
+import { publishListing } from '../lib/sanity.js'
 
 const STORAGE_KEYS = {
   tenants: 'hexahub_tenants',
@@ -851,7 +852,12 @@ export function useStore() {
     setSpaces((prev) => {
       const next = prev.map((s) => (s.id === lease.spaceId ? { ...s, status: 'occupied' } : s))
       const updated = next.find((s) => s.id === lease.spaceId)
-      if (updated) syncRow('spaces', updated.id, updated)
+      if (updated) {
+        syncRow('spaces', updated.id, updated)
+        // Auto-remove from website: if the unit was published, re-sync so its
+        // Sanity status flips to 'leased'. Fire-and-forget — never block leasing.
+        if (updated.publishedToWeb) publishListing(updated).catch((e) => console.error('Listing auto-sync:', e))
+      }
       return next
     })
     return item

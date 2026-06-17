@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Megaphone, Globe, FileText } from 'lucide-react'
+import { Megaphone, FileText } from 'lucide-react'
 import LeadsBoard from './LeadsBoard.jsx'
+import ListingsPanel from './ListingsPanel.jsx'
 
 const TABS = [
   { key: 'leads',    label: 'Leads' },
@@ -50,13 +51,7 @@ export default function Marketing() {
       </div>
 
       {tab === 'leads' && <LeadsBoard store={store} />}
-      {tab === 'listings' && (
-        <ComingSoon
-          icon={Globe}
-          title="Website listings sync"
-          body="Push vacant units to hexahub.com.au and automatically remove them when a lease is signed. Arriving in Phase 2 (needs the Sanity write token)."
-        />
-      )}
+      {tab === 'listings' && <ListingsPanel store={store} />}
       {tab === 'forms' && (
         <ComingSoon
           icon={FileText}
