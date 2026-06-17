@@ -5,12 +5,14 @@ import LeadsBoard from './LeadsBoard.jsx'
 import ListingsPanel from './ListingsPanel.jsx'
 import EnquiriesInbox from './EnquiriesInbox.jsx'
 import EventRegistrations from './EventRegistrations.jsx'
+import AiStudio from './AiStudio.jsx'
 
 const TABS = [
   { key: 'leads',     label: 'Leads' },
   { key: 'enquiries', label: 'Enquiries' },
   { key: 'listings',  label: 'Listings' },
   { key: 'events',    label: 'Events' },
+  { key: 'studio',    label: 'AI Studio' },
   { key: 'forms',     label: 'Forms' },
 ]
 
@@ -62,6 +64,7 @@ export default function Marketing() {
       {tab === 'enquiries' && <EnquiriesInbox store={store} />}
       {tab === 'listings' && <ListingsPanel store={store} />}
       {tab === 'events' && <EventRegistrations store={store} />}
+      {tab === 'studio' && <AiStudio store={store} />}
       {tab === 'forms' && (
         <ComingSoon
           icon={FileText}
