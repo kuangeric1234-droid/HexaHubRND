@@ -52,6 +52,47 @@ export function deleteListing(space) {
   return listingSync('delete', space)
 }
 
+// Resize/compress an image File in the browser, then upload it to Sanity via
+// /api/sanity-upload. Returns { assetId, url } to store on space.photos.
+export async function uploadListingImage(file, maxDim = 1600, quality = 0.82) {
+  const base64 = await resizeToBase64(file, maxDim, quality)
+  const res = await fetch('/api/sanity-upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: base64, contentType: 'image/jpeg', filename: file.name ?? 'photo.jpg' }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error ?? 'Image upload failed')
+  }
+  return res.json()
+}
+
+function resizeToBase64(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const reader = new FileReader()
+    reader.onerror = reject
+    reader.onload = () => { img.src = reader.result }
+    img.onerror = reject
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      const dataUrl = canvas.toDataURL('image/jpeg', quality)
+      resolve(dataUrl.split(',')[1]) // strip the data: prefix
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 export async function fetchSanityEvents() {
   const query = encodeURIComponent(
     '*[_type == "event"] | order(date asc) {_id, title, date, endDate, summary, tagline, location, locationAddress, slug, coverImage, rsvpEnabled, rsvpClosingDate}'

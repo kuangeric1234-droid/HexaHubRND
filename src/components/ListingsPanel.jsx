@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Globe, Check, Loader2, Trash2, RefreshCw, AlertCircle } from 'lucide-react'
+import { Globe, Check, Loader2, Trash2, RefreshCw, AlertCircle, Image as ImageIcon, Pencil } from 'lucide-react'
 import { publishListing, deleteListing } from '../lib/sanity.js'
+import ListingEditor from './ListingEditor.jsx'
 
 const STATUS_BADGE = {
   vacant:   'bg-green-50 text-green-700 border-green-200',
@@ -12,6 +13,7 @@ export default function ListingsPanel({ store }) {
   const { spaces = [], updateSpace } = store
   const [busyId, setBusyId] = useState(null)
   const [error, setError] = useState('')
+  const [editSpace, setEditSpace] = useState(null)
 
   async function handlePublish(space) {
     setBusyId(space.id); setError('')
@@ -64,6 +66,7 @@ export default function ListingsPanel({ store }) {
               <th className="px-4 py-2.5 font-medium">Type</th>
               <th className="px-4 py-2.5 font-medium">Rate</th>
               <th className="px-4 py-2.5 font-medium">Status</th>
+              <th className="px-4 py-2.5 font-medium">Listing</th>
               <th className="px-4 py-2.5 font-medium">Website</th>
               <th className="px-4 py-2.5 font-medium text-right">Actions</th>
             </tr>
@@ -72,6 +75,8 @@ export default function ListingsPanel({ store }) {
             {sorted.map((space) => {
               const busy = busyId === space.id
               const published = !!space.publishedToWeb
+              const photoCount = space.photos?.length ?? 0
+              const featureCount = space.features?.length ?? 0
               return (
                 <tr key={space.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
@@ -86,6 +91,12 @@ export default function ListingsPanel({ store }) {
                     </span>
                   </td>
                   <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span className={`flex items-center gap-1 ${photoCount ? 'text-gray-700' : 'text-gray-300'}`}><ImageIcon size={12} /> {photoCount}</span>
+                      <span className={featureCount ? 'text-gray-700' : 'text-gray-300'}>· {featureCount} features</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
                     {published ? (
                       <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><Check size={13} /> Published</span>
                     ) : (
@@ -94,6 +105,11 @@ export default function ListingsPanel({ store }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setEditSpace(space)}
+                        className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50">
+                        <Pencil size={12} /> Edit
+                      </button>
                       <button
                         onClick={() => handlePublish(space)} disabled={busy}
                         className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-40">
@@ -115,6 +131,10 @@ export default function ListingsPanel({ store }) {
           </tbody>
         </table>
       </div>
+
+      {editSpace && (
+        <ListingEditor space={editSpace} store={store} onClose={() => setEditSpace(null)} />
+      )}
     </div>
   )
 }

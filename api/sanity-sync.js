@@ -33,6 +33,31 @@ function docId(space) {
   return `unit.${space.id}`
 }
 
+// Plain text → Sanity Portable Text blocks (one block per non-empty line).
+function toPortableText(text) {
+  if (!text || !String(text).trim()) return undefined
+  return String(text).split(/\n+/).filter((l) => l.trim()).map((line, i) => ({
+    _type: 'block',
+    _key: `blk${i}`,
+    style: 'normal',
+    markDefs: [],
+    children: [{ _type: 'span', _key: `sp${i}`, text: line.trim(), marks: [] }],
+  }))
+}
+
+// space.photos [{ assetId, alt }] → Sanity image array
+function toPhotos(photos) {
+  if (!Array.isArray(photos) || photos.length === 0) return undefined
+  return photos
+    .filter((p) => p.assetId)
+    .map((p, i) => ({
+      _type: 'image',
+      _key: `img${i}`,
+      asset: { _type: 'reference', _ref: p.assetId },
+      alt: p.alt || '',
+    }))
+}
+
 // Operational fields HexaHub owns — these are patched on every sync.
 function operationalFields(space) {
   const fields = {
@@ -40,13 +65,32 @@ function operationalFields(space) {
     type: TYPE_MAP[space.type] ?? 'warehouse',
     status: STATUS_MAP[space.status] ?? 'available',
     monthlyPrice: typeof space.monthlyRate === 'number' ? space.monthlyRate : undefined,
+    // The website computes the displayed monthly rent from annualPrice, so set both.
+    annualPrice: typeof space.monthlyRate === 'number' ? space.monthlyRate * 12 : undefined,
     sizeSquareMetres: parseSize(space.size),
     parkingSpaces: typeof space.cars === 'number' ? space.cars : undefined,
     streetAddress: space.address ? `${space.address}, Huntingdale VIC 3166` : undefined,
     attributes: space.attributes || undefined,
+    // Enriched listing fields (filled via the Listing editor in the Marketing tab)
+    block: space.block || undefined,
+    groundFloorM2: numOrUndef(space.groundFloorM2),
+    firstFloorM2: numOrUndef(space.firstFloorM2),
+    secondFloorM2: numOrUndef(space.secondFloorM2),
+    powerSupply: space.powerSupply || undefined,
+    accessHours: space.accessHours || undefined,
+    minimumTerm: space.minimumTerm || undefined,
+    bondAmount: numOrUndef(space.bondAmount),
+    features: Array.isArray(space.features) && space.features.length ? space.features : undefined,
+    description: toPortableText(space.description),
+    photos: toPhotos(space.photos),
   }
   // Strip undefined so we never blank out a field by patching it to null.
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined))
+}
+
+function numOrUndef(v) {
+  const n = typeof v === 'number' ? v : parseFloat(v)
+  return Number.isFinite(n) ? n : undefined
 }
 
 async function mutate(mutations) {
