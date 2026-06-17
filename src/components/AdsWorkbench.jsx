@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Plus, X, Loader2, Sparkles, Search, Calculator, Save, Trash2, Copy, Check,
   ArrowRight, ArrowLeft, Rocket, Tag, Users, DollarSign, Target, ChevronDown, ChevronRight,
-  AlertCircle, Megaphone,
+  AlertCircle, Megaphone, Plug, Send, CheckCircle2,
 } from 'lucide-react'
 import { generateAdResearch, generateAdCampaign } from '../lib/ads.js'
 import { computeAdsMath } from '../lib/adsMath.js'
+import { googleAdsStatus, connectGoogleAds, pushToGoogleAds } from '../lib/googleAds.js'
 
 const OBJECTIVES = [
   { v: 'leads', label: 'Lead generation' },
@@ -23,24 +24,91 @@ const input = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:out
 const fmt$ = (n) => '$' + Number(n || 0).toLocaleString('en-AU', { maximumFractionDigits: 2 })
 
 export default function AdsWorkbench({ store }) {
-  const { campaigns = [], spaces = [], settings = {}, addCampaign, updateCampaign, deleteCampaign } = store
+  const { spaces = [], settings = {}, addCampaign } = store
   const [view, setView] = useState('list') // 'list' | 'wizard'
 
   return view === 'list'
-    ? <CampaignList campaigns={campaigns} spaces={spaces} onNew={() => setView('wizard')}
-        updateCampaign={updateCampaign} deleteCampaign={deleteCampaign} />
+    ? <CampaignList store={store} onNew={() => setView('wizard')} />
     : <Wizard store={store} spaces={spaces} settings={settings} addCampaign={addCampaign} onDone={() => setView('list')} />
 }
 
 // ── Saved campaigns list ──────────────────────────────────────────────────────
-function CampaignList({ campaigns, spaces, onNew, updateCampaign, deleteCampaign }) {
+function CampaignList({ store, onNew }) {
+  const { campaigns = [], spaces = [], settings = {}, updateCampaign, deleteCampaign, updateSettings } = store
   const [openId, setOpenId] = useState(null)
+  const [gads, setGads] = useState({ connected: false, configured: true })
+  const [pushingId, setPushingId] = useState(null)
+  const [pushMsg, setPushMsg] = useState(null) // { id, ok, text }
+
+  const ga = settings.googleAds ?? {}
+  useEffect(() => { googleAdsStatus().then(setGads) }, [])
+  // Surface the OAuth redirect result (?ads=google_connected|google_error).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('ads')
+    if (p === 'google_connected') { setGads((g) => ({ ...g, connected: true })); cleanUrl() }
+    else if (p === 'google_error') { setPushMsg({ id: '_', ok: false, text: 'Google connection failed — check your OAuth setup.' }); cleanUrl() }
+  }, [])
+  function cleanUrl() { window.history.replaceState({}, '', window.location.pathname) }
+
+  function setGa(patch) { updateSettings({ googleAds: { ...ga, ...patch } }) }
+
+  async function handlePush(c) {
+    if (!ga.customerId) { setPushMsg({ id: c.id, ok: false, text: 'Enter your Google Ads customer ID first.' }); return }
+    setPushingId(c.id); setPushMsg(null)
+    try {
+      const space = spaces.find((s) => s.id === c.spaceId)
+      const finalUrl = space?.publishedToWeb ? 'https://www.hexahub.com.au/units' : 'https://www.hexahub.com.au'
+      const r = await pushToGoogleAds({ campaignId: c.id, customerId: ga.customerId, loginCustomerId: ga.loginCustomerId, finalUrl })
+      updateCampaign(c.id, { googleAds: { pushedAt: new Date().toISOString(), customerId: ga.customerId, resourceName: r.campaignResourceName, status: 'paused' } })
+      setPushMsg({ id: c.id, ok: true, text: `Pushed (paused): ${r.adGroups} ad groups, ${r.adsCreated} ads, ${r.keywordsCreated} keywords.` })
+    } catch (e) {
+      setPushMsg({ id: c.id, ok: false, text: e.message })
+    } finally {
+      setPushingId(null)
+    }
+  }
+
   const STATUS = {
     draft: 'bg-gray-100 text-gray-600', active: 'bg-green-50 text-green-700',
     paused: 'bg-amber-50 text-amber-700', ended: 'bg-gray-100 text-gray-400',
   }
   return (
     <div>
+      {/* Google Ads connection bar */}
+      <div className="bg-white border border-gray-200 rounded-md p-3 mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${gads.connected ? 'bg-green-500' : 'bg-gray-300'}`} />
+          <span className="text-sm font-medium text-gray-800">Google Ads</span>
+          <span className="text-xs text-gray-400">{gads.connected ? 'Connected' : gads.configured ? 'Not connected' : 'Not configured'}</span>
+        </div>
+        {gads.connected && (
+          <div className="flex items-center gap-2">
+            <input value={ga.customerId ?? ''} onChange={(e) => setGa({ customerId: e.target.value })}
+              placeholder="Customer ID 123-456-7890" className="border border-gray-200 rounded px-2 py-1 text-xs w-44 focus:outline-none focus:ring-1 focus:ring-black" />
+            <input value={ga.loginCustomerId ?? ''} onChange={(e) => setGa({ loginCustomerId: e.target.value })}
+              placeholder="Manager ID (optional)" className="border border-gray-200 rounded px-2 py-1 text-xs w-40 focus:outline-none focus:ring-1 focus:ring-black" />
+          </div>
+        )}
+        <div className="ml-auto">
+          {gads.connected ? (
+            <button onClick={connectGoogleAds} className="text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1"><Plug size={12} /> Reconnect</button>
+          ) : (
+            <button onClick={connectGoogleAds} disabled={!gads.configured}
+              className="flex items-center gap-1.5 text-xs font-medium bg-black text-white px-3 py-1.5 rounded-md hover:bg-gray-800 disabled:opacity-40">
+              <Plug size={12} /> Connect Google Ads
+            </button>
+          )}
+        </div>
+        {!gads.configured && (
+          <p className="w-full text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+            Server credentials missing — set GOOGLE_OAUTH_CLIENT_ID / SECRET and GOOGLE_ADS_DEVELOPER_TOKEN in Vercel.
+          </p>
+        )}
+        {pushMsg?.id === '_' && (
+          <p className="w-full text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5">{pushMsg.text}</p>
+        )}
+      </div>
+
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-gray-500">{campaigns.length} campaign{campaigns.length === 1 ? '' : 's'}</p>
         <button onClick={onNew} className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800">
@@ -79,6 +147,18 @@ function CampaignList({ campaigns, spaces, onNew, updateCampaign, deleteCampaign
                       className="w-14 border border-gray-200 rounded px-1.5 py-0.5 ml-1" /></span>
                     <span className="font-medium text-gray-700">{cpl > 0 ? `${fmt$(cpl)}/lead` : '—'}</span>
                   </div>
+                  {gads.connected && (
+                    c.googleAds?.pushedAt ? (
+                      <span className="flex items-center gap-1 text-xs text-green-600 font-medium" title={`Pushed ${new Date(c.googleAds.pushedAt).toLocaleDateString('en-AU')}`}>
+                        <CheckCircle2 size={12} /> In Google (paused)
+                      </span>
+                    ) : (
+                      <button onClick={() => handlePush(c)} disabled={pushingId === c.id}
+                        className="flex items-center gap-1 text-xs font-medium border border-gray-200 px-2.5 py-1.5 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+                        {pushingId === c.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Push
+                      </button>
+                    )
+                  )}
                   <select value={c.status ?? 'draft'} onChange={(e) => updateCampaign(c.id, { status: e.target.value })}
                     className={`text-xs rounded px-2 py-1 capitalize border-0 ${STATUS[c.status] ?? STATUS.draft}`}>
                     {['draft', 'active', 'paused', 'ended'].map((s) => <option key={s} value={s}>{s}</option>)}
@@ -86,6 +166,9 @@ function CampaignList({ campaigns, spaces, onNew, updateCampaign, deleteCampaign
                   <button onClick={() => { if (window.confirm('Delete this campaign?')) deleteCampaign(c.id) }}
                     className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
                 </div>
+                {pushMsg?.id === c.id && (
+                  <div className={`px-4 pb-3 text-xs ${pushMsg.ok ? 'text-green-700' : 'text-red-700'}`}>{pushMsg.text}</div>
+                )}
                 {open && c.campaign && (
                   <div className="border-t border-gray-100 p-4 bg-gray-50/50">
                     <CampaignView campaign={c.campaign} research={c.research} math={c.math} />
