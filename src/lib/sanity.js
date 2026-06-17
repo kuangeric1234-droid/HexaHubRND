@@ -104,6 +104,7 @@ export async function fetchSanityEvents() {
     return (result ?? []).map(e => ({
       id: e._id,
       title: e.title,
+      slug: e.slug?.current ?? null,
       date: e.date ? e.date.split('T')[0] : null,
       endDate: e.endDate,
       time: e.date ? new Date(e.date).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }) : null,

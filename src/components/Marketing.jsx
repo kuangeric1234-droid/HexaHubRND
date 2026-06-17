@@ -3,11 +3,15 @@ import { useOutletContext } from 'react-router-dom'
 import { Megaphone, FileText } from 'lucide-react'
 import LeadsBoard from './LeadsBoard.jsx'
 import ListingsPanel from './ListingsPanel.jsx'
+import EnquiriesInbox from './EnquiriesInbox.jsx'
+import EventRegistrations from './EventRegistrations.jsx'
 
 const TABS = [
-  { key: 'leads',    label: 'Leads' },
-  { key: 'listings', label: 'Listings' },
-  { key: 'forms',    label: 'Forms' },
+  { key: 'leads',     label: 'Leads' },
+  { key: 'enquiries', label: 'Enquiries' },
+  { key: 'listings',  label: 'Listings' },
+  { key: 'events',    label: 'Events' },
+  { key: 'forms',     label: 'Forms' },
 ]
 
 export default function Marketing() {
@@ -21,6 +25,7 @@ export default function Marketing() {
   const openLeads = leads.filter((l) => l.stageId !== wonStageId && l.stageId !== lostStageId).length
   const monthKey = new Date().toISOString().slice(0, 7)
   const wonThisMonth = leads.filter((l) => l.stageId === wonStageId && (l.stageEnteredAt ?? '').startsWith(monthKey)).length
+  const unreadEnquiries = leads.filter((l) => !l.read).length
 
   return (
     <div className="p-8">
@@ -41,17 +46,22 @@ export default function Marketing() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
               tab === key ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-800'
             }`}
           >
             {label}
+            {key === 'enquiries' && unreadEnquiries > 0 && (
+              <span className="bg-blue-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">{unreadEnquiries}</span>
+            )}
           </button>
         ))}
       </div>
 
       {tab === 'leads' && <LeadsBoard store={store} />}
+      {tab === 'enquiries' && <EnquiriesInbox store={store} />}
       {tab === 'listings' && <ListingsPanel store={store} />}
+      {tab === 'events' && <EventRegistrations store={store} />}
       {tab === 'forms' && (
         <ComingSoon
           icon={FileText}

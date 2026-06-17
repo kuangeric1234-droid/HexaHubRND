@@ -1,0 +1,138 @@
+import { useEffect, useState } from 'react'
+import { format, parseISO } from 'date-fns'
+import { Calendar, ChevronDown, ChevronRight, Mail, Phone, Users, Trash2, Download, Ticket } from 'lucide-react'
+import { fetchSanityEvents } from '../lib/sanity.js'
+
+function fmtDate(d) {
+  if (!d) return ''
+  try { return format(parseISO(d), 'dd MMM yyyy') } catch { return d }
+}
+
+export default function EventRegistrations({ store }) {
+  const { eventRegistrations = [], markRegistrationRead, deleteEventRegistration } = store
+  const [events, setEvents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [openKey, setOpenKey] = useState(null)
+
+  useEffect(() => {
+    fetchSanityEvents().then((evs) => { setEvents(evs); setLoading(false) }).catch(() => setLoading(false))
+  }, [])
+
+  // Group registrations under their event (match by slug, fallback by name).
+  function regsFor(ev) {
+    return eventRegistrations.filter((r) =>
+      (r.eventSlug && r.eventSlug === ev.slug) || (r.eventName && r.eventName === ev.title))
+  }
+
+  const matchedIds = new Set()
+  const groups = events.map((ev) => {
+    const regs = regsFor(ev)
+    regs.forEach((r) => matchedIds.add(r.id))
+    return { key: ev.id, title: ev.title, date: ev.date, regs, fromSanity: true }
+  })
+
+  // Registrations whose event isn't in the current Sanity list (past/removed).
+  const orphans = eventRegistrations.filter((r) => !matchedIds.has(r.id))
+  const orphanGroups = Object.values(
+    orphans.reduce((acc, r) => {
+      const k = r.eventName || r.eventSlug || 'Unknown event'
+      acc[k] = acc[k] ?? { key: `orphan-${k}`, title: k, date: null, regs: [], fromSanity: false }
+      acc[k].regs.push(r)
+      return acc
+    }, {})
+  )
+
+  const allGroups = [...groups, ...orphanGroups].filter((g) => g.fromSanity || g.regs.length > 0)
+
+  function toggle(group) {
+    setOpenKey(openKey === group.key ? null : group.key)
+    group.regs.filter((r) => !r.read).forEach((r) => markRegistrationRead(r.id))
+  }
+
+  function exportCsv(group) {
+    const header = ['Name', 'Business', 'Email', 'Phone', 'Guests', 'Message', 'Date']
+    const lines = group.regs.map((r) => [r.name, r.businessName, r.email, r.phone, r.guests, (r.message ?? '').replace(/[\n,]/g, ' '), r.createdAt]
+      .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+    const csv = [header.join(','), ...lines].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${group.title.replace(/\s+/g, '-').toLowerCase()}-registrations.csv`
+    a.click()
+  }
+
+  if (loading) return <p className="text-sm text-gray-400 py-8 text-center">Loading events…</p>
+
+  return (
+    <div>
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-5 text-xs text-blue-800 flex gap-2">
+        <Calendar size={15} className="shrink-0 mt-0.5" />
+        <div>Events posted in Sanity appear here automatically. RSVPs from the website event pages are captured into HexaHub and saved under each event.</div>
+      </div>
+
+      {allGroups.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-md p-12 text-center text-gray-400">
+          <Ticket size={26} className="mx-auto mb-2 text-gray-300" />
+          <p className="text-sm">No events found in Sanity yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {allGroups.map((group) => {
+            const open = openKey === group.key
+            const unread = group.regs.filter((r) => !r.read).length
+            return (
+              <div key={group.key} className="bg-white border border-gray-200 rounded-md overflow-hidden">
+                <div onClick={() => toggle(group)} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50">
+                  {open ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-900">{group.title}</div>
+                    {group.date && <div className="text-xs text-gray-400">{fmtDate(group.date)}</div>}
+                  </div>
+                  {unread > 0 && <span className="bg-blue-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{unread} new</span>}
+                  <span className="flex items-center gap-1 text-sm text-gray-500"><Users size={14} /> {group.regs.length}</span>
+                  {group.regs.length > 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); exportCsv(group) }} title="Export CSV"
+                      className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"><Download size={14} /></button>
+                  )}
+                </div>
+
+                {open && (
+                  <div className="border-t border-gray-100">
+                    {group.regs.length === 0 ? (
+                      <p className="px-4 py-4 text-sm text-gray-400">No registrations yet.</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody className="divide-y divide-gray-100">
+                          {group.regs.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).map((r) => (
+                            <tr key={r.id} className={!r.read ? 'bg-blue-50/40' : ''}>
+                              <td className="px-4 py-2.5">
+                                <div className="font-medium text-gray-900">{r.name || '—'}</div>
+                                {r.businessName && <div className="text-xs text-gray-400">{r.businessName}</div>}
+                              </td>
+                              <td className="px-4 py-2.5 text-gray-500">
+                                <div className="flex flex-col gap-0.5 text-xs">
+                                  {r.email && <span className="flex items-center gap-1"><Mail size={11} /> {r.email}</span>}
+                                  {r.phone && <span className="flex items-center gap-1"><Phone size={11} /> {r.phone}</span>}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 text-gray-500 text-xs">{r.guests ? `${r.guests} guest${r.guests > 1 ? 's' : ''}` : ''}</td>
+                              <td className="px-4 py-2.5 text-gray-400 text-xs whitespace-nowrap">{fmtDate(r.createdAt?.split('T')[0])}</td>
+                              <td className="px-4 py-2.5 text-right">
+                                <button onClick={() => { if (window.confirm('Delete this registration?')) deleteEventRegistration(r.id) }}
+                                  className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={13} /></button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}

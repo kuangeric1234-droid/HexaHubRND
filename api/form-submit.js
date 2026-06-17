@@ -65,6 +65,8 @@ export default async function handler(req, res) {
       value: typeof space?.monthlyRate === 'number' ? space.monthlyRate : 0,
       notes: message ?? '',
       tenantId: null,
+      type: 'enquiry',
+      read: false, // surfaces as unread in the Enquiries inbox
       createdAt: today,
       stageEnteredAt: today,
     }
