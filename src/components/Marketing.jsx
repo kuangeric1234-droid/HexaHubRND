@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Megaphone, FileText } from 'lucide-react'
+import { Megaphone } from 'lucide-react'
 import LeadsBoard from './LeadsBoard.jsx'
 import ListingsPanel from './ListingsPanel.jsx'
 import EnquiriesInbox from './EnquiriesInbox.jsx'
 import EventRegistrations from './EventRegistrations.jsx'
 import AiStudio from './AiStudio.jsx'
+import AdsWorkbench from './AdsWorkbench.jsx'
 
 const TABS = [
   { key: 'leads',     label: 'Leads' },
   { key: 'enquiries', label: 'Enquiries' },
   { key: 'listings',  label: 'Listings' },
   { key: 'events',    label: 'Events' },
+  { key: 'ads',       label: 'Ads' },
   { key: 'studio',    label: 'AI Studio' },
-  { key: 'forms',     label: 'Forms' },
 ]
 
 export default function Marketing() {
@@ -64,25 +65,8 @@ export default function Marketing() {
       {tab === 'enquiries' && <EnquiriesInbox store={store} />}
       {tab === 'listings' && <ListingsPanel store={store} />}
       {tab === 'events' && <EventRegistrations store={store} />}
+      {tab === 'ads' && <AdsWorkbench store={store} />}
       {tab === 'studio' && <AiStudio store={store} />}
-      {tab === 'forms' && (
-        <ComingSoon
-          icon={FileText}
-          title="Form builder"
-          body="Build enquiry forms and embed them on the website to replace HubSpot. Arriving in Phase 3."
-        />
-      )}
-    </div>
-  )
-}
-
-function ComingSoon({ icon: Icon, title, body }) {
-  return (
-    <div className="bg-white border border-dashed border-gray-300 rounded-md p-12 text-center max-w-xl mx-auto">
-      <Icon size={28} className="mx-auto text-gray-400 mb-3" />
-      <h2 className="text-sm font-semibold text-gray-900 mb-1.5">{title}</h2>
-      <p className="text-sm text-gray-500">{body}</p>
-      <span className="inline-block mt-4 text-xs font-medium text-gray-400 bg-gray-100 px-2.5 py-1 rounded">Coming soon</span>
     </div>
   )
 }

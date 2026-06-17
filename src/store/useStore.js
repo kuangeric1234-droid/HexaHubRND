@@ -586,6 +586,7 @@ export function useStore() {
   const [leads, setLeads] = useState([])
   const [pipelineStages, setPipelineStages] = useState([])
   const [eventRegistrations, setEventRegistrations] = useState([])
+  const [campaigns, setCampaigns] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   // Always-current settings ref for callbacks
@@ -601,6 +602,7 @@ export function useStore() {
           { data: tmData }, { data: invData }, { data: discData },
           { data: maintData }, { data: settData }, { data: metaData },
           { data: leadData }, { data: stageData }, { data: regData },
+          { data: campData },
         ] = await Promise.all([
           supabase.from('tenants').select('data'),
           supabase.from('spaces').select('data'),
@@ -614,6 +616,7 @@ export function useStore() {
           supabase.from('leads').select('data'),
           supabase.from('lead_pipeline_stages').select('data'),
           supabase.from('event_registrations').select('data'),
+          supabase.from('campaigns').select('data'),
         ])
 
         // 'seeded' flag — once set, we NEVER fall back to sample data again
@@ -629,6 +632,7 @@ export function useStore() {
         const loadedLeads       = leadData?.length  ? extractRows(leadData)  : (isSeeded ? [] : SAMPLE_LEADS)
         const loadedStages      = stageData?.length ? extractRows(stageData) : DEFAULT_STAGES
         const loadedRegistrations = regData?.length ? extractRows(regData) : []
+        const loadedCampaigns     = campData?.length ? extractRows(campData) : []
         const loadedSettings    = settData?.[0]?.data ?? DEFAULT_SETTINGS
         const lastBillRun     = metaData?.find((m) => m.key === 'last_bill_run')?.value ?? null
 
@@ -658,6 +662,7 @@ export function useStore() {
         setLeads(loadedLeads)
         setPipelineStages([...loadedStages].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)))
         setEventRegistrations(loadedRegistrations)
+        setCampaigns(loadedCampaigns)
         setSettings(loadedSettings)
         settingsRef.current = loadedSettings
 
@@ -1129,6 +1134,34 @@ export function useStore() {
     deleteRow('event_registrations', id)
   }, [])
 
+  // ── Ad campaigns ────────────────────────────────────────────────────────────
+  const addCampaign = useCallback((campaign) => {
+    const item = {
+      status: 'draft', spend: 0, leads: 0,
+      ...campaign,
+      id: `camp${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0],
+    }
+    setCampaigns((prev) => [item, ...prev])
+    syncRow('campaigns', item.id, item)
+    logAudit('create', 'campaign', item.id, item.name ?? item.id)
+    return item
+  }, [])
+
+  const updateCampaign = useCallback((id, updates) => {
+    setCampaigns((prev) => {
+      const next = prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+      const updated = next.find((c) => c.id === id)
+      if (updated) syncRow('campaigns', id, updated)
+      return next
+    })
+  }, [])
+
+  const deleteCampaign = useCallback((id) => {
+    setCampaigns((prev) => { const c = prev.find((x) => x.id === id); logAudit('delete', 'campaign', id, c?.name ?? id); return prev.filter((x) => x.id !== id) })
+    deleteRow('campaigns', id)
+  }, [])
+
   // ── Settings ──────────────────────────────────────────────────────────────
   const updateSettings = useCallback((patch) => {
     logAudit('update', 'settings', 'global', 'Settings', Object.keys(patch).join(', '))
@@ -1191,6 +1224,7 @@ export function useStore() {
     leads, addLead, updateLead, moveLeadToStage, deleteLead, convertLeadToTenant,
     pipelineStages, addStage, updateStage, deleteStage,
     eventRegistrations, markRegistrationRead, deleteEventRegistration,
+    campaigns, addCampaign, updateCampaign, deleteCampaign,
     settings, updateSettings,
     currentUserRole, currentUserEmail,
     resetSampleData,
