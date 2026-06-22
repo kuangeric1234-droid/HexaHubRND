@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import {
   Plus, X, Loader2, Sparkles, Search, Calculator, Save, Trash2, Copy, Check,
   ArrowRight, ArrowLeft, Rocket, Tag, Users, DollarSign, Target, ChevronDown, ChevronRight,
-  AlertCircle, Megaphone, Plug, Send, CheckCircle2,
+  AlertCircle, Megaphone, Plug, Send, CheckCircle2, BarChart2,
 } from 'lucide-react'
 import { generateAdResearch, generateAdCampaign } from '../lib/ads.js'
 import { computeAdsMath } from '../lib/adsMath.js'
 import { googleAdsStatus, connectGoogleAds, pushToGoogleAds } from '../lib/googleAds.js'
 import KeywordResearch from './KeywordResearch.jsx'
+import AccountData from './AccountData.jsx'
 
 const OBJECTIVES = [
   { v: 'leads', label: 'Lead generation' },
@@ -30,11 +31,12 @@ export default function AdsWorkbench({ store }) {
 
   if (view === 'wizard') return <Wizard store={store} spaces={spaces} settings={settings} addCampaign={addCampaign} onDone={() => setView('list')} />
   if (view === 'keywords') return <KeywordResearch store={store} onBack={() => setView('list')} />
-  return <CampaignList store={store} onNew={() => setView('wizard')} onKeywords={() => setView('keywords')} />
+  if (view === 'data') return <AccountData store={store} onBack={() => setView('list')} />
+  return <CampaignList store={store} onNew={() => setView('wizard')} onKeywords={() => setView('keywords')} onData={() => setView('data')} />
 }
 
 // ── Saved campaigns list ──────────────────────────────────────────────────────
-function CampaignList({ store, onNew, onKeywords }) {
+function CampaignList({ store, onNew, onKeywords, onData }) {
   const { campaigns = [], spaces = [], settings = {}, updateCampaign, deleteCampaign, updateSettings } = store
   const [openId, setOpenId] = useState(null)
   const [gads, setGads] = useState({ connected: false, configured: true })
@@ -113,6 +115,11 @@ function CampaignList({ store, onNew, onKeywords }) {
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-gray-500">{campaigns.length} campaign{campaigns.length === 1 ? '' : 's'}</p>
         <div className="flex items-center gap-2">
+          {gads.connected && (
+            <button onClick={onData} className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
+              <BarChart2 size={15} /> Account data
+            </button>
+          )}
           <button onClick={onKeywords} className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
             <Search size={15} /> Keyword research
           </button>

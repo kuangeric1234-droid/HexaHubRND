@@ -25,3 +25,14 @@ export async function pushToGoogleAds(body) {
   if (!res.ok) throw new Error(data.error ?? 'Push failed')
   return data
 }
+
+export async function googleAdsReport(body) {
+  const res = await fetch('/api/google-ads/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error ?? 'Report failed')
+  return data // { reportType, dateRange, rows }
+}
