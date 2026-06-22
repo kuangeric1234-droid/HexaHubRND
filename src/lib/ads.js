@@ -22,3 +22,8 @@ export async function generateAdCampaign(payload) {
   const { campaign } = await adsGenerate({ ...payload, action: 'campaign' })
   return campaign
 }
+
+export async function generateKeywords(payload) {
+  const { keywords } = await adsGenerate({ ...payload, action: 'keywords' })
+  return keywords
+}

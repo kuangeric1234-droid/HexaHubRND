@@ -39,6 +39,30 @@ function unitLine(space) {
     .filter(Boolean).join(' · ')
 }
 
+const KEYWORDS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    groups: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false,
+        properties: {
+          name: { type: 'string' },
+          intent: { type: 'string' },     // high | medium | low
+          matchType: { type: 'string' },  // phrase | exact | broad
+          keywords: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['name', 'keywords'],
+      },
+    },
+    longTail: { type: 'array', items: { type: 'string' } },
+    negativeIdeas: { type: 'array', items: { type: 'string' } },
+    competitorAngles: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['groups'],
+}
+
 const CAMPAIGN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -120,6 +144,23 @@ Keep it practical and specific to this space.`
       if (message.stop_reason === 'refusal') return res.status(422).json({ error: 'Request declined.' })
       const text = (message.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim()
       return res.status(200).json({ text })
+    }
+
+    if (action === 'keywords') {
+      const system = `You are a senior paid-search strategist doing keyword research for Google Ads. ${GUARDRAILS}
+Group keywords into tight, intent-matched ad-group themes. Suggest a sensible match type per group (phrase/exact for high intent; avoid broad unless smart bidding). Include local long-tail queries (Huntingdale / south-east Melbourne), negative-keyword ideas to exclude irrelevant traffic, and angles competitors likely bid on. Do NOT invent search-volume numbers. Return JSON matching the schema.`
+      const user = `Research Google Ads keywords for this space.
+${ctx}`
+      const message = await client.messages.create({
+        model: MODEL, max_tokens: 3000, system,
+        messages: [{ role: 'user', content: user }],
+        output_config: { format: { type: 'json_schema', schema: KEYWORDS_SCHEMA } },
+      })
+      if (message.stop_reason === 'refusal') return res.status(422).json({ error: 'Request declined.' })
+      const raw = (message.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('').trim()
+      let keywords
+      try { keywords = JSON.parse(raw) } catch { return res.status(502).json({ error: 'Could not parse keywords output' }) }
+      return res.status(200).json({ keywords })
     }
 
     // action === 'campaign' — structured JSON

@@ -7,6 +7,7 @@ import {
 import { generateAdResearch, generateAdCampaign } from '../lib/ads.js'
 import { computeAdsMath } from '../lib/adsMath.js'
 import { googleAdsStatus, connectGoogleAds, pushToGoogleAds } from '../lib/googleAds.js'
+import KeywordResearch from './KeywordResearch.jsx'
 
 const OBJECTIVES = [
   { v: 'leads', label: 'Lead generation' },
@@ -25,15 +26,15 @@ const fmt$ = (n) => '$' + Number(n || 0).toLocaleString('en-AU', { maximumFracti
 
 export default function AdsWorkbench({ store }) {
   const { spaces = [], settings = {}, addCampaign } = store
-  const [view, setView] = useState('list') // 'list' | 'wizard'
+  const [view, setView] = useState('list') // 'list' | 'wizard' | 'keywords'
 
-  return view === 'list'
-    ? <CampaignList store={store} onNew={() => setView('wizard')} />
-    : <Wizard store={store} spaces={spaces} settings={settings} addCampaign={addCampaign} onDone={() => setView('list')} />
+  if (view === 'wizard') return <Wizard store={store} spaces={spaces} settings={settings} addCampaign={addCampaign} onDone={() => setView('list')} />
+  if (view === 'keywords') return <KeywordResearch store={store} onBack={() => setView('list')} />
+  return <CampaignList store={store} onNew={() => setView('wizard')} onKeywords={() => setView('keywords')} />
 }
 
 // ── Saved campaigns list ──────────────────────────────────────────────────────
-function CampaignList({ store, onNew }) {
+function CampaignList({ store, onNew, onKeywords }) {
   const { campaigns = [], spaces = [], settings = {}, updateCampaign, deleteCampaign, updateSettings } = store
   const [openId, setOpenId] = useState(null)
   const [gads, setGads] = useState({ connected: false, configured: true })
@@ -111,9 +112,14 @@ function CampaignList({ store, onNew }) {
 
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-gray-500">{campaigns.length} campaign{campaigns.length === 1 ? '' : 's'}</p>
-        <button onClick={onNew} className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800">
-          <Plus size={15} /> New Campaign
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onKeywords} className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
+            <Search size={15} /> Keyword research
+          </button>
+          <button onClick={onNew} className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800">
+            <Plus size={15} /> New Campaign
+          </button>
+        </div>
       </div>
 
       {campaigns.length === 0 ? (
