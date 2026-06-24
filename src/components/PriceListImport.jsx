@@ -18,6 +18,7 @@ export default function PriceListImport({ store, onClose }) {
   const [error, setError] = useState('')
   const [rows, setRows] = useState([])         // [{ kind, unit, existing, changes }]
   const [markMissing, setMarkMissing] = useState(false)
+  const [publishNew, setPublishNew] = useState(true)
   const [missing, setMissing] = useState([])
   const [result, setResult] = useState(null)
 
@@ -54,16 +55,23 @@ export default function PriceListImport({ store, onClose }) {
   }
 
   function apply() {
-    let added = 0, updated = 0, marked = 0
+    let added = 0, updated = 0, marked = 0, published = 0
     for (const r of rows) {
       if (r.kind === 'new') {
-        addSpace({
+        const created = addSpace({
           unitNumber: r.unit.unitNumber, type: r.unit.type || 'warehouse', size: r.unit.size || '',
           monthlyRate: Number(r.unit.monthlyRate) || 0, status: r.unit.status || 'vacant',
           location: 'huntingdale', address: r.unit.address || '', cars: Number(r.unit.cars) || 0,
           attributes: r.unit.attributes || '',
         })
         added++
+        // Auto-publish new available units to the website (data only — add photos in Sanity later).
+        if (publishNew && created.status !== 'occupied') {
+          published++
+          publishListing(created)
+            .then(() => updateSpace(created.id, { publishedToWeb: true, webSyncedAt: new Date().toISOString() }))
+            .catch((e) => console.error('Auto-publish:', e))
+        }
       } else if (r.kind === 'updated') {
         updateSpace(r.existing.id, r.changes)
         updated++
@@ -78,9 +86,11 @@ export default function PriceListImport({ store, onClose }) {
         if (s.publishedToWeb) publishListing({ ...s, status: 'occupied' }).catch((e) => console.error('Listing re-sync:', e))
       }
     }
-    setResult({ added, updated, marked })
+    setResult({ added, updated, marked, published })
     setStage('done')
   }
+
+  const newCount = rows.filter((r) => r.kind === 'new' && r.unit.status !== 'occupied').length
 
   const counts = rows.reduce((c, r) => ({ ...c, [r.kind]: (c[r.kind] || 0) + 1 }), {})
 
@@ -151,12 +161,20 @@ export default function PriceListImport({ store, onClose }) {
                 </table>
               </div>
 
-              {missing.length > 0 && (
-                <label className="flex items-start gap-2 text-sm text-gray-600 mb-4 cursor-pointer">
-                  <input type="checkbox" checked={markMissing} onChange={(e) => setMarkMissing(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300" />
-                  <span>Mark the <strong>{missing.length}</strong> unit{missing.length === 1 ? '' : 's'} not on this list ({missing.map((s) => s.unitNumber).join(', ')}) as <strong>occupied</strong> (they may have been leased).</span>
-                </label>
-              )}
+              <div className="space-y-2 mb-4">
+                {newCount > 0 && (
+                  <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={publishNew} onChange={(e) => setPublishNew(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300" />
+                    <span>Publish the <strong>{newCount}</strong> new available unit{newCount === 1 ? '' : 's'} to the website now (data only — add photos in Sanity afterwards).</span>
+                  </label>
+                )}
+                {missing.length > 0 && (
+                  <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={markMissing} onChange={(e) => setMarkMissing(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300" />
+                    <span>Mark the <strong>{missing.length}</strong> unit{missing.length === 1 ? '' : 's'} not on this list ({missing.map((s) => s.unitNumber).join(', ')}) as <strong>occupied</strong> (they may have been leased).</span>
+                  </label>
+                )}
+              </div>
 
               <div className="flex justify-end gap-3">
                 <button onClick={() => setStage('upload')} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50">Choose another</button>
@@ -171,8 +189,8 @@ export default function PriceListImport({ store, onClose }) {
             <div className="text-center py-10">
               <CheckCircle2 size={32} className="mx-auto text-green-500 mb-3" />
               <p className="text-sm text-gray-800 font-medium mb-1">Spaces updated.</p>
-              <p className="text-xs text-gray-500">{result.added} added · {result.updated} updated{result.marked ? ` · ${result.marked} marked occupied` : ''}.</p>
-              <p className="text-xs text-gray-400 mt-3">Published units will reflect on the website. Re-publish any new ones from Marketing → Listings.</p>
+              <p className="text-xs text-gray-500">{result.added} added · {result.updated} updated{result.marked ? ` · ${result.marked} marked occupied` : ''}{result.published ? ` · ${result.published} published to website` : ''}.</p>
+              <p className="text-xs text-gray-400 mt-3">Published units now reflect on the website. Add photos to any new ones in Sanity Studio.</p>
               <button onClick={onClose} className="mt-5 px-4 py-2 text-sm bg-black text-white rounded-md hover:bg-gray-800 font-medium">Done</button>
             </div>
           )}
