@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useOutletContext, useNavigate } from 'react-router-dom'
-import { Plus, Pencil, Trash2, X, Check, LayoutGrid, Map, FileText } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, LayoutGrid, Map, FileText, Upload } from 'lucide-react'
 import FloorPlan from './FloorPlan.jsx'
 import ContractForm from './ContractForm.jsx'
+import PriceListImport from './PriceListImport.jsx'
 
 const SPACE_TYPES = ['warehouse', 'storage', 'desk', 'office', 'popup']
 const LOCATIONS = ['huntingdale', 'lonsdale', 'whitehorse']
@@ -45,6 +46,7 @@ export default function Spaces() {
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [viewMode, setViewMode] = useState('floorplan')
+  const [showImport, setShowImport] = useState(false)
 
   const filtered = spaces.filter((s) => {
     if (filterType !== 'all' && s.type !== filterType) return false
@@ -118,6 +120,12 @@ export default function Spaces() {
             className="text-xs text-gray-400 hover:text-gray-700 px-3 py-2 border border-gray-200 rounded-md hover:bg-gray-50"
           >
             Load sample data
+          </button>
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            <Upload size={15} /> Import price list
           </button>
           <button
             onClick={openAdd}
@@ -435,6 +443,10 @@ export default function Spaces() {
           </div>
         </div>
       </div>
+    )}
+
+    {showImport && (
+      <PriceListImport store={{ spaces, addSpace, updateSpace }} onClose={() => setShowImport(false)} />
     )}
     </>
   )
