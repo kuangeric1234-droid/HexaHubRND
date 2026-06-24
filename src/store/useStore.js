@@ -1059,7 +1059,21 @@ export function useStore() {
   const moveLeadToStage = useCallback((id, stageId) => {
     const stageEnteredAt = new Date().toISOString().split('T')[0]
     setLeads((prev) => {
-      const next = prev.map((l) => (l.id === id ? { ...l, stageId, stageEnteredAt } : l))
+      const next = prev.map((l) => (l.id === id
+        ? { ...l, stageId, stageEnteredAt, activity: [...(l.activity ?? []), { id: `act${Date.now()}`, type: 'stage', stageId, createdAt: new Date().toISOString() }] }
+        : l))
+      const updated = next.find((l) => l.id === id)
+      if (updated) syncRow('leads', id, updated)
+      return next
+    })
+  }, [])
+
+  // Append a timeline entry (note, email sent, etc.) to a lead.
+  const appendLeadActivity = useCallback((id, entry) => {
+    setLeads((prev) => {
+      const next = prev.map((l) => (l.id === id
+        ? { ...l, activity: [...(l.activity ?? []), { id: `act${Date.now()}_${Math.random().toString(36).slice(2, 5)}`, createdAt: new Date().toISOString(), ...entry }] }
+        : l))
       const updated = next.find((l) => l.id === id)
       if (updated) syncRow('leads', id, updated)
       return next
@@ -1088,7 +1102,8 @@ export function useStore() {
       })
       const wonStage = DEFAULT_STAGES.find((s) => s.category === 'won')
       const next = prev.map((l) => l.id === leadId
-        ? { ...l, tenantId: createdTenant.id, stageId: wonStage?.id ?? l.stageId, stageEnteredAt: new Date().toISOString().split('T')[0] }
+        ? { ...l, tenantId: createdTenant.id, stageId: wonStage?.id ?? l.stageId, stageEnteredAt: new Date().toISOString().split('T')[0],
+            activity: [...(l.activity ?? []), { id: `act${Date.now()}`, type: 'convert', text: `Converted to tenant: ${createdTenant.businessName}`, createdAt: new Date().toISOString() }] }
         : l)
       const updated = next.find((l) => l.id === leadId)
       if (updated) syncRow('leads', leadId, updated)
@@ -1221,7 +1236,7 @@ export function useStore() {
     invoices, addInvoice, updateInvoice, voidInvoice, deleteInvoice, addPaymentToInvoice, addCommentToInvoice, runAutoBillRun,
     discounts, addDiscount, updateDiscount, deleteDiscount,
     maintenance, addMaintenanceIssue, updateMaintenanceIssue, deleteMaintenanceIssue,
-    leads, addLead, updateLead, moveLeadToStage, deleteLead, convertLeadToTenant,
+    leads, addLead, updateLead, moveLeadToStage, deleteLead, convertLeadToTenant, appendLeadActivity,
     pipelineStages, addStage, updateStage, deleteStage,
     eventRegistrations, markRegistrationRead, deleteEventRegistration,
     campaigns, addCampaign, updateCampaign, deleteCampaign,

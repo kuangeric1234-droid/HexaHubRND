@@ -1,6 +1,7 @@
-import { useState, Fragment } from 'react'
+import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { Mail, Phone, Building2, Trash2, UserPlus, CheckCircle2, Inbox } from 'lucide-react'
+import { Trash2, UserPlus, CheckCircle2, Inbox } from 'lucide-react'
+import LeadDetail from './LeadDetail.jsx'
 
 const SOURCE_BADGE = {
   website:  'bg-blue-50 text-blue-700',
@@ -8,6 +9,7 @@ const SOURCE_BADGE = {
   'walk-in': 'bg-amber-50 text-amber-700',
   phone:    'bg-green-50 text-green-700',
   email:    'bg-gray-100 text-gray-600',
+  'book-tour': 'bg-orange-50 text-orange-700',
 }
 
 function fmt(d) {
@@ -27,9 +29,10 @@ export default function EnquiriesInbox({ store }) {
   const unread = leads.filter((l) => !l.read).length
   const stageName = (id) => pipelineStages.find((s) => s.id === id)?.name ?? '—'
   const spaceLabel = (id) => spaces.find((s) => s.id === id)?.unitNumber ?? null
+  const openLead = leads.find((l) => l.id === openId) ?? null
 
-  function toggleOpen(lead) {
-    setOpenId(openId === lead.id ? null : lead.id)
+  function openDetail(lead) {
+    setOpenId(lead.id)
     if (!lead.read) updateLead(lead.id, { read: true })
   }
 
@@ -68,58 +71,45 @@ export default function EnquiriesInbox({ store }) {
               {rows.map((lead) => {
                 const unit = spaceLabel(lead.spaceId)
                 const converted = lead.tenantId
-                const open = openId === lead.id
                 return (
-                  <Fragment key={lead.id}>
-                    <tr onClick={() => toggleOpen(lead)}
-                      className={`cursor-pointer hover:bg-gray-50 ${!lead.read ? 'bg-blue-50/40' : ''}`}>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                        <span className="flex items-center gap-2">
-                          {!lead.read && <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />}
-                          {fmt(lead.createdAt)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className={`${!lead.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>{lead.name || '—'}</div>
-                        {lead.businessName && <div className="text-xs text-gray-400">{lead.businessName}</div>}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">{unit ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded capitalize ${SOURCE_BADGE[lead.source] ?? 'bg-gray-100 text-gray-600'}`}>{lead.source ?? '—'}</span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">{stageName(lead.stageId)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          {converted ? (
-                            <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle2 size={12} /> Tenant</span>
-                          ) : (
-                            <button onClick={() => convertLeadToTenant(lead.id)} title="Convert to tenant"
-                              className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-black"><UserPlus size={14} /></button>
-                          )}
-                          <button onClick={() => { if (window.confirm('Delete this enquiry?')) deleteLead(lead.id) }} title="Delete"
-                            className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                    {open && (
-                      <tr className="bg-gray-50/60">
-                        <td colSpan={6} className="px-4 py-4">
-                          <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-gray-600 mb-2">
-                            {lead.email && <span className="flex items-center gap-1.5"><Mail size={13} /> {lead.email}</span>}
-                            {lead.phone && <span className="flex items-center gap-1.5"><Phone size={13} /> {lead.phone}</span>}
-                            {lead.businessName && <span className="flex items-center gap-1.5"><Building2 size={13} /> {lead.businessName}</span>}
-                          </div>
-                          {lead.notes && <p className="text-sm text-gray-700 whitespace-pre-wrap">{lead.notes}</p>}
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                  <tr key={lead.id} onClick={() => openDetail(lead)}
+                    className={`cursor-pointer hover:bg-gray-50 ${!lead.read ? 'bg-blue-50/40' : ''}`}>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                      <span className="flex items-center gap-2">
+                        {!lead.read && <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />}
+                        {fmt(lead.createdAt)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className={`${!lead.read ? 'font-semibold' : 'font-medium'} text-gray-900 hover:underline`}>{lead.name || '—'}</div>
+                      {lead.businessName && <div className="text-xs text-gray-400">{lead.businessName}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{unit ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded capitalize ${SOURCE_BADGE[lead.source] ?? 'bg-gray-100 text-gray-600'}`}>{lead.source ?? '—'}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{stageName(lead.stageId)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        {converted ? (
+                          <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle2 size={12} /> Tenant</span>
+                        ) : (
+                          <button onClick={() => convertLeadToTenant(lead.id)} title="Convert to tenant"
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-black"><UserPlus size={14} /></button>
+                        )}
+                        <button onClick={() => { if (window.confirm('Delete this enquiry?')) deleteLead(lead.id) }} title="Delete"
+                          className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
                 )
               })}
             </tbody>
           </table>
         </div>
       )}
+
+      {openLead && <LeadDetail lead={openLead} store={store} onClose={() => setOpenId(null)} />}
     </div>
   )
 }
