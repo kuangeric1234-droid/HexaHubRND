@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Globe, Check, Loader2, Trash2, RefreshCw, AlertCircle, Image as ImageIcon, Pencil } from 'lucide-react'
+import { Globe, Check, Loader2, Trash2, RefreshCw, AlertCircle, Image as ImageIcon, Pencil, Images } from 'lucide-react'
 import { publishListing, deleteListing } from '../lib/sanity.js'
 import ListingEditor from './ListingEditor.jsx'
+import BulkPhotos from './BulkPhotos.jsx'
 
 const STATUS_BADGE = {
   vacant:   'bg-green-50 text-green-700 border-green-200',
@@ -14,6 +15,7 @@ export default function ListingsPanel({ store }) {
   const [busyId, setBusyId] = useState(null)
   const [error, setError] = useState('')
   const [editSpace, setEditSpace] = useState(null)
+  const [bulk, setBulk] = useState(false)
   const [syncAll, setSyncAll] = useState(null) // { done, total } while running
 
   // Push every unit's current data/status to the website in one go.
@@ -78,7 +80,11 @@ export default function ListingsPanel({ store }) {
         </div>
       )}
 
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end gap-2 mb-3">
+        <button onClick={() => setBulk(true)}
+          className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50">
+          <Images size={15} /> Bulk add photos
+        </button>
         <button onClick={handleSyncAll} disabled={!!syncAll}
           className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
           {syncAll ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
@@ -163,6 +169,7 @@ export default function ListingsPanel({ store }) {
       {editSpace && (
         <ListingEditor space={editSpace} store={store} onClose={() => setEditSpace(null)} />
       )}
+      {bulk && <BulkPhotos store={store} onClose={() => setBulk(false)} />}
     </div>
   )
 }
