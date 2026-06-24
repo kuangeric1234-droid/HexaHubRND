@@ -108,15 +108,33 @@ async function mutate(mutations) {
   return { ok: true, data }
 }
 
+// Find an existing Sanity unit by its unitId (e.g. "O5", "61S"), regardless of
+// its _id — so we patch the doc the website already shows (with its curated
+// photos) instead of creating a duplicate.
+async function findExistingUnitId(unitNumber) {
+  const token = process.env.SANITY_WRITE_TOKEN
+  if (!token) return null
+  const safe = String(unitNumber ?? '').replace(/[^a-zA-Z0-9/ .-]/g, '')
+  if (!safe) return null
+  const groq = `*[_type=="unit" && unitId=="${safe}"][0]._id`
+  const url = `https://${PROJECT_ID}.api.sanity.io/${API_VER}/data/query/${DATASET}?query=${encodeURIComponent(groq)}`
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const data = await res.json().catch(() => ({}))
+    return res.ok ? (data.result || null) : null
+  } catch { return null }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const { action = 'sync', space } = req.body ?? {}
   if (!space?.id) return res.status(400).json({ error: 'Missing space.id' })
 
-  const _id = docId(space)
-
   try {
+    const existingId = await findExistingUnitId(space.unitNumber)
+    const _id = existingId || docId(space)
+
     if (action === 'delete') {
       const result = await mutate([{ delete: { id: _id } }])
       if (!result.ok) return res.status(result.status).json({ error: result.error })
@@ -125,29 +143,24 @@ export default async function handler(req, res) {
 
     // action === 'sync'
     const op = operationalFields(space)
+
+    if (existingId) {
+      // Update the unit the website already has — operational fields only,
+      // preserving its photos / description / slug.
+      const result = await mutate([{ patch: { id: _id, set: op } }])
+      if (!result.ok) return res.status(result.status).json({ error: result.error })
+      return res.status(200).json({ success: true, action: 'sync', id: _id, matched: 'unitId' })
+    }
+
+    // Genuinely new unit — seed a complete, valid doc then patch.
     const title = `${(op.type ?? 'warehouse').replace('-', ' ')} ${space.unitNumber}`.replace(/\b\w/g, (c) => c.toUpperCase())
     const slug = slugify(`${space.unitNumber}-${space.address ?? op.type}`)
-
     const result = await mutate([
-      {
-        // First publish only: seed a complete, valid doc. Never overwrites an
-        // existing one, so Sanity-curated photos/description survive.
-        createIfNotExists: {
-          _id,
-          _type: 'unit',
-          title,
-          slug: { _type: 'slug', current: slug },
-          listingType: 'for-lease',
-          ...op,
-        },
-      },
-      {
-        // Every sync: refresh operational fields only.
-        patch: { id: _id, set: op },
-      },
+      { createIfNotExists: { _id, _type: 'unit', title, slug: { _type: 'slug', current: slug }, listingType: 'for-lease', ...op } },
+      { patch: { id: _id, set: op } },
     ])
     if (!result.ok) return res.status(result.status).json({ error: result.error })
-    return res.status(200).json({ success: true, action: 'sync', id: _id })
+    return res.status(200).json({ success: true, action: 'sync', id: _id, matched: 'new' })
   } catch (err) {
     console.error('sanity-sync error:', err)
     return res.status(500).json({ error: 'Internal server error' })
