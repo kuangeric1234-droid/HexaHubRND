@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { X, Upload, Loader2, FileText, CheckCircle2, AlertCircle, Plus, RefreshCw } from 'lucide-react'
 import { parsePriceList } from '../lib/pricelist.js'
+import { publishListing } from '../lib/sanity.js'
 
 const STATUS_PILL = {
   vacant: 'bg-green-50 text-green-700', occupied: 'bg-gray-100 text-gray-600', reserved: 'bg-orange-50 text-orange-700',
 }
 const norm = (s) => String(s ?? '').trim().toUpperCase()
-const COMPARE = ['monthlyRate', 'status', 'size', 'address', 'cars', 'attributes']
+// Storage units have no Lot code in the PDF — match them by the "NN/NN" address token.
+const addrKey = (a) => { const m = String(a ?? '').match(/(\d+)\s*\/\s*(\d+)/); return m ? `${m[1]}/${m[2]}` : '' }
+const COMPARE = ['monthlyRate', 'status', 'size', 'cars', 'attributes']
 
 export default function PriceListImport({ store, onClose }) {
   const { spaces = [], addSpace, updateSpace } = store
@@ -33,11 +36,13 @@ export default function PriceListImport({ store, onClose }) {
 
   function reconcile(units) {
     const byNum = new Map(spaces.map((s) => [norm(s.unitNumber), s]))
-    const seen = new Set()
+    const byAddr = new Map(spaces.filter((s) => addrKey(s.address)).map((s) => [addrKey(s.address), s]))
+    const seenIds = new Set()
     const next = units.map((u) => {
-      const existing = byNum.get(norm(u.unitNumber))
-      seen.add(norm(u.unitNumber))
+      // Warehouses match by Lot; storage falls back to the address token.
+      const existing = byNum.get(norm(u.unitNumber)) || (addrKey(u.address) && byAddr.get(addrKey(u.address)))
       if (!existing) return { kind: 'new', unit: u }
+      seenIds.add(existing.id)
       const changes = {}
       for (const f of COMPARE) {
         if (u[f] != null && u[f] !== '' && String(u[f]) !== String(existing[f] ?? '')) changes[f] = u[f]
@@ -45,7 +50,7 @@ export default function PriceListImport({ store, onClose }) {
       return { kind: Object.keys(changes).length ? 'updated' : 'unchanged', unit: u, existing, changes }
     })
     setRows(next)
-    setMissing(spaces.filter((s) => !seen.has(norm(s.unitNumber)) && s.status !== 'occupied'))
+    setMissing(spaces.filter((s) => !seenIds.has(s.id) && s.status !== 'occupied'))
   }
 
   function apply() {
@@ -62,9 +67,17 @@ export default function PriceListImport({ store, onClose }) {
       } else if (r.kind === 'updated') {
         updateSpace(r.existing.id, r.changes)
         updated++
+        // If this unit is published on the website, re-push so the live listing updates.
+        const merged = { ...r.existing, ...r.changes }
+        if (merged.publishedToWeb) publishListing(merged).catch((e) => console.error('Listing re-sync:', e))
       }
     }
-    if (markMissing) { for (const s of missing) { updateSpace(s.id, { status: 'occupied' }); marked++ } }
+    if (markMissing) {
+      for (const s of missing) {
+        updateSpace(s.id, { status: 'occupied' }); marked++
+        if (s.publishedToWeb) publishListing({ ...s, status: 'occupied' }).catch((e) => console.error('Listing re-sync:', e))
+      }
+    }
     setResult({ added, updated, marked })
     setStage('done')
   }
