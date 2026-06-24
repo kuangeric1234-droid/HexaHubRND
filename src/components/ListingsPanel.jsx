@@ -14,6 +14,26 @@ export default function ListingsPanel({ store }) {
   const [busyId, setBusyId] = useState(null)
   const [error, setError] = useState('')
   const [editSpace, setEditSpace] = useState(null)
+  const [syncAll, setSyncAll] = useState(null) // { done, total } while running
+
+  // Push every unit's current data/status to the website in one go.
+  async function handleSyncAll() {
+    if (!window.confirm(`Sync all ${spaces.length} units to the website? Available units show; occupied ones drop off.`)) return
+    setError(''); setSyncAll({ done: 0, total: spaces.length })
+    let done = 0
+    for (const space of spaces) {
+      try {
+        await publishListing(space)
+        if (space.status !== 'occupied' && !space.publishedToWeb) {
+          updateSpace(space.id, { publishedToWeb: true, webSyncedAt: new Date().toISOString() })
+        }
+      } catch (e) {
+        setError(`${space.unitNumber}: ${e.message}`)
+      }
+      done++; setSyncAll({ done, total: spaces.length })
+    }
+    setSyncAll(null)
+  }
 
   async function handlePublish(space) {
     setBusyId(space.id); setError('')
@@ -57,6 +77,14 @@ export default function ListingsPanel({ store }) {
           <AlertCircle size={14} className="shrink-0 mt-0.5" /> {error}
         </div>
       )}
+
+      <div className="flex justify-end mb-3">
+        <button onClick={handleSyncAll} disabled={!!syncAll}
+          className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
+          {syncAll ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+          {syncAll ? `Syncing ${syncAll.done}/${syncAll.total}…` : 'Sync all to website'}
+        </button>
+      </div>
 
       <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
         <table className="w-full text-sm">
