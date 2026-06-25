@@ -13,7 +13,12 @@
       "Bash(git remote *)",
       "Bash(git push *)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Hexa-HubRND\\\\api\\\\event-bookings\")",
+      "Bash(npx vercel *)",
+      "Bash(node --input-type=module)",
+      "mcp__claude_ai_Google_Drive__read_file_content",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}, indent=2\\)\\)\")"
     ]
   }
 }

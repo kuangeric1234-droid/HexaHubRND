@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { Plus, X, Copy, Check, Trash2, ChevronDown, ChevronRight, Users, Link2, Percent } from 'lucide-react'
+import { Plus, X, Copy, Check, Trash2, ChevronDown, ChevronRight, Users, Link2, Percent, DollarSign } from 'lucide-react'
 
 const SITE = 'https://www.hexahub.com.au'
 
 const EMPTY = { name: '', email: '', phone: '', commissionRate: 5 }
 const STAGE_TONE = { new: 'bg-gray-100 text-gray-600', engaged: 'bg-blue-50 text-blue-700', won: 'bg-green-50 text-green-700', lost: 'bg-red-50 text-red-600' }
+const COMM_TONE = { pending: 'bg-amber-50 text-amber-700 border-amber-200', approved: 'bg-blue-50 text-blue-700 border-blue-200', paid: 'bg-green-50 text-green-700 border-green-200' }
+const money = (n) => `$${Number(n || 0).toLocaleString('en-AU')}`
 
 export default function ReferralsPanel({ store }) {
-  const { referrers = [], leads = [], pipelineStages = [], addReferrer, updateReferrer, deleteReferrer } = store
+  const { referrers = [], leads = [], commissions = [], pipelineStages = [], addReferrer, updateReferrer, deleteReferrer, updateCommission } = store
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [openId, setOpenId] = useState(null)
@@ -24,7 +26,11 @@ export default function ReferralsPanel({ store }) {
   }
 
   const leadsFor = (r) => leads.filter((l) => l.referrerId === r.id)
+  const commsFor = (r) => commissions.filter((c) => c.referrerId === r.id)
   const stageOf = (id) => pipelineStages.find((s) => s.id === id)
+
+  const pendingTotal = commissions.filter((c) => c.status !== 'paid').reduce((s, c) => s + Number(c.amount || 0), 0)
+  const paidTotal = commissions.filter((c) => c.status === 'paid').reduce((s, c) => s + Number(c.amount || 0), 0)
 
   const input = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black'
 
@@ -32,8 +38,21 @@ export default function ReferralsPanel({ store }) {
     <div>
       <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4 text-xs text-blue-800 flex gap-2">
         <Link2 size={15} className="shrink-0 mt-0.5" />
-        <div>Give each referrer their link. When someone enquires through it, the lead is tagged to them here. On a closed deal you'll calculate commission (next phase).</div>
+        <div>Give each referrer their link. When someone enquires through it, the lead is tagged to them here. Close a referred lead's deal (from the lead panel) to create a commission — the referrer is emailed and you mark it paid below.</div>
       </div>
+
+      {commissions.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-white border border-gray-200 rounded-md px-4 py-3">
+            <div className="text-xs text-gray-400 flex items-center gap-1"><DollarSign size={12} /> Pending / approved</div>
+            <div className="text-xl font-bold text-gray-900 mt-0.5">{money(pendingTotal)}</div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-md px-4 py-3">
+            <div className="text-xs text-gray-400 flex items-center gap-1"><Check size={12} /> Paid out</div>
+            <div className="text-xl font-bold text-gray-900 mt-0.5">{money(paidTotal)}</div>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-gray-500">{referrers.length} referrer{referrers.length === 1 ? '' : 's'}</p>
@@ -52,6 +71,8 @@ export default function ReferralsPanel({ store }) {
           {referrers.map((r) => {
             const open = openId === r.id
             const rl = leadsFor(r)
+            const rc = commsFor(r)
+            const rcPending = rc.filter((c) => c.status !== 'paid').reduce((s, c) => s + Number(c.amount || 0), 0)
             const won = rl.filter((l) => stageOf(l.stageId)?.category === 'won').length
             return (
               <div key={r.id} className="bg-white border border-gray-200 rounded-md overflow-hidden">
@@ -63,6 +84,7 @@ export default function ReferralsPanel({ store }) {
                   </div>
                   <span className="hidden sm:flex items-center gap-1 text-xs text-gray-500"><Percent size={11} /> {r.commissionRate}%</span>
                   <span className="text-xs text-gray-500">{rl.length} lead{rl.length === 1 ? '' : 's'}{won ? ` · ${won} won` : ''}</span>
+                  {rcPending > 0 && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">{money(rcPending)} due</span>}
                   <button onClick={() => { if (window.confirm(`Delete referrer ${r.name}?`)) deleteReferrer(r.id) }}
                     className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
                 </div>
@@ -94,6 +116,27 @@ export default function ReferralsPanel({ store }) {
                         </div>
                       )}
                     </div>
+
+                    {/* Commissions */}
+                    {rc.length > 0 && (
+                      <div>
+                        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Commissions</div>
+                        <div className="space-y-1">
+                          {rc.map((c) => (
+                            <div key={c.id} className="flex items-center justify-between gap-2 text-sm border border-gray-100 rounded px-3 py-1.5">
+                              <span className="text-gray-800 min-w-0 truncate">{c.leadName || '—'} <span className="text-xs text-gray-400">· {money(c.dealValue)} {c.dealType}</span></span>
+                              <span className="font-semibold text-gray-900 shrink-0">{money(c.amount)}</span>
+                              <select value={c.status} onChange={(e) => updateCommission(c.id, { status: e.target.value })}
+                                className={`text-xs rounded border px-1.5 py-0.5 capitalize shrink-0 ${COMM_TONE[c.status] ?? ''}`}>
+                                <option value="pending">pending</option>
+                                <option value="approved">approved</option>
+                                <option value="paid">paid</option>
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       Commission rate:

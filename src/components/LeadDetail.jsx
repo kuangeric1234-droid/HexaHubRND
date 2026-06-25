@@ -16,14 +16,42 @@ const TABS = [
 function rel(iso) { try { return formatDistanceToNow(parseISO(iso), { addSuffix: true }) } catch { return '' } }
 
 export default function LeadDetail({ lead, store, onClose }) {
-  const { appendLeadActivity, updateLead, convertLeadToTenant, deleteLead, pipelineStages = [], spaces = [], tenants = [], referrers = [], settings = {} } = store
+  const { appendLeadActivity, updateLead, convertLeadToTenant, deleteLead, recordDealClose, commissions = [], pipelineStages = [], spaces = [], tenants = [], referrers = [], settings = {} } = store
   const referrer = lead.referrerId ? referrers.find((r) => r.id === lead.referrerId) : null
+  const commission = commissions.find((c) => c.leadId === lead.id)
   const [tab, setTab] = useState('overview')
 
   const space = spaces.find((s) => s.id === lead.spaceId)
   const stage = pipelineStages.find((s) => s.id === lead.stageId)
   const converted = lead.tenantId && tenants.some((t) => t.id === lead.tenantId)
+  const dealClosed = lead.dealClosed || !!commission
   const stageName = (id) => pipelineStages.find((s) => s.id === id)?.name ?? 'stage'
+
+  // Close-deal / commission
+  const [showClose, setShowClose] = useState(false)
+  const [dealType, setDealType] = useState('lease')
+  const [dealValue, setDealValue] = useState('')
+  const [closing, setClosing] = useState(false)
+  const [closeMsg, setCloseMsg] = useState('')
+
+  const previewAmount = referrer ? Math.round((Number(dealValue) || 0) * (Number(referrer.commissionRate) || 0)) / 100 : 0
+
+  async function closeDeal() {
+    const val = Number(dealValue)
+    if (!val || val <= 0) { setCloseMsg('Enter the deal value.'); return }
+    setClosing(true); setCloseMsg('')
+    try {
+      const res = recordDealClose(lead.id, { dealType, dealValue: val })
+      if (res?.referrer?.email && res?.commission) {
+        try {
+          const html = commissionEmailHtml({ referrer: res.referrer, commission: res.commission, settings })
+          await sendEmail({ to: res.referrer.email, subject: `Your HexaHub referral closed — $${res.commission.amount.toLocaleString('en-AU')} commission`, html, settings, emailType: 'commission' })
+          appendLeadActivity(lead.id, { type: 'email', text: `Commission notification emailed to ${res.referrer.name}` })
+        } catch { /* email failure must not block the close */ }
+      }
+      setShowClose(false); setDealValue(''); setTab('activity')
+    } catch (e) { setCloseMsg(e.message) } finally { setClosing(false) }
+  }
 
   // Email compose
   const [subject, setSubject] = useState('')
@@ -99,6 +127,24 @@ export default function LeadDetail({ lead, store, onClose }) {
               <button onClick={() => { if (window.confirm('Delete this lead?')) { deleteLead(lead.id); onClose() } }}
                 className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 px-2 py-1.5">
                 <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          )}
+
+          {/* Deal close / commission */}
+          {dealClosed ? (
+            <div className="mt-2 bg-gray-900 text-white rounded-md px-3 py-2 text-sm flex items-center gap-2">
+              <DollarSign size={15} />
+              <span>
+                Deal closed{lead.dealValue ? ` — $${Number(lead.dealValue).toLocaleString('en-AU')}` : ''}
+                {commission && <> · commission <span className="font-semibold">${Number(commission.amount).toLocaleString('en-AU')}</span> to {commission.referrerName} <span className="capitalize text-gray-300">({commission.status})</span></>}
+              </span>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <button onClick={() => { setDealType('lease'); setDealValue(''); setCloseMsg(''); setShowClose(true) }}
+                className="flex items-center gap-1.5 text-sm font-medium border border-gray-300 px-3 py-1.5 rounded-md hover:bg-gray-50">
+                <DollarSign size={14} /> Close deal{referrer ? ' & pay commission' : ''}
               </button>
             </div>
           )}
@@ -214,8 +260,74 @@ export default function LeadDetail({ lead, store, onClose }) {
           )}
         </div>
       </div>
+
+      {/* Close-deal modal */}
+      {showClose && (
+        <div className="absolute inset-0 z-10 bg-black/50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowClose(false) }}>
+          <div className="bg-white rounded-md w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2"><DollarSign size={16} /> Close deal</h3>
+              <button onClick={() => setShowClose(false)} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Deal type</label>
+                <select value={dealType} onChange={(e) => setDealType(e.target.value)} className={input}>
+                  <option value="lease">Lease</option>
+                  <option value="sale">Sale</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {dealType === 'lease' ? 'Annual lease value (rent × 12)' : 'Sale price'} (AUD)
+                </label>
+                <input type="number" min="0" value={dealValue} onChange={(e) => setDealValue(e.target.value)} placeholder="0" className={input} autoFocus />
+              </div>
+              {referrer ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700">
+                  Commission to <span className="font-medium">{referrer.name}</span> ({referrer.commissionRate}%):
+                  <span className="font-semibold"> ${previewAmount.toLocaleString('en-AU')}</span>
+                  {referrer.email ? <div className="text-xs text-gray-400 mt-0.5">They'll be emailed at {referrer.email}.</div>
+                    : <div className="text-xs text-amber-600 mt-0.5">No email on referrer — they won't be notified.</div>}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">This lead wasn't referred — no commission will be created.</p>
+              )}
+              {closeMsg && <p className="text-xs text-red-600">{closeMsg}</p>}
+            </div>
+            <div className="flex justify-end gap-3 px-5 py-4 border-t border-gray-200">
+              <button onClick={() => setShowClose(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50">Cancel</button>
+              <button onClick={closeDeal} disabled={closing}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-black text-white rounded-md hover:bg-gray-800 font-medium disabled:opacity-40">
+                {closing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Close deal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+function commissionEmailHtml({ referrer, commission, settings }) {
+  const company = settings?.company?.name ?? 'HexaHub'
+  const amount = `$${Number(commission.amount).toLocaleString('en-AU')}`
+  const deal = `$${Number(commission.dealValue).toLocaleString('en-AU')}`
+  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1a1a1a;background:#f5f5f5;margin:0;padding:0">
+    <div style="max-width:560px;margin:24px auto;background:#fff;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden">
+      <div style="background:#000;padding:18px 28px"><span style="color:#fff;font-weight:bold;letter-spacing:2px">${company.toUpperCase()}</span></div>
+      <div style="padding:28px;font-size:14px;line-height:1.6">
+        <p style="margin:0 0 14px">Hi ${referrer.name},</p>
+        <p style="margin:0 0 14px">Great news — a deal you referred to ${company} has closed.</p>
+        <table style="width:100%;border-collapse:collapse;margin:0 0 18px;font-size:14px">
+          <tr style="background:#f5f5f5"><td style="padding:9px 12px;font-weight:bold">Deal value</td><td style="padding:9px 12px">${deal} (${commission.dealType})</td></tr>
+          <tr><td style="padding:9px 12px;font-weight:bold">Your rate</td><td style="padding:9px 12px">${commission.rate}%</td></tr>
+          <tr style="background:#f5f5f5"><td style="padding:9px 12px;font-weight:bold">Your commission</td><td style="padding:9px 12px;font-size:18px;font-weight:bold">${amount} AUD</td></tr>
+        </table>
+        <p style="margin:0 0 14px;color:#555">We'll be in touch shortly to arrange payment. Thank you for the referral!</p>
+        <p style="margin:0;font-size:12px;color:#888">${company} &middot; hexahub.com.au</p>
+      </div>
+    </div></body></html>`
 }
 
 const ACT = {
@@ -224,6 +336,7 @@ const ACT = {
   email: { icon: Mail, bg: 'bg-blue-100', fg: 'text-blue-600' },
   stage: { icon: ArrowRight, bg: 'bg-purple-100', fg: 'text-purple-600' },
   convert: { icon: CheckCircle2, bg: 'bg-green-100', fg: 'text-green-600' },
+  commission: { icon: DollarSign, bg: 'bg-emerald-100', fg: 'text-emerald-600' },
 }
 
 function Prop({ icon: Icon, label, value }) {

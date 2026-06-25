@@ -588,6 +588,7 @@ export function useStore() {
   const [eventRegistrations, setEventRegistrations] = useState([])
   const [campaigns, setCampaigns] = useState([])
   const [referrers, setReferrers] = useState([])
+  const [commissions, setCommissions] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   // Always-current settings ref for callbacks
@@ -603,7 +604,7 @@ export function useStore() {
           { data: tmData }, { data: invData }, { data: discData },
           { data: maintData }, { data: settData }, { data: metaData },
           { data: leadData }, { data: stageData }, { data: regData },
-          { data: campData }, { data: refData },
+          { data: campData }, { data: refData }, { data: commData },
         ] = await Promise.all([
           supabase.from('tenants').select('data'),
           supabase.from('spaces').select('data'),
@@ -619,6 +620,7 @@ export function useStore() {
           supabase.from('event_registrations').select('data'),
           supabase.from('campaigns').select('data'),
           supabase.from('referrers').select('data'),
+          supabase.from('commissions').select('data'),
         ])
 
         // 'seeded' flag — once set, we NEVER fall back to sample data again
@@ -636,6 +638,7 @@ export function useStore() {
         const loadedRegistrations = regData?.length ? extractRows(regData) : []
         const loadedCampaigns     = campData?.length ? extractRows(campData) : []
         const loadedReferrers     = refData?.length ? extractRows(refData) : []
+        const loadedCommissions   = commData?.length ? extractRows(commData) : []
         const loadedSettings    = settData?.[0]?.data ?? DEFAULT_SETTINGS
         const lastBillRun     = metaData?.find((m) => m.key === 'last_bill_run')?.value ?? null
 
@@ -667,6 +670,7 @@ export function useStore() {
         setEventRegistrations(loadedRegistrations)
         setCampaigns(loadedCampaigns)
         setReferrers(loadedReferrers)
+        setCommissions(loadedCommissions)
         setSettings(loadedSettings)
         settingsRef.current = loadedSettings
 
@@ -1220,6 +1224,82 @@ export function useStore() {
     deleteRow('referrers', id)
   }, [])
 
+  // ── Commissions (deal-close payouts for referred leads) ─────────────────────
+  // Record a closed deal on a lead: stamps deal value, moves it to the Won stage,
+  // and — if the lead was referred — creates a pending commission (rate × value).
+  // Returns { commission, referrer, lead } so the caller can email the referrer.
+  const recordDealClose = useCallback((leadId, { dealType, dealValue }) => {
+    const lead = leads.find((l) => l.id === leadId)
+    if (!lead) return null
+    const referrer = lead.referrerId ? referrers.find((r) => r.id === lead.referrerId) : null
+    const value = Number(dealValue) || 0
+    const rate = Number(referrer?.commissionRate) || 0
+    const amount = Math.round(value * rate) / 100 // rate is a percentage
+
+    let commission = null
+    if (referrer) {
+      commission = {
+        id: `comm${Date.now()}`,
+        leadId,
+        referrerId: referrer.id,
+        referrerName: referrer.name,
+        leadName: lead.name || lead.businessName || '',
+        dealType,            // 'lease' | 'sale'
+        dealValue: value,
+        rate,
+        amount,
+        status: 'pending',   // pending | approved | paid
+        createdAt: new Date().toISOString().split('T')[0],
+        paidAt: null,
+      }
+      setCommissions((prev) => [commission, ...prev])
+      syncRow('commissions', commission.id, commission)
+      logAudit('create', 'commission', commission.id, `${referrer.name} · $${amount.toLocaleString('en-AU')}`)
+    }
+
+    const wonStage = pipelineStages.find((s) => s.category === 'won') ?? DEFAULT_STAGES.find((s) => s.category === 'won')
+    const activityEntry = {
+      id: `act${Date.now()}`,
+      type: 'commission',
+      text: referrer
+        ? `Deal closed — $${value.toLocaleString('en-AU')} (${dealType}). Commission $${amount.toLocaleString('en-AU')} to ${referrer.name}.`
+        : `Deal closed — $${value.toLocaleString('en-AU')} (${dealType}).`,
+      createdAt: new Date().toISOString(),
+    }
+    const updatedLead = {
+      ...lead,
+      dealClosed: true,
+      dealType,
+      dealValue: value,
+      stageId: wonStage?.id ?? lead.stageId,
+      stageEnteredAt: new Date().toISOString().split('T')[0],
+      activity: [...(lead.activity ?? []), activityEntry],
+    }
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? updatedLead : l)))
+    syncRow('leads', leadId, updatedLead)
+    return { commission, referrer, lead: updatedLead }
+  }, [leads, referrers, pipelineStages])
+
+  const updateCommission = useCallback((id, updates) => {
+    setCommissions((prev) => {
+      const next = prev.map((c) => {
+        if (c.id !== id) return c
+        const merged = { ...c, ...updates }
+        if (updates.status === 'paid' && !merged.paidAt) merged.paidAt = new Date().toISOString().split('T')[0]
+        if (updates.status && updates.status !== 'paid') merged.paidAt = null
+        return merged
+      })
+      const updated = next.find((c) => c.id === id)
+      if (updated) syncRow('commissions', id, updated)
+      return next
+    })
+  }, [])
+
+  const deleteCommission = useCallback((id) => {
+    setCommissions((prev) => prev.filter((c) => c.id !== id))
+    deleteRow('commissions', id)
+  }, [])
+
   // ── Settings ──────────────────────────────────────────────────────────────
   const updateSettings = useCallback((patch) => {
     logAudit('update', 'settings', 'global', 'Settings', Object.keys(patch).join(', '))
@@ -1284,6 +1364,7 @@ export function useStore() {
     eventRegistrations, markRegistrationRead, deleteEventRegistration, markRegistrationsReminded,
     campaigns, addCampaign, updateCampaign, deleteCampaign,
     referrers, addReferrer, updateReferrer, deleteReferrer,
+    commissions, recordDealClose, updateCommission, deleteCommission,
     settings, updateSettings,
     currentUserRole, currentUserEmail,
     resetSampleData,
