@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, X, Copy, Check, Trash2, ChevronDown, ChevronRight, Users, Link2, Percent, DollarSign } from 'lucide-react'
 
 const SITE = 'https://www.hexahub.com.au'
+const APP = 'https://app.hexahub.com.au'
 
 const EMPTY = { name: '', email: '', phone: '', commissionRate: 5 }
 const STAGE_TONE = { new: 'bg-gray-100 text-gray-600', engaged: 'bg-blue-50 text-blue-700', won: 'bg-green-50 text-green-700', lost: 'bg-red-50 text-red-600' }
@@ -17,6 +18,7 @@ export default function ReferralsPanel({ store }) {
 
   function tenantLink(r) { return `${SITE}/?ref=${r.code}` }
   function sellerLink(r) { return `${SITE}/list-your-property?ref=${r.code}&intent=list` }
+  function dashboardLink(r) { return `${APP}/refer/${r.token}` }
   function copy(key, text) { navigator.clipboard.writeText(text).then(() => { setCopied(key); setTimeout(() => setCopied(''), 1500) }) }
 
   function save(e) {
@@ -95,6 +97,7 @@ export default function ReferralsPanel({ store }) {
                     <div className="space-y-2">
                       <LinkRow label="Refer a tenant / buyer" url={tenantLink(r)} copied={copied === `t${r.id}`} onCopy={() => copy(`t${r.id}`, tenantLink(r))} />
                       <LinkRow label="Refer a seller / landlord" url={sellerLink(r)} copied={copied === `s${r.id}`} onCopy={() => copy(`s${r.id}`, sellerLink(r))} />
+                      <LinkRow label="Their private dashboard (send to the referrer)" url={dashboardLink(r)} copied={copied === `d${r.id}`} onCopy={() => copy(`d${r.id}`, dashboardLink(r))} />
                     </div>
 
                     {/* Their leads */}
