@@ -10,12 +10,24 @@ function fmtDate(d) {
 }
 
 export default function EventRegistrations({ store }) {
-  const { eventRegistrations = [], markRegistrationRead, deleteEventRegistration, markRegistrationsReminded } = store
+  const { eventRegistrations = [], settings = {}, markRegistrationRead, deleteEventRegistration, markRegistrationsReminded } = store
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [openKey, setOpenKey] = useState(null)
   const [sendingKey, setSendingKey] = useState(null)
   const [sendMsg, setSendMsg] = useState(null) // { key, text }
+  const [testing, setTesting] = useState(false)
+  const [testMsg, setTestMsg] = useState('')
+
+  const testEmail = settings?.emails?.notificationEmail || 'info@hexahub.com.au'
+
+  async function emailSample() {
+    setTesting(true); setTestMsg('')
+    try {
+      const r = await sendEventReminders({ testEmail, eventSlug: events[0]?.slug })
+      setTestMsg(`Sample reminder sent to ${r.to} (using "${r.event}"). Check your inbox.`)
+    } catch (e) { setTestMsg(`Couldn't send: ${e.message}`) } finally { setTesting(false) }
+  }
 
   useEffect(() => {
     fetchSanityEvents().then((evs) => { setEvents(evs); setLoading(false) }).catch(() => setLoading(false))
@@ -78,10 +90,17 @@ export default function EventRegistrations({ store }) {
 
   return (
     <div>
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-5 text-xs text-blue-800 flex gap-2">
-        <Calendar size={15} className="shrink-0 mt-0.5" />
-        <div>Events posted in Sanity appear here automatically. RSVPs from the website event pages are captured into HexaHub and saved under each event.</div>
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-800 flex gap-2 flex-1">
+          <Calendar size={15} className="shrink-0 mt-0.5" />
+          <div>Events from Sanity appear here. RSVPs are captured into HexaHub, and a reminder auto-emails registrants the day before the event.</div>
+        </div>
+        <button onClick={emailSample} disabled={testing}
+          className="shrink-0 flex items-center gap-1.5 text-xs font-medium border border-gray-300 px-3 py-2 rounded-md hover:bg-gray-50 disabled:opacity-40">
+          {testing ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />} Email me a sample
+        </button>
       </div>
+      {testMsg && <div className="mb-4 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">{testMsg}</div>}
 
       {allGroups.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-md p-12 text-center text-gray-400">

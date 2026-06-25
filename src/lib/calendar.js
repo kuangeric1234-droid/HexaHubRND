@@ -17,14 +17,14 @@ export function calendarLinks(ev) {
   }
 }
 
-// Trigger reminder emails for one event now (manual send).
-export async function sendEventReminders({ eventSlug, eventName, force }) {
+// Trigger reminder emails for one event now (manual send), or a test preview.
+export async function sendEventReminders({ eventSlug, eventName, force, testEmail }) {
   const res = await fetch('/api/event-reminders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ eventSlug, eventName, force }),
+    body: JSON.stringify({ eventSlug, eventName, force, testEmail }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error ?? 'Failed to send reminders')
-  return data // { events, sent, remindedIds }
+  return data // { events, sent, remindedIds } or { test, to, event }
 }

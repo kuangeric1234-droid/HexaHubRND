@@ -77,6 +77,30 @@ export default async function handler(req, res) {
     ])
     const settings = settRows?.[0]?.data ?? {}
 
+    // ── Test / preview: email ONE sample reminder to a chosen address ──────────
+    if (req.method === 'POST' && req.body?.testEmail) {
+      if (!resendKey) return res.status(500).json({ error: 'RESEND_API_KEY not configured' })
+      let ev = eventsAll.find((e) => e.slug === req.body.eventSlug)
+      if (!ev) {
+        try {
+          const r = await fetch(`${SANITY}?query=${encodeURIComponent('*[_type=="event"]|order(date desc)[0]{_id,title,"slug":slug.current,date,endDate,location,locationAddress,summary}')}`)
+          ev = (await r.json()).result
+        } catch { /* ignore */ }
+      }
+      if (!ev) ev = { title: 'Sample Event', date: new Date(Date.now() + 86400000).toISOString(), location: 'The Hub, Found Huntingdale', locationAddress: '18 Logistic Court, Huntingdale VIC 3166', summary: 'Preview of the reminder email.' }
+      const links = calendarLinks(ev, baseUrl)
+      const fromName = settings?.emails?.fromName || settings?.company?.name || 'HexaHub'
+      const fromEmail = settings?.emails?.fromEmail || 'noreply@hexahub.com.au'
+      const resp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: `${fromName} <${fromEmail}>`, to: req.body.testEmail, subject: `[TEST] Reminder: ${ev.title}`, html: reminderHtml({ name: 'there' }, ev, links, settings) }),
+      })
+      const out = await resp.json().catch(() => ({}))
+      if (!resp.ok) return res.status(resp.status).json({ error: out?.message || 'Resend rejected the email', detail: out })
+      return res.status(200).json({ test: true, to: req.body.testEmail, event: ev.title, id: out?.id })
+    }
+
     let targets, force = false
     if (req.method === 'POST') {
       const { eventSlug, eventName, force: f } = req.body ?? {}
