@@ -16,7 +16,8 @@ const TABS = [
 function rel(iso) { try { return formatDistanceToNow(parseISO(iso), { addSuffix: true }) } catch { return '' } }
 
 export default function LeadDetail({ lead, store, onClose }) {
-  const { appendLeadActivity, updateLead, convertLeadToTenant, deleteLead, pipelineStages = [], spaces = [], tenants = [], settings = {} } = store
+  const { appendLeadActivity, updateLead, convertLeadToTenant, deleteLead, pipelineStages = [], spaces = [], tenants = [], referrers = [], settings = {} } = store
+  const referrer = lead.referrerId ? referrers.find((r) => r.id === lead.referrerId) : null
   const [tab, setTab] = useState('overview')
 
   const space = spaces.find((s) => s.id === lead.spaceId)
@@ -124,6 +125,7 @@ export default function LeadDetail({ lead, store, onClose }) {
                   <Prop icon={Mail} label="Email" value={lead.email} />
                   <Prop icon={Phone} label="Phone" value={lead.phone} />
                   <Prop icon={Tag} label="Source" value={lead.source} />
+                  <Prop icon={User} label="Referred by" value={referrer ? `${referrer.name}${lead.referralIntent ? ` (${lead.referralIntent === 'list' ? 'seller' : 'tenant'})` : ''}` : (lead.referralCode || null)} />
                   <Prop icon={Building2} label="Unit" value={space?.unitNumber} />
                   <Prop icon={DollarSign} label="Est. value" value={lead.value ? `$${Number(lead.value).toLocaleString('en-AU')}/mo` : null} />
                   <Prop icon={Tag} label="Stage" value={stage?.name} />

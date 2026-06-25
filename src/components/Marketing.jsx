@@ -7,12 +7,14 @@ import EnquiriesInbox from './EnquiriesInbox.jsx'
 import EventRegistrations from './EventRegistrations.jsx'
 import AiStudio from './AiStudio.jsx'
 import AdsWorkbench from './AdsWorkbench.jsx'
+import ReferralsPanel from './ReferralsPanel.jsx'
 
 const TABS = [
   { key: 'leads',     label: 'Leads' },
   { key: 'enquiries', label: 'Enquiries' },
   { key: 'listings',  label: 'Listings' },
   { key: 'events',    label: 'Events' },
+  { key: 'referrals', label: 'Referrals' },
   { key: 'ads',       label: 'Ads' },
   { key: 'studio',    label: 'AI Studio' },
 ]
@@ -65,6 +67,7 @@ export default function Marketing() {
       {tab === 'enquiries' && <EnquiriesInbox store={store} />}
       {tab === 'listings' && <ListingsPanel store={store} />}
       {tab === 'events' && <EventRegistrations store={store} />}
+      {tab === 'referrals' && <ReferralsPanel store={store} />}
       {tab === 'ads' && <AdsWorkbench store={store} />}
       {tab === 'studio' && <AiStudio store={store} />}
     </div>

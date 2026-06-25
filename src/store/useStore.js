@@ -587,6 +587,7 @@ export function useStore() {
   const [pipelineStages, setPipelineStages] = useState([])
   const [eventRegistrations, setEventRegistrations] = useState([])
   const [campaigns, setCampaigns] = useState([])
+  const [referrers, setReferrers] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   // Always-current settings ref for callbacks
@@ -602,7 +603,7 @@ export function useStore() {
           { data: tmData }, { data: invData }, { data: discData },
           { data: maintData }, { data: settData }, { data: metaData },
           { data: leadData }, { data: stageData }, { data: regData },
-          { data: campData },
+          { data: campData }, { data: refData },
         ] = await Promise.all([
           supabase.from('tenants').select('data'),
           supabase.from('spaces').select('data'),
@@ -617,6 +618,7 @@ export function useStore() {
           supabase.from('lead_pipeline_stages').select('data'),
           supabase.from('event_registrations').select('data'),
           supabase.from('campaigns').select('data'),
+          supabase.from('referrers').select('data'),
         ])
 
         // 'seeded' flag — once set, we NEVER fall back to sample data again
@@ -633,6 +635,7 @@ export function useStore() {
         const loadedStages      = stageData?.length ? extractRows(stageData) : DEFAULT_STAGES
         const loadedRegistrations = regData?.length ? extractRows(regData) : []
         const loadedCampaigns     = campData?.length ? extractRows(campData) : []
+        const loadedReferrers     = refData?.length ? extractRows(refData) : []
         const loadedSettings    = settData?.[0]?.data ?? DEFAULT_SETTINGS
         const lastBillRun     = metaData?.find((m) => m.key === 'last_bill_run')?.value ?? null
 
@@ -663,6 +666,7 @@ export function useStore() {
         setPipelineStages([...loadedStages].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)))
         setEventRegistrations(loadedRegistrations)
         setCampaigns(loadedCampaigns)
+        setReferrers(loadedReferrers)
         setSettings(loadedSettings)
         settingsRef.current = loadedSettings
 
@@ -1184,6 +1188,38 @@ export function useStore() {
     deleteRow('campaigns', id)
   }, [])
 
+  // ── Referrers (referral / affiliate program) ────────────────────────────────
+  const addReferrer = useCallback((referrer) => {
+    const letters = String(referrer.name || 'REF').replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase() || 'REF'
+    const rand = (n) => Array.from({ length: n }, () => '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 32)]).join('')
+    const item = {
+      commissionRate: 5, status: 'active', notes: '', phone: '', email: '',
+      ...referrer,
+      id: `ref${Date.now()}`,
+      code: `${letters}${rand(3)}`,
+      token: rand(12),
+      createdAt: new Date().toISOString().split('T')[0],
+    }
+    setReferrers((prev) => [item, ...prev])
+    syncRow('referrers', item.id, item)
+    logAudit('create', 'referrer', item.id, item.name ?? item.id)
+    return item
+  }, [])
+
+  const updateReferrer = useCallback((id, updates) => {
+    setReferrers((prev) => {
+      const next = prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
+      const updated = next.find((r) => r.id === id)
+      if (updated) syncRow('referrers', id, updated)
+      return next
+    })
+  }, [])
+
+  const deleteReferrer = useCallback((id) => {
+    setReferrers((prev) => prev.filter((r) => r.id !== id))
+    deleteRow('referrers', id)
+  }, [])
+
   // ── Settings ──────────────────────────────────────────────────────────────
   const updateSettings = useCallback((patch) => {
     logAudit('update', 'settings', 'global', 'Settings', Object.keys(patch).join(', '))
@@ -1247,6 +1283,7 @@ export function useStore() {
     pipelineStages, addStage, updateStage, deleteStage,
     eventRegistrations, markRegistrationRead, deleteEventRegistration, markRegistrationsReminded,
     campaigns, addCampaign, updateCampaign, deleteCampaign,
+    referrers, addReferrer, updateReferrer, deleteReferrer,
     settings, updateSettings,
     currentUserRole, currentUserEmail,
     resetSampleData,

@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { name, email, phone, businessName, message, unitId, source, website } = req.body ?? {}
+  const { name, email, phone, businessName, message, unitId, source, website, ref, intent } = req.body ?? {}
 
   // Honeypot — pretend success so bots don't retry.
   if (website) return res.status(200).json({ success: true })
@@ -35,15 +35,21 @@ export default async function handler(req, res) {
   const supabase = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false } })
 
   try {
-    const [{ data: spaceRows }, { data: stageRows }] = await Promise.all([
+    const [{ data: spaceRows }, { data: stageRows }, { data: refRows }] = await Promise.all([
       supabase.from('spaces').select('id, data'),
       supabase.from('lead_pipeline_stages').select('data'),
+      supabase.from('referrers').select('data'),
     ])
 
     // Resolve the unit (by unitNumber) the enquiry is about.
     const spaces = (spaceRows ?? []).map((r) => ({ id: r.id, ...r.data }))
     const space = unitId
       ? spaces.find((s) => String(s.unitNumber).toLowerCase() === String(unitId).toLowerCase())
+      : null
+
+    // Resolve the referrer (by code) if the enquiry came via a referral link.
+    const referrer = ref
+      ? (refRows ?? []).map((r) => r.data).find((rr) => String(rr.code).toUpperCase() === String(ref).toUpperCase() && rr.status !== 'paused')
       : null
 
     // First "new" stage, else fall back to the default id.
@@ -67,6 +73,9 @@ export default async function handler(req, res) {
       tenantId: null,
       type: 'enquiry',
       read: false, // surfaces as unread in the Enquiries inbox
+      referrerId: referrer?.id ?? null,
+      referralCode: referrer ? referrer.code : (ref || null),
+      referralIntent: ref ? (intent || 'lease') : null,
       createdAt: today,
       stageEnteredAt: today,
     }
