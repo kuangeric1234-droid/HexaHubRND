@@ -106,6 +106,8 @@ export async function fetchSanityEvents() {
       title: e.title,
       slug: e.slug?.current ?? null,
       date: e.date ? e.date.split('T')[0] : null,
+      startsAt: e.date ?? null,
+      endsAt: e.endDate ?? null,
       endDate: e.endDate,
       time: e.date ? new Date(e.date).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }) : null,
       location: [e.location, e.locationAddress].filter(Boolean).join(' — '),

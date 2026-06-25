@@ -1149,6 +1149,13 @@ export function useStore() {
     deleteRow('event_registrations', id)
   }, [])
 
+  // Optimistic local update after the reminder endpoint emails registrants
+  // (the endpoint already persisted reminderSentAt server-side).
+  const markRegistrationsReminded = useCallback((ids = []) => {
+    const at = new Date().toISOString()
+    setEventRegistrations((prev) => prev.map((r) => ids.includes(r.id) ? { ...r, reminderSentAt: r.reminderSentAt ?? at } : r))
+  }, [])
+
   // ── Ad campaigns ────────────────────────────────────────────────────────────
   const addCampaign = useCallback((campaign) => {
     const item = {
@@ -1238,7 +1245,7 @@ export function useStore() {
     maintenance, addMaintenanceIssue, updateMaintenanceIssue, deleteMaintenanceIssue,
     leads, addLead, updateLead, moveLeadToStage, deleteLead, convertLeadToTenant, appendLeadActivity,
     pipelineStages, addStage, updateStage, deleteStage,
-    eventRegistrations, markRegistrationRead, deleteEventRegistration,
+    eventRegistrations, markRegistrationRead, deleteEventRegistration, markRegistrationsReminded,
     campaigns, addCampaign, updateCampaign, deleteCampaign,
     settings, updateSettings,
     currentUserRole, currentUserEmail,

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { Calendar, ChevronDown, ChevronRight, Mail, Phone, Users, Trash2, Download, Ticket } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronRight, Mail, Phone, Users, Trash2, Download, Ticket, Bell, Loader2, Check, CalendarPlus } from 'lucide-react'
 import { fetchSanityEvents } from '../lib/sanity.js'
+import { calendarLinks, sendEventReminders } from '../lib/calendar.js'
 
 function fmtDate(d) {
   if (!d) return ''
@@ -9,10 +10,12 @@ function fmtDate(d) {
 }
 
 export default function EventRegistrations({ store }) {
-  const { eventRegistrations = [], markRegistrationRead, deleteEventRegistration } = store
+  const { eventRegistrations = [], markRegistrationRead, deleteEventRegistration, markRegistrationsReminded } = store
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [openKey, setOpenKey] = useState(null)
+  const [sendingKey, setSendingKey] = useState(null)
+  const [sendMsg, setSendMsg] = useState(null) // { key, text }
 
   useEffect(() => {
     fetchSanityEvents().then((evs) => { setEvents(evs); setLoading(false) }).catch(() => setLoading(false))
@@ -28,15 +31,25 @@ export default function EventRegistrations({ store }) {
   const groups = events.map((ev) => {
     const regs = regsFor(ev)
     regs.forEach((r) => matchedIds.add(r.id))
-    return { key: ev.id, title: ev.title, date: ev.date, regs, fromSanity: true }
+    return { key: ev.id, title: ev.title, date: ev.date, regs, fromSanity: true, ev, slug: ev.slug }
   })
+
+  async function sendReminders(group, e) {
+    e.stopPropagation()
+    setSendingKey(group.key); setSendMsg(null)
+    try {
+      const r = await sendEventReminders({ eventSlug: group.slug, eventName: group.title })
+      markRegistrationsReminded(r.remindedIds ?? [])
+      setSendMsg({ key: group.key, text: r.sent ? `Reminder emailed to ${r.sent}.` : 'No new recipients — everyone was already reminded.' })
+    } catch (err) { setSendMsg({ key: group.key, text: err.message }) } finally { setSendingKey(null) }
+  }
 
   // Registrations whose event isn't in the current Sanity list (past/removed).
   const orphans = eventRegistrations.filter((r) => !matchedIds.has(r.id))
   const orphanGroups = Object.values(
     orphans.reduce((acc, r) => {
       const k = r.eventName || r.eventSlug || 'Unknown event'
-      acc[k] = acc[k] ?? { key: `orphan-${k}`, title: k, date: null, regs: [], fromSanity: false }
+      acc[k] = acc[k] ?? { key: `orphan-${k}`, title: k, date: null, regs: [], fromSanity: false, ev: null, slug: null }
       acc[k].regs.push(r)
       return acc
     }, {})
@@ -80,6 +93,8 @@ export default function EventRegistrations({ store }) {
           {allGroups.map((group) => {
             const open = openKey === group.key
             const unread = group.regs.filter((r) => !r.read).length
+            const reminded = group.regs.filter((r) => r.reminderSentAt).length
+            const cal = group.ev?.startsAt ? calendarLinks({ title: group.ev.title, date: group.ev.startsAt, endDate: group.ev.endsAt, location: group.ev.location, summary: group.ev.description }) : null
             return (
               <div key={group.key} className="bg-white border border-gray-200 rounded-md overflow-hidden">
                 <div onClick={() => toggle(group)} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50">
@@ -89,6 +104,13 @@ export default function EventRegistrations({ store }) {
                     {group.date && <div className="text-xs text-gray-400">{fmtDate(group.date)}</div>}
                   </div>
                   {unread > 0 && <span className="bg-blue-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{unread} new</span>}
+                  {reminded > 0 && <span className="text-xs text-green-600 font-medium hidden sm:inline">{reminded} reminded</span>}
+                  {group.regs.length > 0 && (
+                    <button onClick={(e) => sendReminders(group, e)} disabled={sendingKey === group.key} title="Email a reminder to registrants now"
+                      className="flex items-center gap-1 text-xs border border-gray-200 px-2 py-1 rounded hover:bg-gray-50 disabled:opacity-40">
+                      {sendingKey === group.key ? <Loader2 size={12} className="animate-spin" /> : <Bell size={12} />} Remind
+                    </button>
+                  )}
                   <span className="flex items-center gap-1 text-sm text-gray-500"><Users size={14} /> {group.regs.length}</span>
                   {group.regs.length > 0 && (
                     <button onClick={(e) => { e.stopPropagation(); exportCsv(group) }} title="Export CSV"
@@ -98,6 +120,16 @@ export default function EventRegistrations({ store }) {
 
                 {open && (
                   <div className="border-t border-gray-100">
+                    {cal && (
+                      <div className="px-4 py-2.5 border-b border-gray-100 text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="flex items-center gap-1"><CalendarPlus size={13} /> Add to calendar:</span>
+                        <a href={cal.google} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Google</a><span>·</span>
+                        <a href={cal.outlook} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Outlook</a><span>·</span>
+                        <a href={cal.ical} className="text-blue-600 hover:underline">iCal</a><span>·</span>
+                        <a href={cal.yahoo} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Yahoo</a>
+                      </div>
+                    )}
+                    {sendMsg?.key === group.key && <div className="px-4 py-2 text-xs text-green-700 bg-green-50/50">{sendMsg.text}</div>}
                     {group.regs.length === 0 ? (
                       <p className="px-4 py-4 text-sm text-gray-400">No registrations yet.</p>
                     ) : (
@@ -116,7 +148,10 @@ export default function EventRegistrations({ store }) {
                                 </div>
                               </td>
                               <td className="px-4 py-2.5 text-gray-500 text-xs">{r.guests ? `${r.guests} guest${r.guests > 1 ? 's' : ''}` : ''}</td>
-                              <td className="px-4 py-2.5 text-gray-400 text-xs whitespace-nowrap">{fmtDate(r.createdAt?.split('T')[0])}</td>
+                              <td className="px-4 py-2.5 text-gray-400 text-xs whitespace-nowrap">
+                                {fmtDate(r.createdAt?.split('T')[0])}
+                                {r.reminderSentAt && <div className="text-green-600 flex items-center gap-1 mt-0.5"><Check size={10} /> reminded</div>}
+                              </td>
                               <td className="px-4 py-2.5 text-right">
                                 <button onClick={() => { if (window.confirm('Delete this registration?')) deleteEventRegistration(r.id) }}
                                   className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={13} /></button>

@@ -1,0 +1,122 @@
+// Event reminders.
+//   GET  (Vercel cron, daily) → email every registrant of an event happening
+//        TOMORROW (Melbourne time) who hasn't been reminded yet.
+//   POST {eventSlug?|eventName?, force?} → send reminders for one event now.
+// Marks each registration with reminderSentAt so the app shows who got it.
+// Requires env: SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY.
+
+import { createClient } from '@supabase/supabase-js'
+
+const SUPABASE_URL = 'https://yitkqjlytlyyflrsnfwc.supabase.co'
+const SANITY = 'https://w4zxsbqi.api.sanity.io/v2021-06-07/data/query/production'
+const TZ = 'Australia/Melbourne'
+
+const melbDate = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+const icsDate = (iso) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+
+async function fetchEvents() {
+  const groq = `*[_type=="event" && rsvpEnabled==true]{ _id, title, "slug": slug.current, date, endDate, location, locationAddress, summary }`
+  const res = await fetch(`${SANITY}?query=${encodeURIComponent(groq)}`)
+  if (!res.ok) return []
+  const { result } = await res.json()
+  return result ?? []
+}
+
+function calendarLinks(ev, baseUrl) {
+  const start = ev.date
+  const end = ev.endDate || new Date(new Date(start).getTime() + 2 * 3600 * 1000).toISOString()
+  const loc = [ev.location, ev.locationAddress].filter(Boolean).join(', ')
+  const details = ev.summary || ''
+  const e = encodeURIComponent
+  return {
+    google: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${e(ev.title)}&dates=${icsDate(start)}/${icsDate(end)}&details=${e(details)}&location=${e(loc)}`,
+    outlook: `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${e(ev.title)}&startdt=${e(start)}&enddt=${e(end)}&body=${e(details)}&location=${e(loc)}`,
+    yahoo: `https://calendar.yahoo.com/?v=60&title=${e(ev.title)}&st=${icsDate(start)}&et=${icsDate(end)}&desc=${e(details)}&in_loc=${e(loc)}`,
+    ical: `${baseUrl}/api/event-ics?title=${e(ev.title)}&start=${e(start)}&end=${e(end)}&location=${e(loc)}&details=${e(details)}`,
+  }
+}
+
+function reminderHtml(reg, ev, links, settings) {
+  const company = settings?.company?.name || 'HexaHub'
+  const when = new Date(ev.date).toLocaleString('en-AU', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', hour12: true })
+  const loc = [ev.location, ev.locationAddress].filter(Boolean).join('<br>')
+  const cal = (label, url) => `<a href="${url}" style="color:#2a3065;text-decoration:none;font-weight:600">${label}</a>`
+  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1a1a1a;background:#f5f5f5;margin:0;padding:0">
+  <div style="max-width:560px;margin:24px auto;background:#fff;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden">
+    <div style="background:#000;padding:18px 28px"><span style="color:#fff;font-weight:bold;letter-spacing:2px">${company.toUpperCase()}</span></div>
+    <div style="padding:28px">
+      <h2 style="margin:0 0 6px;font-size:20px;line-height:1.3">Your event <span style="color:#2a3065">${ev.title}</span> is coming up soon!</h2>
+      <p style="color:#777;font-size:13px;margin:0 0 20px">${when}<br>Organised by ${company}</p>
+      <hr style="border:none;border-top:1px solid #eee;margin:0 0 20px">
+      <p style="font-weight:bold;font-size:15px;margin:0 0 4px">Questions about this event?</p>
+      <p style="font-size:14px;margin:0 0 20px"><a href="mailto:${settings?.emails?.replyTo || 'info@hexahub.com.au'}" style="color:#2a3065">Contact the organiser</a></p>
+      <hr style="border:none;border-top:1px solid #eee;margin:0 0 20px">
+      <p style="font-weight:bold;font-size:15px;margin:0 0 10px">About this event</p>
+      <p style="font-size:14px;color:#555;margin:0 0 4px">🗓 ${when}</p>
+      ${loc ? `<p style="font-size:14px;color:#555;margin:0 0 16px">📍 ${loc}</p>` : ''}
+      <p style="font-size:14px;margin:0">Add to my calendar:<br>
+        ${cal('Google', links.google)} &nbsp;·&nbsp; ${cal('Outlook', links.outlook)} &nbsp;·&nbsp; ${cal('iCal', links.ical)} &nbsp;·&nbsp; ${cal('Yahoo', links.yahoo)}
+      </p>
+      <p style="font-size:12px;color:#aaa;margin-top:24px">See you there${reg.name ? `, ${reg.name}` : ''}.</p>
+    </div>
+  </div></body></html>`
+}
+
+export default async function handler(req, res) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const resendKey = process.env.RESEND_API_KEY
+  if (!serviceKey) return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' })
+
+  const supabase = createClient(SUPABASE_URL, serviceKey, { auth: { persistSession: false } })
+  const baseUrl = `https://${req.headers.host}`
+
+  try {
+    const [{ data: settRows }, eventsAll] = await Promise.all([
+      supabase.from('settings').select('data').eq('id', 'global'),
+      fetchEvents(),
+    ])
+    const settings = settRows?.[0]?.data ?? {}
+
+    let targets, force = false
+    if (req.method === 'POST') {
+      const { eventSlug, eventName, force: f } = req.body ?? {}
+      force = !!f
+      targets = eventsAll.filter((e) => (eventSlug && e.slug === eventSlug) || (eventName && e.title === eventName))
+    } else {
+      const tomorrow = melbDate(new Date(Date.now() + 24 * 3600 * 1000).toISOString())
+      targets = eventsAll.filter((e) => e.date && melbDate(e.date) === tomorrow)
+    }
+    if (!targets.length) return res.status(200).json({ events: 0, sent: 0, remindedIds: [] })
+
+    const { data: regRows } = await supabase.from('event_registrations').select('data')
+    const regs = (regRows ?? []).map((r) => r.data)
+
+    let sent = 0
+    const remindedIds = []
+    for (const ev of targets) {
+      const links = calendarLinks(ev, baseUrl)
+      const evRegs = regs.filter((r) => (r.eventSlug && r.eventSlug === ev.slug) || (r.eventName && r.eventName === ev.title))
+      for (const reg of evRegs) {
+        if (!reg.email) continue
+        if (reg.reminderSentAt && !force) continue
+        try {
+          if (resendKey) {
+            const fromName = settings?.emails?.fromName || settings?.company?.name || 'HexaHub'
+            const fromEmail = settings?.emails?.fromEmail || 'noreply@hexahub.com.au'
+            await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ from: `${fromName} <${fromEmail}>`, to: reg.email, subject: `Reminder: ${ev.title} is coming up`, html: reminderHtml(reg, ev, links, settings) }),
+            })
+          }
+          await supabase.from('event_registrations').upsert({ id: reg.id, data: { ...reg, reminderSentAt: new Date().toISOString() }, updated_at: new Date().toISOString() })
+          sent++; remindedIds.push(reg.id)
+        } catch (e) { console.error('reminder send failed', reg.id, e) }
+      }
+    }
+    return res.status(200).json({ events: targets.length, sent, remindedIds })
+  } catch (err) {
+    console.error('event-reminders error:', err)
+    return res.status(500).json({ error: err.message })
+  }
+}
