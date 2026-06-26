@@ -81,7 +81,10 @@ export default function ReferralsPanel({ store }) {
                 <div className="flex items-center gap-3 px-4 py-3">
                   <button onClick={() => setOpenId(open ? null : r.id)} className="text-gray-400">{open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-gray-900">{r.name}</div>
+                    <div className="font-semibold text-gray-900 flex items-center gap-2">
+                      {r.name}
+                      {r.selfEnrolled && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-200 uppercase tracking-wide">Self-enrolled</span>}
+                    </div>
                     <div className="text-xs text-gray-400">{r.email} {r.code && <span className="ml-1 px-1.5 py-0.5 bg-gray-100 rounded font-mono">{r.code}</span>}</div>
                   </div>
                   <span className="hidden sm:flex items-center gap-1 text-xs text-gray-500"><Percent size={11} /> {r.commissionRate}%</span>
