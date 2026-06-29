@@ -4,6 +4,11 @@ import { supabase } from '../lib/supabase.js'
 import SignatureCanvas from './SignatureCanvas.jsx'
 import { generateAgreementPdf } from '../lib/generateAgreementPdf.js'
 
+// ── Lonsdale 369 permanent pop-up venue ───────────────────────────────────────
+// TODO CONFIRM: set the real Lonsdale 369 street address below.
+const POPUP_VENUE = 'Lonsdale 369'
+const POPUP_ADDRESS = '369 Lonsdale Street, Melbourne VIC 3000'
+
 function fmtDate(d) {
   if (!d) return '—'
   try { return format(parseISO(d), 'EEEE, d MMMM yyyy') } catch { return d }
@@ -25,13 +30,18 @@ function LicenceAgreementDoc({ booking }) {
   const b = booking
   const vendorDisplay = [b.vendorBusiness, b.vendorName].filter(Boolean).join(' — ')
   const today = format(new Date(), 'd MMMM yyyy')
+  const venueName = b.venue || POPUP_VENUE
+  const venueAddress = b.venueAddress || POPUP_ADDRESS
+  const period = b.bookingStartDate && b.bookingEndDate
+    ? `${fmtDate(b.bookingStartDate)} – ${fmtDate(b.bookingEndDate)}`
+    : (b.eventDate ? fmtDate(b.eventDate) : '—')
 
   return (
     <div className="font-serif text-[13px] text-gray-900 leading-relaxed space-y-5">
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
-        <h1 className="text-2xl font-bold tracking-tight">Event Venue Licence Agreement</h1>
-        <div className="text-xs text-gray-500 font-sans">Found Underground · 7 June 2026</div>
+        <h1 className="text-2xl font-bold tracking-tight">Pop-up Licence Agreement</h1>
+        <div className="text-xs text-gray-500 font-sans">{venueName} · {period}</div>
       </div>
 
       <hr className="border-gray-300" />
@@ -49,15 +59,12 @@ function LicenceAgreementDoc({ booking }) {
               ['Licensee Contact', b.vendorName],
               ['Licensee Email', b.vendorEmail],
               ['Licensee ABN', b.vendorAbn || '—'],
-              ['Venue', b.allocatedSpace ? `${b.allocatedSpace} — 17 Logistic Court, Huntingdale, Victoria` : '17 Logistic Court, Huntingdale, Victoria'],
-              ['Permitted Use', [b.vendorType, b.vendorDescription].filter(Boolean).join(' — ') || '—'],
-              ['Event', 'Found Underground'],
-              ['Event Date', fmtDate(b.eventDate || '2026-06-07')],
-              ['Access / Bump-In Time', fmtTime(b.accessTime || '11:00')],
-              ['Event Commencement', fmtTime(b.eventStartTime || '15:00')],
-              ['Event Finish', fmtTime(b.eventFinishTime || '21:00')],
-              ['Bump-Out Completion', fmtTime(b.bumpOutTime || '22:00')],
-              ['Licence Fee', fmtMoney(b.participationFee) || 'Nil — by invitation'],
+              ['Venue', b.allocatedSpace ? `${b.allocatedSpace} — ${venueAddress}` : venueAddress],
+              ['Permitted Use', [b.vendorType, b.vendorDescription].filter(Boolean).join(' — ') || 'Retail / brand pop-up'],
+              ['Booking Period', period],
+              ['Days Booked', b.bookingDays ? `${b.bookingDays} day${b.bookingDays === 1 ? '' : 's'}` : '—'],
+              ['Daily Rate', fmtMoney(b.dailyRate) || '—'],
+              ['Licence Fee', fmtMoney(b.participationFee) || '—'],
               ['Bond', fmtMoney(b.bond) || 'Nil'],
               ['Deposit', fmtMoney(b.deposit) || (b.participationFee ? '50% of Licence Fee payable on signing' : 'Nil')],
               ['Balance Due Date', b.balanceDueDate ? fmtDate(b.balanceDueDate) : '7 days before Event Date'],
@@ -86,7 +93,7 @@ function LicenceAgreementDoc({ booking }) {
         {/* Recitals */}
         <h2 className="text-sm font-bold uppercase tracking-widest text-gray-700 mb-2">Recitals</h2>
         <div className="space-y-2 text-xs mb-5">
-          <p><strong>A.</strong> The Licensor controls and operates the premises situated at 17 Logistic Court, Huntingdale, Victoria.</p>
+          <p><strong>A.</strong> The Licensor controls and operates the premises situated at 369 Lonsdale Street, Melbourne VIC 3000.</p>
           <p><strong>B.</strong> The Licensee has requested permission to use part of the Premises for the Event.</p>
           <p><strong>C.</strong> The Licensor has agreed to grant the Licensee a temporary, revocable and non-exclusive licence to use the Venue on the terms of this Agreement.</p>
           <p><strong>D.</strong> The parties acknowledge and agree that this Agreement creates a licence only and does not create a lease, tenancy, retail tenancy, periodic tenancy, exclusive possession or any estate or interest in land.</p>
@@ -113,7 +120,7 @@ function LicenceAgreementDoc({ booking }) {
             <p className="mt-1"><em>Licence Fee</em> means the fee payable for the licence granted under this Agreement, as specified in the Schedule.</p>
             <p className="mt-1"><em>Licence Period</em> means the period commencing at the start of the approved access time, including bump-in, and ending when the Licensee has fully vacated the Venue, completed bump-out, removed all property and complied with its reinstatement obligations.</p>
             <p className="mt-1"><em>Permitted Use</em> means the use of the Venue approved by the Licensor and stated in the Schedule.</p>
-            <p className="mt-1"><em>Premises</em> means the land and improvements at 17 Logistic Court, Huntingdale, Victoria, including all access points, loading areas, amenities, car parking areas, common areas and external areas made available by the Licensor from time to time.</p>
+            <p className="mt-1"><em>Premises</em> means the land and improvements at 369 Lonsdale Street, Melbourne VIC 3000, including all access points, loading areas, amenities, car parking areas, common areas and external areas made available by the Licensor from time to time.</p>
             <p className="mt-1"><em>Venue</em> means the area or areas within the Premises described in the Schedule.</p>
             <p className="mt-1">Unless the contrary intention appears, headings are for convenience only, the singular includes the plural and vice versa, legislation includes amendments and subordinate instruments, and <em>including</em> is not a term of limitation.</p>
           </div>
@@ -307,7 +314,7 @@ function LiabilityWaiverDoc({ booking }) {
       <div className="text-center space-y-1">
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
         <h1 className="text-xl font-bold tracking-tight">Vendor Liability Waiver and Acknowledgement</h1>
-        <div className="text-xs text-gray-500 font-sans">Found Underground · Sunday 7 June 2026 · 17 Logistic Court, Huntingdale, Victoria</div>
+        <div className="text-xs text-gray-500 font-sans">Lonsdale 369 Pop-up · Sunday 7 June 2026 · 369 Lonsdale Street, Melbourne VIC 3000</div>
       </div>
 
       <hr className="border-gray-300" />
@@ -393,7 +400,7 @@ function VenueRulesDoc() {
         <div className="text-xs tracking-widest font-sans font-bold text-gray-500 uppercase">HexaHub Pty Ltd</div>
         <h1 className="text-xl font-bold tracking-tight">Annexure A</h1>
         <h2 className="text-base font-semibold text-gray-700">Venue Rules and Operating Conditions</h2>
-        <div className="text-xs text-gray-500 font-sans">17 Logistic Court, Huntingdale, Victoria</div>
+        <div className="text-xs text-gray-500 font-sans">369 Lonsdale Street, Melbourne VIC 3000</div>
       </div>
 
       <hr className="border-gray-300" />
@@ -501,7 +508,7 @@ function ComplianceAndMarketingDoc() {
             <strong>3. Form of Promotion</strong>
             <p className="mt-1">The Licensee must ensure that all promotional material relating to the Event includes, if required by the Licensor:</p>
             <ul className="list-disc list-inside mt-1 space-y-0.5 ml-2">
-              <li>the approved name of the Venue and its location at 17 Logistic Court, Huntingdale, Victoria;</li>
+              <li>the approved name of the Venue and its location at 369 Lonsdale Street, Melbourne VIC 3000;</li>
               <li>any venue branding, logo, tag, handle, hashtag, hyperlink, booking contact or descriptive wording specified by the Licensor;</li>
               <li>any credit line, acknowledgement, venue partner reference or promotional message required by the Licensor;</li>
               <li>any approved venue imagery, photographs, video, map, website link or brand assets supplied or nominated by the Licensor; and</li>
@@ -702,9 +709,7 @@ export default function EventBookingSignPage({ token }) {
 
   const TABS = [
     { key: 'doc1', label: '1. Licence Agreement' },
-    { key: 'doc2', label: '2. Liability Waiver' },
-    { key: 'doc3', label: '3. Venue Rules (Annexure A)' },
-    { key: 'doc4', label: '4. Compliance & Marketing (B & C)' },
+    { key: 'doc3', label: '2. Venue Rules' },
     { key: 'sign', label: '✍ Sign' },
   ]
 
@@ -737,8 +742,8 @@ export default function EventBookingSignPage({ token }) {
         title="You're all set!"
         subtitle={
           insuranceChoice === 'later'
-            ? `Thanks ${booking?.signerName}. Please email your Certificate of Currency to info@hexahub.com.au. See you on June 7!`
-            : `Thanks ${booking?.signerName}. Agreement signed and insurance confirmed. See you on June 7!`
+            ? `Thanks ${booking?.signerName}. Please email your Certificate of Currency to info@hexahub.com.au and we'll confirm your booking.`
+            : `Thanks ${booking?.signerName}. Agreement signed and insurance confirmed — we'll be in touch to confirm your booking.`
         }
       />
     )
@@ -762,23 +767,17 @@ export default function EventBookingSignPage({ token }) {
       </div>
 
       {view === 'doc1' && (
-        <DocFrame><LicenceAgreementDoc booking={booking} /><NavBtn onClick={() => setView('doc2')}>Next: Liability Waiver →</NavBtn></DocFrame>
-      )}
-      {view === 'doc2' && (
-        <DocFrame><LiabilityWaiverDoc booking={booking} /><NavBtn onClick={() => setView('doc3')}>Next: Venue Rules →</NavBtn></DocFrame>
+        <DocFrame><LicenceAgreementDoc booking={booking} /><NavBtn onClick={() => setView('doc3')}>Next: Venue Rules →</NavBtn></DocFrame>
       )}
       {view === 'doc3' && (
-        <DocFrame><VenueRulesDoc /><NavBtn onClick={() => setView('doc4')}>Next: Compliance & Marketing →</NavBtn></DocFrame>
-      )}
-      {view === 'doc4' && (
-        <DocFrame><ComplianceAndMarketingDoc /><NavBtn onClick={() => setView('sign')}>Proceed to Sign →</NavBtn></DocFrame>
+        <DocFrame><VenueRulesDoc /><NavBtn onClick={() => setView('sign')}>Proceed to Sign →</NavBtn></DocFrame>
       )}
 
       {view === 'sign' && (
         <div className="max-w-xl mx-auto my-8 px-4">
           <div className="bg-white border border-gray-200 rounded-md p-8 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900 mb-1">Sign as Licensee</h2>
-            <p className="text-sm text-gray-500 mb-6">By signing, you confirm you have read and agree to the Licence Agreement, Venue Rules (Annexure A), and Compliance & Marketing Requirements (Annexures B & C).</p>
+            <p className="text-sm text-gray-500 mb-6">By signing, you confirm you have read and agree to the Pop-up Licence Agreement and the Venue Rules.</p>
 
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
@@ -804,14 +803,14 @@ export default function EventBookingSignPage({ token }) {
             <label className="flex items-start gap-3 mb-6 cursor-pointer">
               <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 shrink-0" />
               <span className="text-sm text-gray-600">
-                I confirm I have read and agree to the (1) Event Venue Licence Agreement (including all 27 clauses), (2) Liability Waiver and Acknowledgement, (3) Annexure A — Venue Rules and Operating Conditions, and (4) Annexures B & C — Compliance Notes and Digital Marketing Requirements, and that I am authorised to sign on behalf of the Licensee.
+                I confirm I have read and agree to the (1) Pop-up Licence Agreement (including all clauses) and (2) Venue Rules and Operating Conditions, and that I am authorised to sign on behalf of the Licensee.
               </span>
             </label>
 
             <div className="bg-gray-50 rounded-md p-4 text-xs text-gray-500 mb-6 space-y-1">
               <div><span className="font-medium text-gray-700">Licensee:</span> {[booking?.vendorBusiness, booking?.vendorName].filter(Boolean).join(' — ')}</div>
               {booking?.allocatedSpace && <div><span className="font-medium text-gray-700">Venue / Space:</span> {booking.allocatedSpace}</div>}
-              <div><span className="font-medium text-gray-700">Event:</span> Found Underground · Sunday 7 June 2026</div>
+              <div><span className="font-medium text-gray-700">Booking:</span> {booking?.venue || POPUP_VENUE}{booking?.bookingStartDate && booking?.bookingEndDate ? ` · ${fmtDate(booking.bookingStartDate)} – ${fmtDate(booking.bookingEndDate)}` : ''}</div>
               <div><span className="font-medium text-gray-700">Licensor:</span> HexaHub Pty Ltd</div>
             </div>
 
@@ -888,9 +887,9 @@ function VendorDetailsForm({ booking, onComplete }) {
           {/* Welcome header */}
           <div className="bg-black text-white px-8 py-6">
             <div className="text-xs tracking-widest text-gray-400 uppercase mb-1">You're invited</div>
-            <h2 className="text-xl font-bold">Found Underground</h2>
+            <h2 className="text-xl font-bold">Lonsdale 369 Pop-up</h2>
             <p className="text-sm text-gray-300 mt-1">Sunday 7 June 2026 · 3:00 PM – 9:00 PM</p>
-            <p className="text-xs text-gray-400 mt-0.5">17 Logistic Court, Huntingdale, Victoria</p>
+            <p className="text-xs text-gray-400 mt-0.5">369 Lonsdale Street, Melbourne VIC 3000</p>
           </div>
 
           <div className="px-8 py-6">
@@ -1118,7 +1117,7 @@ function Header() {
         <span className="text-gray-400 text-sm ml-3">Event Venue Licence Agreement</span>
       </div>
       <div className="text-right hidden sm:block">
-        <div className="text-sm font-medium text-white">Found Underground</div>
+        <div className="text-sm font-medium text-white">Lonsdale 369 Pop-up</div>
         <div className="text-xs text-gray-400">Sunday 7 June 2026 · 17 Logistic Court, Huntingdale</div>
       </div>
     </div>

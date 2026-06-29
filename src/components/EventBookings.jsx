@@ -790,8 +790,8 @@ function VendorForm({ booking, onSave, onClose }) {
       <div className="w-full max-w-md bg-white h-full flex flex-col shadow-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
           <div>
-            <h2 className="font-bold text-gray-900">{booking?.id ? 'Edit Vendor' : 'Add Vendor'}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Found Underground · 7 June 2026</p>
+            <h2 className="font-bold text-gray-900">{booking?.id ? 'Edit Booking' : 'Add Booking'}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Lonsdale 369 Pop-up</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
         </div>
@@ -1338,9 +1338,9 @@ export default function EventBookings() {
         <div className="bg-black text-white px-6 py-4 shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Event Vendor Agreements</div>
-              <h1 className="text-lg font-bold tracking-tight">Found Underground</h1>
-              <p className="text-xs text-gray-400 mt-0.5">Sunday 7 June 2026 · 3:00 PM – 9:00 PM · Bump-in from 11:00 AM · 18 Logistic Court, Huntingdale</p>
+              <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pop-up Licence Agreements</div>
+              <h1 className="text-lg font-bold tracking-tight">Lonsdale 369 Pop-up Bookings</h1>
+              <p className="text-xs text-gray-400 mt-0.5">369 Lonsdale Street, Melbourne VIC 3000 · Short-term retail / brand pop-up bay</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button

@@ -21,7 +21,7 @@ const nav = [
   { to: '/marketing', icon: Megaphone, label: 'Marketing' },
   { to: '/messages', icon: MessageSquare, label: 'Messages' },
   { to: '/events', icon: Calendar, label: 'Events' },
-  { to: '/event-bookings', icon: ClipboardList, label: 'Event Bookings' },
+  { to: '/event-bookings', icon: ClipboardList, label: 'Pop-up Bookings' },
   { to: '/templates', icon: BookOpen, label: 'Templates' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
