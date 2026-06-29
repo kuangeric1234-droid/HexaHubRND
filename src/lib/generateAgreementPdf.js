@@ -1,12 +1,12 @@
 import { jsPDF } from 'jspdf'
 
 /**
- * Generate a fully executed agreement PDF for the Found Underground vendor.
+ * Generate a fully executed agreement PDF for the Lonsdale 369 Pop-up vendor.
  *
  * Structure:
  *   Page 1      — Signing certificate (parties + both signatures)
  *   Pages 2-N   — Full document text:
- *                   · Event Venue Licence Agreement (Schedule + 27 clauses)
+ *                   · Pop-up Licence Agreement (Schedule + 27 clauses)
  *                   · Liability Waiver and Acknowledgement (9 clauses)
  *                   · Annexure A — Venue Rules (13 rules)
  *                   · Annexure B — Compliance Notes
@@ -49,7 +49,7 @@ export function generateAgreementPdf(booking, adminSig) {
     doc.text('HEXAHUB', M, 7)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(160, 160, 160)
-    doc.text('Event Vendor Agreement · Found Underground 7 June 2026', W - M, 7, { align: 'right' })
+    doc.text('Pop-up Licence · Lonsdale 369', W - M, 7, { align: 'right' })
     doc.setTextColor(200, 200, 200)
     doc.text(`${pageNum}`, W / 2, 7, { align: 'center' })
     y = 18
@@ -174,6 +174,10 @@ export function generateAgreementPdf(booking, adminSig) {
   const b = booking
   const vendorDisplay = [b.vendorBusiness, b.vendorName].filter(Boolean).join(' — ') || b.vendorName || '—'
   const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const venueName = b.venue || 'Lonsdale 369'
+  const period = b.bookingStartDate && b.bookingEndDate
+    ? `${fmtDate(b.bookingStartDate)} – ${fmtDate(b.bookingEndDate)}`
+    : (b.eventDate ? fmtDate(b.eventDate) : '—')
 
   // ════════════════════════════════════════════════════════════════════════════
   // PAGE 1 — SIGNING CERTIFICATE
@@ -197,11 +201,11 @@ export function generateAgreementPdf(booking, adminSig) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
   doc.setTextColor(20, 20, 20)
-  doc.text('Event Vendor Agreement', M, y); y += 6
+  doc.text('Pop-up Licence Agreement', M, y); y += 6
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(100, 100, 100)
-  doc.text('Found Underground · Sunday 7 June 2026 · 3:00 PM – 9:00 PM', M, y); y += 6
+  doc.text(`${venueName} · ${period}`, M, y); y += 6
   doc.setFontSize(8.5)
   doc.setTextColor(80, 80, 80)
   doc.text(`Reference: ${b.ref || '—'}`, M, y)
@@ -230,14 +234,14 @@ export function generateAgreementPdf(booking, adminSig) {
 
   // Documents agreed
   doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(140,140,140); doc.text('DOCUMENTS AGREED TO',M,y); y+=6
-  const docs = ['Event Venue Licence Agreement (27 clauses)','Liability Waiver and Acknowledgement','Annexure A — Venue Rules and Operating Conditions','Annexures B & C — Compliance & Marketing Requirements']
+  const docs = ['Pop-up Licence Agreement','Venue Rules and Operating Conditions']
   docs.forEach(d => { doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(20,20,20); doc.text('✓',M,y); doc.setFont('helvetica','normal'); doc.text(d,M+6,y); y+=5.5 })
   y+=3
 
   // Event details
   doc.setDrawColor(210,210,210); doc.line(M,y,W-M,y); y+=7
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(140,140,140); doc.text('EVENT DETAILS',M,y); y+=6
-  const evtLines = [b.allocatedSpace?`Allocated Space: ${b.allocatedSpace}`:null, b.vendorType?`Vendor Type: ${b.vendorType}`:null,'Venue: The Hub, 18 Logistic Court, Huntingdale VIC 3166','Bump-in: 11:00 AM  ·  Event: 3:00 PM – 9:00 PM'].filter(Boolean)
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(140,140,140); doc.text('BOOKING DETAILS',M,y); y+=6
+  const evtLines = [b.allocatedSpace?`Space: ${b.allocatedSpace}`:null, `Venue: ${venueName} — 369 Lonsdale Street, Melbourne VIC 3000`, `Booking period: ${period}`, b.bookingDays?`Days: ${b.bookingDays}`:null].filter(Boolean)
   evtLines.forEach(l => { doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(20,20,20); doc.text(l,M,y); y+=5 })
   y+=4
 
@@ -264,7 +268,7 @@ export function generateAgreementPdf(booking, adminSig) {
   // Footer note
   doc.setDrawColor(210,210,210); doc.line(M,y,W-M,y); y+=5
   doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(160,160,160)
-  const cert = 'This certificate confirms the above-named Licensee has electronically read and agreed to the Event Vendor Agreement and associated documents. Full agreement text follows on subsequent pages.'
+  const cert = 'This certificate confirms the above-named Licensee has electronically read and agreed to the Pop-up Licence Agreement and Venue Rules. Full agreement text follows on subsequent pages.'
   doc.text(doc.splitTextToSize(cert, maxW), W/2, y, { align: 'center' })
   footerLine()
 
@@ -276,8 +280,8 @@ export function generateAgreementPdf(booking, adminSig) {
 
   // Document header
   para('HexaHub Pty Ltd', { sz: 8, bold: true, color: [100,100,100], before: 0, after: 1 })
-  para('Event Venue Licence Agreement', { sz: 14, bold: true, before: 0, after: 2 })
-  para('Found Underground · 7 June 2026', { sz: 9, color: [100,100,100], before: 0, after: 4 })
+  para('Pop-up Licence Agreement', { sz: 14, bold: true, before: 0, after: 2 })
+  para(`${venueName} · ${period}`, { sz: 9, color: [100,100,100], before: 0, after: 4 })
 
   rule()
 
@@ -290,15 +294,12 @@ export function generateAgreementPdf(booking, adminSig) {
   scheduleRow('Licensee Contact', b.vendorName || '—')
   scheduleRow('Licensee Email', b.vendorEmail || '—')
   scheduleRow('Licensee ABN', b.vendorAbn || '—')
-  scheduleRow('Venue', b.allocatedSpace ? `${b.allocatedSpace} — 17 Logistic Court, Huntingdale, Victoria` : '17 Logistic Court, Huntingdale, Victoria')
-  scheduleRow('Permitted Use', [b.vendorType, b.vendorDescription].filter(Boolean).join(' — ') || '—')
-  scheduleRow('Event', 'Found Underground')
-  scheduleRow('Event Date', fmtDate(b.eventDate || '2026-06-07'))
-  scheduleRow('Access / Bump-In Time', fmtTime(b.accessTime || '11:00'))
-  scheduleRow('Event Commencement', fmtTime(b.eventStartTime || '15:00'))
-  scheduleRow('Event Finish', fmtTime(b.eventFinishTime || '21:00'))
-  scheduleRow('Bump-Out Completion', fmtTime(b.bumpOutTime || '22:00'))
-  scheduleRow('Licence Fee', fmtMoney(b.participationFee) || 'Nil — by invitation')
+  scheduleRow('Venue', b.allocatedSpace ? `${b.allocatedSpace} — 369 Lonsdale Street, Melbourne VIC 3000` : '369 Lonsdale Street, Melbourne VIC 3000')
+  scheduleRow('Permitted Use', [b.vendorType, b.vendorDescription].filter(Boolean).join(' — ') || 'Retail / brand pop-up')
+  scheduleRow('Booking Period', period)
+  scheduleRow('Days Booked', b.bookingDays ? `${b.bookingDays} day${b.bookingDays === 1 ? '' : 's'}` : '—')
+  scheduleRow('Daily Rate', fmtMoney(b.dailyRate) || '—')
+  scheduleRow('Licence Fee', fmtMoney(b.participationFee) || '—')
   scheduleRow('Bond', fmtMoney(b.bond) || 'Nil')
   scheduleRow('Deposit', fmtMoney(b.deposit) || (b.participationFee ? '50% of Licence Fee payable on signing' : 'Nil'))
   scheduleRow('Balance Due Date', b.balanceDueDate ? fmtDate(b.balanceDueDate) : '7 days before Event Date')
@@ -314,7 +315,7 @@ export function generateAgreementPdf(booking, adminSig) {
   para(`This Agreement is entered into on ${today} between the Licensor and Licensee named in the Schedule above.`, { sz: 8, italic: true, color: [100,100,100] })
 
   heading('Recitals')
-  para('A.  The Licensor controls and operates the premises situated at 17 Logistic Court, Huntingdale, Victoria.')
+  para('A.  The Licensor controls and operates the premises situated at 369 Lonsdale Street, Melbourne VIC 3000.')
   para('B.  The Licensee has requested permission to use part of the Premises for the Event.')
   para('C.  The Licensor has agreed to grant the Licensee a temporary, revocable and non-exclusive licence to use the Venue on the terms of this Agreement.')
   para('D.  The parties acknowledge and agree that this Agreement creates a licence only and does not create a lease, tenancy, retail tenancy, periodic tenancy, exclusive possession or any estate or interest in land.')
@@ -327,7 +328,7 @@ export function generateAgreementPdf(booking, adminSig) {
   clauseTitle('2.  Definitions and Interpretation')
   para('In this Agreement, unless the context otherwise requires:')
   para('Additional Charges means all charges payable in addition to the Licence Fee, including cleaning charges, waste disposal charges, security charges, staff charges, overtime charges, repair costs, reinstatement costs, call-out fees, utility surcharges and any other amount payable under this Agreement.', { indent: 5 })
-  para('Agreement means this Event Venue Licence Agreement, including the Schedule and any annexures.', { indent: 5 })
+  para('Agreement means this Pop-up Licence Agreement, including the Schedule and any annexures.', { indent: 5 })
   para('Bond means the security deposit specified in the Schedule.', { indent: 5 })
   para('Business Day means a day other than a Saturday, Sunday or public holiday in Victoria.', { indent: 5 })
   para('Event means the event described in the Schedule.', { indent: 5 })
@@ -335,7 +336,7 @@ export function generateAgreementPdf(booking, adminSig) {
   para('Licence Fee means the fee payable for the licence granted under this Agreement, as specified in the Schedule.', { indent: 5 })
   para('Licence Period means the period commencing at the start of the approved access time, including bump-in, and ending when the Licensee has fully vacated the Venue, completed bump-out, removed all property and complied with its reinstatement obligations.', { indent: 5 })
   para('Permitted Use means the use of the Venue approved by the Licensor and stated in the Schedule.', { indent: 5 })
-  para('Premises means the land and improvements at 17 Logistic Court, Huntingdale, Victoria, including all access points, loading areas, amenities, car parking areas, common areas and external areas made available by the Licensor from time to time.', { indent: 5 })
+  para('Premises means the land and improvements at 369 Lonsdale Street, Melbourne VIC 3000, including all access points, loading areas, amenities, car parking areas, common areas and external areas made available by the Licensor from time to time.', { indent: 5 })
   para('Venue means the area or areas within the Premises described in the Schedule.', { indent: 5 })
   para('Unless the contrary intention appears, headings are for convenience only, the singular includes the plural and vice versa, legislation includes amendments and subordinate instruments, and including is not a term of limitation.')
 
@@ -443,19 +444,19 @@ export function generateAgreementPdf(booking, adminSig) {
   para('This Agreement constitutes the entire agreement between the parties in relation to its subject matter. No variation is effective unless in writing signed by both parties. A waiver is not effective unless in writing. A failure or delay in exercising a right does not constitute a waiver. Any invalid provision must be read down or severed to the extent necessary without affecting the remainder.')
   para('This Agreement may be executed in counterparts and by electronic signature. This Agreement is governed by the laws of Victoria, Australia, and the parties submit to the exclusive jurisdiction of the courts of Victoria.')
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DOCUMENT 2 — LIABILITY WAIVER
-  // ════════════════════════════════════════════════════════════════════════════
-
+  // Pop-up licence = Licence Agreement + Venue Rules only. The Liability Waiver
+  // and Annexures B & C are omitted (kept in source, guarded off).
+  const POPUP_OMIT = true
+  if (!POPUP_OMIT) {
   docDivider('DOCUMENT 2 — LIABILITY WAIVER AND ACKNOWLEDGEMENT')
 
   para('HexaHub Pty Ltd', { sz: 8, bold: true, color: [100,100,100], before: 0, after: 1 })
   para('Vendor Liability Waiver and Acknowledgement', { sz: 14, bold: true, before: 0, after: 2 })
-  para('Found Underground · Sunday 7 June 2026 · 17 Logistic Court, Huntingdale, Victoria', { sz: 9, color: [100,100,100], before: 0, after: 4 })
-  para(`This Waiver is given by the Vendor named below in favour of HexaHub Pty Ltd ABN 51 234 567 890 (HexaHub) and is to be read together with and forms part of the Event Venue Licence Agreement between the parties dated ${today}.`, { sz: 8, italic: true, color: [100,100,100] })
+  para('Lonsdale 369 Pop-up · Sunday 7 June 2026 · 369 Lonsdale Street, Melbourne VIC 3000', { sz: 9, color: [100,100,100], before: 0, after: 4 })
+  para(`This Waiver is given by the Vendor named below in favour of HexaHub Pty Ltd ABN 51 234 567 890 (HexaHub) and is to be read together with and forms part of the Pop-up Licence Agreement between the parties dated ${today}.`, { sz: 8, italic: true, color: [100,100,100] })
 
   clauseTitle('1.  Defined Terms')
-  para('Words defined in the Event Venue Licence Agreement have the same meaning in this Waiver. Vendor means the Licensee named in the Agreement. Vendor Personnel means the Vendor\'s employees, contractors, agents, representatives and any person operating at or from the Vendor\'s stall or space.')
+  para('Words defined in the Pop-up Licence Agreement have the same meaning in this Waiver. Vendor means the Licensee named in the Agreement. Vendor Personnel means the Vendor\'s employees, contractors, agents, representatives and any person operating at or from the Vendor\'s stall or space.')
 
   clauseTitle('2.  Acknowledgement of Risk')
   para('The Vendor acknowledges and agrees that:')
@@ -479,7 +480,7 @@ export function generateAgreementPdf(booking, adminSig) {
   para('(c) any claim by an attendee or customer arising out of the Vendor\'s goods or services, including any product liability, food safety or consumer law claim.', { indent: 5 })
 
   clauseTitle('5.  Indemnity')
-  para('In addition to and without limiting clause 20 of the Event Venue Licence Agreement, the Vendor indemnifies and keeps indemnified the Released Parties from and against all Loss arising from or in connection with:')
+  para('In addition to and without limiting clause 20 of the Pop-up Licence Agreement, the Vendor indemnifies and keeps indemnified the Released Parties from and against all Loss arising from or in connection with:')
   para('(a) the Vendor\'s participation in the Event and use of the Venue;', { indent: 5 })
   para('(b) any claim by a Vendor customer or attendee arising from the Vendor\'s goods, services or operations;', { indent: 5 })
   para('(c) any food safety incident, product defect, or personal injury caused by the Vendor\'s goods or operations;', { indent: 5 })
@@ -499,17 +500,18 @@ export function generateAgreementPdf(booking, adminSig) {
   clauseTitle('9.  Severability and Governing Law')
   para('If any provision of this Waiver is held to be void, invalid or unenforceable, that provision must be read down to the minimum extent necessary or severed, and the remaining provisions continue in full force. This Waiver is governed by the laws of Victoria, Australia.')
 
-  para('By signing the Event Venue Licence Agreement, the Vendor confirms that it has read, understood and agreed to this Liability Waiver and Acknowledgement on behalf of itself and all Vendor Personnel.', { sz: 8, italic: true, color: [100,100,100], before: 6 })
+  para('By signing the Pop-up Licence Agreement, the Vendor confirms that it has read, understood and agreed to this Liability Waiver and Acknowledgement on behalf of itself and all Vendor Personnel.', { sz: 8, italic: true, color: [100,100,100], before: 6 })
+  } // end omitted Liability Waiver
 
   // ════════════════════════════════════════════════════════════════════════════
-  // DOCUMENT 3 — ANNEXURE A
+  // ANNEXURE A — VENUE RULES
   // ════════════════════════════════════════════════════════════════════════════
 
   docDivider('ANNEXURE A — VENUE RULES AND OPERATING CONDITIONS')
 
   para('HexaHub Pty Ltd', { sz: 8, bold: true, color: [100,100,100], before: 0, after: 1 })
   para('Annexure A — Venue Rules and Operating Conditions', { sz: 13, bold: true, before: 0, after: 1 })
-  para('17 Logistic Court, Huntingdale, Victoria', { sz: 9, color: [100,100,100], before: 0, after: 4 })
+  para('369 Lonsdale Street, Melbourne VIC 3000', { sz: 9, color: [100,100,100], before: 0, after: 4 })
   para('These Venue Rules are incorporated into the Agreement. In the event of any inconsistency, the Licensor may direct the stricter requirement to apply to the extent permitted by law.', { sz: 8, italic: true, color: [100,100,100] })
 
   const rules = [
@@ -529,10 +531,8 @@ export function generateAgreementPdf(booking, adminSig) {
   ]
   rules.forEach((r, i) => para(`${i + 1}.  ${r}`))
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DOCUMENT 4 — ANNEXURES B & C
-  // ════════════════════════════════════════════════════════════════════════════
-
+  // Annexures B & C omitted from the pop-up licence (guarded off).
+  if (!POPUP_OMIT) {
   docDivider('ANNEXURE B — PRACTICAL VICTORIAN COMPLIANCE NOTES')
 
   para('HexaHub Pty Ltd', { sz: 8, bold: true, color: [100,100,100], before: 0, after: 1 })
@@ -583,7 +583,7 @@ export function generateAgreementPdf(booking, adminSig) {
 
   clauseTitle('3.  Form of Promotion')
   para('The Licensee must ensure that all promotional material relating to the Event includes, if required by the Licensor:')
-  para('•  the approved name of the Venue and its location at 17 Logistic Court, Huntingdale, Victoria;', { indent: 5 })
+  para('•  the approved name of the Venue and its location at 369 Lonsdale Street, Melbourne VIC 3000;', { indent: 5 })
   para('•  any venue branding, logo, tag, handle, hashtag, hyperlink, booking contact or descriptive wording specified by the Licensor;', { indent: 5 })
   para('•  any credit line, acknowledgement, venue partner reference or promotional message required by the Licensor;', { indent: 5 })
   para('•  any approved venue imagery, photographs, video, map, website link or brand assets supplied or nominated by the Licensor; and', { indent: 5 })
@@ -615,6 +615,7 @@ export function generateAgreementPdf(booking, adminSig) {
 
   clauseTitle('12.  Breach')
   para('Compliance with this annexure is a material obligation of the Licensee. Failure to comply constitutes a breach of the Agreement and entitles the Licensor to require immediate rectification, withhold approvals, refuse future bookings, recover resulting Loss and exercise any other right available under the Agreement.')
+  } // end omitted Annexures B & C
 
   footerLine()
 

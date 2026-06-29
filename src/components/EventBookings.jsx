@@ -1340,7 +1340,7 @@ export default function EventBookings() {
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pop-up Licence Agreements</div>
               <h1 className="text-lg font-bold tracking-tight">Lonsdale 369 Pop-up Bookings</h1>
-              <p className="text-xs text-gray-400 mt-0.5">369 Lonsdale Street, Melbourne VIC 3000 · Short-term retail / brand pop-up bay</p>
+              <p className="text-xs text-gray-400 mt-0.5">369 Lonsdale Street, Melbourne VIC 3000 · Short-term pop-up space — Lonsdale CBD</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button

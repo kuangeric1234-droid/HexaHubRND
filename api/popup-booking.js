@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     vendorDescription: String(message ?? '').trim(),
     // Pop-up booking specifics
     venue: VENUE,
-    allocatedSpace: `${VENUE} Pop-up Bay`,
+    allocatedSpace: `${VENUE} — pop-up space`,
     bookingStartDate: startDate,
     bookingEndDate: endDate,
     bookingDays: dayCount,
